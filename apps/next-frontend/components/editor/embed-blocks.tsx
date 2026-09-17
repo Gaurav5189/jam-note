@@ -98,6 +98,38 @@ export const ImageBlock = memo(function ImageBlock({
   );
 });
 
+// ─── Divider block (horizontal rule) ─────────────────────────────────────
+
+/**
+ * A horizontal rule inserted via the `/line break` command. Render-only
+ * (no textarea), removed through its hover control like the other embeds.
+ */
+export const DividerBlock = memo(function DividerBlock({
+  block,
+  onRemove,
+}: {
+  block: Block;
+  onRemove: (blockId: string) => void;
+}) {
+  return (
+    <div className="group/div relative my-3">
+      <div className="h-px w-full bg-border-thin" role="separator" />
+      <button
+        type="button"
+        // Keep the caret wherever it was — clicking a control must never
+        // steal focus from the block the user is writing in.
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={() => onRemove(block.id)}
+        className="absolute -top-2.5 right-0 hidden group-hover/div:flex bg-background-panel/90 border border-border-thin rounded-sm p-1.5 text-text-muted hover:text-accent-amber transition-colors"
+        title="Delete divider"
+        aria-label="Delete divider block"
+      >
+        <Trash2 size={12} />
+      </button>
+    </div>
+  );
+});
+
 // ─── Drawing block (canvas sketch pad → PNG dataURL) ─────────────────────
 
 const STROKE_COLORS = ["#D1FF4D", "#FFB800", "#F3F4F6", "#8A94A6"] as const;

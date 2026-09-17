@@ -14,6 +14,7 @@ export const EDITOR_BLOCK_TYPES = [
   "todo",
   "list-item",
   "code",
+  "divider",
   "drawing",
   "image",
 ] as const;

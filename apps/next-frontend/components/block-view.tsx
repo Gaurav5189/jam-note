@@ -87,6 +87,8 @@ export function BlockContent({ block }: { block: Block }) {
           <p className="text-[13px] font-mono text-accent-amber">{text || "canvas node"}</p>
         </div>
       );
+    case "divider":
+      return <div className="h-px w-full bg-border-thin my-3" role="separator" />;
     case "text":
     default:
       if (!text) return null;

@@ -26,9 +26,15 @@ import {
 } from "@/lib/editor/blocks";
 import { useAutosave } from "@/lib/editor/use-autosave";
 import { stripSlashCommand } from "@/lib/editor/slash";
+import {
+  blocksEqual,
+  clearMirror,
+  readMirror,
+  writeMirror,
+} from "@/lib/editor/draft-mirror";
 import { BlockContent } from "@/components/block-view";
 import { EditableBlock, type EditableBlockHandle } from "./editable-block";
-import { DrawingBlock, ImageBlock } from "./embed-blocks";
+import { DrawingBlock, DividerBlock, ImageBlock } from "./embed-blocks";
 import { filterSlashItems, SlashMenu, type SlashItem } from "./slash-menu";
 import { SaveIndicator } from "./save-indicator";
 
@@ -41,6 +47,13 @@ interface SlashState {
   x: number;
   y: number;
 }
+
+/**
+ * Debounce for crash-recovery mirror writes — per-keystroke writes to
+ * localStorage would be wasteful; half a second bounds the mirror's own
+ * staleness without any measurable typing cost.
+ */
+const MIRROR_DEBOUNCE_MS = 500;
 
 /**
  * The Phase 3 block editor.
@@ -117,12 +130,68 @@ export function BlockEditor({
   const getPayload = useCallback(() => commitAllDrafts(), [commitAllDrafts]);
 
   const save = useCallback(
-    (payload: Block[], options?: { keepalive?: boolean }) =>
-      saveBlocks(noteId, payload, options),
+    async (payload: Block[], options?: { keepalive?: boolean }) => {
+      await saveBlocks(noteId, payload, options);
+      // Durable on the server — the crash-recovery mirror is no longer needed.
+      clearMirror(noteId);
+    },
     [noteId, saveBlocks]
   );
 
   const { status, notifyChange, retry } = useAutosave({ getPayload, save });
+
+  // ─── Crash-recovery mirror ────────────────────────────────────────────
+  //
+  // Unsaved work is mirrored to localStorage (debounced) so a hard crash,
+  // a reload racing the unload flush, or a skipped unload handler can
+  // still recover everything on the next visit — the restore effect below
+  // picks the mirror up and the ordinary autosave pipeline then pushes it
+  // to the server. Mirrors survive hard refreshes (localStorage is not
+  // cleared by Ctrl+Shift+R), covering the case unload flushes miss.
+
+  const mirrorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Reads the refs at CALL time — the unmount cleanup below must see the
+  // very latest drafts, not the ones captured when the effect was declared.
+  const writeMirrorNow = useCallback(() => {
+    writeMirror(noteId, mergeDrafts(blocksRef.current, draftsRef.current));
+  }, [noteId]);
+
+  const scheduleMirrorWrite = useCallback(() => {
+    if (mirrorTimerRef.current) clearTimeout(mirrorTimerRef.current);
+    mirrorTimerRef.current = setTimeout(() => {
+      mirrorTimerRef.current = null;
+      writeMirrorNow();
+    }, MIRROR_DEBOUNCE_MS);
+  }, [writeMirrorNow]);
+
+  // Recover a mirror left behind by unsaved edits: restore the blocks and
+  // re-mark the document dirty so the autosave pipeline PUTs them to the
+  // server immediately. Runs client-side only (an effect), so the
+  // SSR-rendered markup still matches — no hydration mismatch.
+  useEffect(() => {
+    const mirror = readMirror(noteId);
+    if (!mirror || mirror.length === 0) return;
+    if (blocksEqual(mirror, blocksRef.current)) {
+      clearMirror(noteId); // Already on the server — nothing to recover.
+      return;
+    }
+    blocksRef.current = mirror;
+    draftsRef.current.clear();
+    setBlocks(mirror);
+    notifyChange();
+  }, [noteId, notifyChange]);
+
+  // Edits newer than the mirror debounce would otherwise miss the mirror.
+  useEffect(() => {
+    return () => {
+      if (mirrorTimerRef.current) {
+        clearTimeout(mirrorTimerRef.current);
+        mirrorTimerRef.current = null;
+        writeMirrorNow();
+      }
+    };
+  }, [writeMirrorNow]);
 
   /** Commit-first structural mutation + focus request + save ping. */
   const applyOp = useCallback(
@@ -140,8 +209,9 @@ export function BlockEditor({
       setBlocks(result);
       pendingFocusRef.current = focusTarget;
       notifyChange();
+      scheduleMirrorWrite();
     },
-    [commitAllDrafts, notifyChange]
+    [commitAllDrafts, notifyChange, scheduleMirrorWrite]
   );
 
   // Apply focus requests after the new block list has mounted.
@@ -166,8 +236,9 @@ export function BlockEditor({
     (blockId: string, text: string) => {
       draftsRef.current.set(blockId, text);
       notifyChange();
+      scheduleMirrorWrite();
     },
-    [notifyChange]
+    [notifyChange, scheduleMirrorWrite]
   );
 
   const handleSplit = useCallback(
@@ -414,6 +485,9 @@ export function BlockEditor({
           onRemove={handleRemove}
         />
       );
+    }
+    if (block.type === "divider") {
+      return <DividerBlock block={block} onRemove={handleRemove} />;
     }
     if (block.type === "drawing") {
       return (

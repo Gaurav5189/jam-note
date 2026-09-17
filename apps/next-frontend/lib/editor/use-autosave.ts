@@ -41,7 +41,8 @@ interface FlushOptions {
  * max-wait cap (30s) does NOT reset while typing: it fires once per dirty
  * period, so a browser crash mid-writing costs at most the cap, never
  * everything since the last save. Safety flushes still fire on tab hide,
- * page unload (keepalive) and editor unmount.
+ * `pagehide` (fires on both reload and close — more reliable than
+ * beforeunload), `beforeunload` (keepalive) and editor unmount.
  * Errors keep the payload dirty (nothing is ever silently lost) and the
  * status stays "error" until a retry or the next edit re-arms the flush.
  */
@@ -199,6 +200,17 @@ export function useAutosave<T>(options: UseAutosaveOptions<T>) {
     };
     window.addEventListener("beforeunload", onUnload);
     return () => window.removeEventListener("beforeunload", onUnload);
+  }, []);
+
+  // pagehide fires on BOTH reload and close and cannot be skipped the way
+  // beforeunload can (browsers ignore beforeunload in several teardown
+  // paths) — it is the most reliable "the page is going away" signal.
+  useEffect(() => {
+    const onHide = () => {
+      void flushRef.current({ keepalive: true });
+    };
+    window.addEventListener("pagehide", onHide);
+    return () => window.removeEventListener("pagehide", onHide);
   }, []);
 
   // Flush pending changes when the editor unmounts (client-side route

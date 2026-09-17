@@ -7,6 +7,7 @@ import {
   Image,
   List,
   ListTodo,
+  Minus,
   PenTool,
   Type,
   type LucideIcon,
@@ -27,6 +28,7 @@ export const SLASH_ITEMS: SlashItem[] = [
   { type: "todo", label: "To-do", hint: "[] ", keywords: "todo task check checkbox" },
   { type: "list-item", label: "List", hint: "- ", keywords: "list bullet item unordered" },
   { type: "code", label: "Code", hint: "```", keywords: "code snippet mono fenced" },
+  { type: "divider", label: "Line break", hint: "Horizontal rule", keywords: "divider hr horizontal rule line break separator" },
   { type: "drawing", label: "Drawing", hint: "Sketch pad", keywords: "drawing sketch canvas paint" },
   { type: "image", label: "Image", hint: "Embed by URL", keywords: "image picture photo embed url" },
 ];
@@ -48,6 +50,7 @@ const ITEM_ICONS: Record<SlashItem["type"], LucideIcon> = {
   todo: ListTodo,
   "list-item": List,
   code: Code,
+  divider: Minus,
   drawing: PenTool,
   image: Image,
 };
