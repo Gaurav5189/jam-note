@@ -22,6 +22,15 @@ import { TOKEN_CLASS, tokenize } from "@/lib/editor/highlight";
 export interface EditableBlockHandle {
   focus(caret: number | "end"): void;
   getText(): string;
+  /**
+   * Force the local draft to `text`. Needed after structural ops that end
+   * on the same committed text they started with (e.g. stripping a slash
+   * command from a block whose text was never committed): the render-time
+   * re-seed below only fires when committed text *changes*, so a no-change
+   * op would otherwise leave a stale `/…` draft on screen — and typing
+   * after it would bake the slash back into the block.
+   */
+  resetDraft(text: string): void;
   /** Anchor element for the slash menu. */
   element: HTMLTextAreaElement | null;
 }
@@ -119,6 +128,7 @@ function EditableBlockImpl(props: EditableBlockProps) {
         el.setSelectionRange(target, target);
       },
       getText: () => draftRef.current,
+      resetDraft: (text) => setDraft(text),
       // Getter — the textarea element can be replaced when a block's
       // rendered shape changes (e.g. a markdown conversion swaps JSX);
       // a captured value would go stale and misplace the slash menu.

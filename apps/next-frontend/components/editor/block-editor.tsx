@@ -25,6 +25,7 @@ import {
   type FocusTarget,
 } from "@/lib/editor/blocks";
 import { useAutosave } from "@/lib/editor/use-autosave";
+import { stripSlashCommand } from "@/lib/editor/slash";
 import { BlockContent } from "@/components/block-view";
 import { EditableBlock, type EditableBlockHandle } from "./editable-block";
 import { DrawingBlock, ImageBlock } from "./embed-blocks";
@@ -297,9 +298,11 @@ export function BlockEditor({
       updateSlash(null);
       if (!state || !strip) return;
       const live = handlesRef.current.get(state.blockId)?.getText() ?? "";
-      const text =
-        live.slice(0, state.slashOffset) +
-        live.slice(state.slashOffset + 1 + state.query.length);
+      const text = stripSlashCommand(live, state.slashOffset, state.query);
+      // The op can land on committed text identical to its starting value
+      // (fresh block: "" → ""), so the block's render-time draft re-seed
+      // never fires — reset the stale `/…` draft imperatively.
+      handlesRef.current.get(state.blockId)?.resetDraft(text);
       applyOp((base) => ({
         blocks: setBlockText(base, state.blockId, text),
         focus: { blockId: state.blockId, caretOffset: state.slashOffset },
@@ -323,9 +326,10 @@ export function BlockEditor({
       if (!chosen) return; // No matching item — close without stripping.
 
       const live = handlesRef.current.get(state.blockId)?.getText() ?? "";
-      const text =
-        live.slice(0, state.slashOffset) +
-        live.slice(state.slashOffset + 1 + state.query.length);
+      const text = stripSlashCommand(live, state.slashOffset, state.query);
+      // Same no-change trap as closeSlash: reset the anchor's stale `/…`
+      // draft even when the stripped text equals its committed text.
+      handlesRef.current.get(state.blockId)?.resetDraft(text);
       const anchorType = getBlock(blocksRef.current, state.blockId)?.type;
       const convertInPlace = anchorType === "text" && text.trim() === "";
 
