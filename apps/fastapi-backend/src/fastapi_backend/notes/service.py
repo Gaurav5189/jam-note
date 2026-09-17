@@ -64,6 +64,9 @@ async def create_note(
         "layout_type": data.layout_type,
         "emoji_icon": data.emoji_icon,
         "blocks": [block.model_dump() for block in data.blocks],
+        "block_connections": [
+            conn.model_dump() for conn in data.block_connections
+        ],
         "links_to": [],
         "backlinks": [],
         "is_published": False,
@@ -130,6 +133,10 @@ async def update_note(
         update_fields["emoji_icon"] = data.emoji_icon
     if data.blocks is not None:
         update_fields["blocks"] = [block.model_dump() for block in data.blocks]
+    if data.block_connections is not None:
+        update_fields["block_connections"] = [
+            conn.model_dump() for conn in data.block_connections
+        ]
 
     await db.notes.update_one({"_id": note_doc["_id"]}, {"$set": update_fields})
     updated_doc = await db.notes.find_one({"_id": note_doc["_id"]})

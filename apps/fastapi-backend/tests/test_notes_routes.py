@@ -439,6 +439,59 @@ async def test_delete_note_not_found(client: AsyncClient):
     assert response.status_code == 404
 
 
+@pytest.mark.asyncio
+async def test_create_and_update_note_with_block_connections(client: AsyncClient):
+    await signup_and_authenticate(client, "canvas_connector")
+
+    create_payload = {
+        "title": "Canvas Note with Connections",
+        "layout_type": "canvas",
+        "blocks": [
+            {
+                "id": "node-1",
+                "type": "text",
+                "properties": {"text": "Start node"},
+                "canvas_metadata": {"x": 100, "y": 100, "width": 200, "height": 100},
+            },
+            {
+                "id": "node-2",
+                "type": "text",
+                "properties": {"text": "Target node"},
+                "canvas_metadata": {"x": 400, "y": 200, "width": 200, "height": 100},
+            },
+        ],
+        "block_connections": [
+            {"from_id": "node-1", "to_id": "node-2", "color": "#D1FF4D"}
+        ],
+    }
+    res = await client.post("/api/notes", json=create_payload)
+    assert res.status_code == 201
+    created = res.json()
+    assert created["layout_type"] == "canvas"
+    assert len(created["block_connections"]) == 1
+    assert created["block_connections"][0]["from_id"] == "node-1"
+    assert created["block_connections"][0]["to_id"] == "node-2"
+
+    note_id = created["id"]
+    # Update connections
+    update_payload = {
+        "block_connections": [
+            {"from_id": "node-1", "to_id": "node-2", "color": "#FFB800"},
+            {"from_id": "node-2", "to_id": "node-1", "color": None},
+        ]
+    }
+    update_res = await client.put(f"/api/notes/{note_id}", json=update_payload)
+    assert update_res.status_code == 200
+    updated = update_res.json()
+    assert len(updated["block_connections"]) == 2
+    assert updated["block_connections"][0]["color"] == "#FFB800"
+
+    # Fetch note
+    get_res = await client.get(f"/api/notes/{note_id}")
+    assert get_res.status_code == 200
+    assert len(get_res.json()["block_connections"]) == 2
+
+
 # --- Auth guards ---
 
 

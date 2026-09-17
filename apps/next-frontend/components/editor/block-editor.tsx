@@ -11,6 +11,7 @@ import {
   createSeedBlock,
   getBlock,
   insertBlockAfter,
+  insertPastedBlocks,
   isTextualBlock,
   mergeDrafts,
   mergeWithPrevious,
@@ -24,6 +25,7 @@ import {
   type EditorBlockType,
   type FocusTarget,
 } from "@/lib/editor/blocks";
+import { parsePastedMarkdown } from "@/lib/editor/markdown";
 import { useAutosave } from "@/lib/editor/use-autosave";
 import { stripSlashCommand } from "@/lib/editor/slash";
 import {
@@ -48,6 +50,13 @@ interface SlashState {
   y: number;
 }
 
+export interface EditorUndoState {
+  canUndo: boolean;
+  canRedo: boolean;
+  undo: () => void;
+  redo: () => void;
+}
+
 /**
  * Debounce for crash-recovery mirror writes — per-keystroke writes to
  * localStorage would be wasteful; half a second bounds the mirror's own
@@ -70,11 +79,25 @@ const MIRROR_DEBOUNCE_MS = 500;
 export function BlockEditor({
   noteId,
   initialBlocks,
+  onBlocksChange,
+  onUndoStateChange,
 }: {
   noteId: string;
   initialBlocks: Block[];
+  onBlocksChange?: (blocks: Block[]) => void;
+  onUndoStateChange?: (state: EditorUndoState) => void;
 }) {
   const { saveBlocks } = useNotes();
+
+  const onBlocksChangeRef = useRef(onBlocksChange);
+  useEffect(() => {
+    onBlocksChangeRef.current = onBlocksChange;
+  }, [onBlocksChange]);
+
+  const onUndoStateChangeRef = useRef(onUndoStateChange);
+  useEffect(() => {
+    onUndoStateChangeRef.current = onUndoStateChange;
+  }, [onUndoStateChange]);
 
   const [blocks, setBlocks] = useState<Block[]>(
     initialBlocks.length > 0 ? initialBlocks : [createSeedBlock()]
@@ -82,6 +105,19 @@ export function BlockEditor({
   // Kept in sync at every write site (commitAllDrafts / applyOp — the only
   // two places setBlocks is called) so handlers always read fresh state.
   const blocksRef = useRef<Block[]>(blocks);
+
+  const [history, setHistory] = useState<Block[][]>([
+    initialBlocks.length > 0 ? initialBlocks : [createSeedBlock()],
+  ]);
+  const [historyIndex, setHistoryIndex] = useState(0);
+  const historyRef = useRef<Block[][]>(history);
+  useEffect(() => {
+    historyRef.current = history;
+  }, [history]);
+  const historyIndexRef = useRef(historyIndex);
+  useEffect(() => {
+    historyIndexRef.current = historyIndex;
+  }, [historyIndex]);
 
   const draftsRef = useRef(new Map<string, string>());
   const handlesRef = useRef(new Map<string, EditableBlockHandle>());
@@ -115,6 +151,16 @@ export function BlockEditor({
     setSlashActiveIndex(index);
   }, []);
 
+  const pushHistory = useCallback((nextBlocks: Block[]) => {
+    const currentHistory = historyRef.current.slice(0, historyIndexRef.current + 1);
+    const nextHistory = [...currentHistory, nextBlocks].slice(-50);
+    const nextIndex = nextHistory.length - 1;
+    historyRef.current = nextHistory;
+    historyIndexRef.current = nextIndex;
+    setHistory(nextHistory);
+    setHistoryIndex(nextIndex);
+  }, []);
+
   // ─── Save pipeline ────────────────────────────────────────────────────
 
   const commitAllDrafts = useCallback((): Block[] => {
@@ -123,15 +169,17 @@ export function BlockEditor({
     if (merged !== blocksRef.current) {
       blocksRef.current = merged;
       setBlocks(merged);
+      pushHistory(merged);
     }
     return merged;
-  }, []);
+  }, [pushHistory]);
 
   const getPayload = useCallback(() => commitAllDrafts(), [commitAllDrafts]);
 
   const save = useCallback(
     async (payload: Block[], options?: { keepalive?: boolean }) => {
       await saveBlocks(noteId, payload, options);
+      onBlocksChangeRef.current?.(payload);
       // Durable on the server — the crash-recovery mirror is no longer needed.
       clearMirror(noteId);
     },
@@ -139,6 +187,14 @@ export function BlockEditor({
   );
 
   const { status, notifyChange, retry } = useAutosave({ getPayload, save });
+
+  // Sync latest blocks to parent on unmount so switching view modes sees fresh blocks
+  useEffect(() => {
+    return () => {
+      const final = commitAllDrafts();
+      onBlocksChangeRef.current?.(final);
+    };
+  }, [commitAllDrafts]);
 
   // ─── Crash-recovery mirror ────────────────────────────────────────────
   //
@@ -207,12 +263,86 @@ export function BlockEditor({
       }
       blocksRef.current = result;
       setBlocks(result);
+      onBlocksChangeRef.current?.(result);
+      pushHistory(result);
       pendingFocusRef.current = focusTarget;
       notifyChange();
       scheduleMirrorWrite();
     },
-    [commitAllDrafts, notifyChange, scheduleMirrorWrite]
+    [commitAllDrafts, notifyChange, pushHistory, scheduleMirrorWrite]
   );
+
+  const handleUndo = useCallback(() => {
+    draftsRef.current.clear();
+    if (historyIndexRef.current > 0) {
+      const nextIdx = historyIndexRef.current - 1;
+      const targetBlocks = historyRef.current[nextIdx];
+      if (targetBlocks) {
+        historyIndexRef.current = nextIdx;
+        setHistoryIndex(nextIdx);
+        blocksRef.current = targetBlocks;
+        setBlocks(targetBlocks);
+        onBlocksChangeRef.current?.(targetBlocks);
+        notifyChange();
+        scheduleMirrorWrite();
+      }
+    }
+  }, [notifyChange, scheduleMirrorWrite]);
+
+  const handleRedo = useCallback(() => {
+    draftsRef.current.clear();
+    if (historyIndexRef.current < historyRef.current.length - 1) {
+      const nextIdx = historyIndexRef.current + 1;
+      const targetBlocks = historyRef.current[nextIdx];
+      if (targetBlocks) {
+        historyIndexRef.current = nextIdx;
+        setHistoryIndex(nextIdx);
+        blocksRef.current = targetBlocks;
+        setBlocks(targetBlocks);
+        onBlocksChangeRef.current?.(targetBlocks);
+        notifyChange();
+        scheduleMirrorWrite();
+      }
+    }
+  }, [notifyChange, scheduleMirrorWrite]);
+
+  useEffect(() => {
+    onUndoStateChangeRef.current?.({
+      canUndo: historyIndex > 0,
+      canRedo: historyIndex < history.length - 1,
+      undo: handleUndo,
+      redo: handleRedo,
+    });
+  }, [historyIndex, history.length, handleUndo, handleRedo]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const isTyping =
+        target?.tagName === "INPUT" ||
+        target?.tagName === "TEXTAREA" ||
+        target?.isContentEditable;
+      if (isTyping) return;
+
+      if ((e.ctrlKey || e.metaKey) && !e.altKey) {
+        if (e.key.toLowerCase() === "z") {
+          if (e.shiftKey) {
+            e.preventDefault();
+            handleRedo();
+          } else {
+            e.preventDefault();
+            handleUndo();
+          }
+        } else if (e.key.toLowerCase() === "y") {
+          e.preventDefault();
+          handleRedo();
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleUndo, handleRedo]);
 
   // Apply focus requests after the new block list has mounted.
   useEffect(() => {
@@ -322,6 +452,23 @@ export function BlockEditor({
       }));
     },
     [applyOp]
+  );
+
+  const handlePaste = useCallback(
+    (
+      blockId: string,
+      e: React.ClipboardEvent<HTMLTextAreaElement>,
+      caretOffset: number
+    ) => {
+      const text = e.clipboardData.getData("text/plain");
+      if (!text) return false;
+      const parsed = parsePastedMarkdown(text);
+      if (!parsed || parsed.length === 0) return false;
+      updateSlash(null);
+      applyOp((base) => insertPastedBlocks(base, blockId, caretOffset, parsed));
+      return true;
+    },
+    [applyOp, updateSlash]
   );
 
   // ─── Slash menu ────────────────────────────────────────────────────────
@@ -516,6 +663,7 @@ export function BlockEditor({
           onSlashNavigate={handleSlashNavigate}
           onSlashSelect={handleSlashSelect}
           onSlashDismiss={closeSlash}
+          onPaste={handlePaste}
           registerHandle={registerHandle}
         />
       );
@@ -530,6 +678,7 @@ export function BlockEditor({
       <div className="mt-6 space-y-1 max-w-[75ch]">
         {blocks.map((block, index) => (
           <div
+            id={`block-${block.id}`}
             key={block.id}
             onDragOver={(e) => {
               e.preventDefault();
@@ -539,7 +688,7 @@ export function BlockEditor({
               e.preventDefault();
               handleDropOnBlock(index);
             }}
-            className={`group/row relative ${
+            className={`group/row relative scroll-mt-24 ${
               dragIndex === index ? "opacity-40" : ""
             } ${
               dropIndex === index
@@ -599,6 +748,7 @@ export function BlockEditor({
         />
       )}
 
+      {/* Save indicator — fixed bottom-right */}
       <SaveIndicator status={status} onRetry={retry} />
     </div>
   );

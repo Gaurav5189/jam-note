@@ -1,16 +1,26 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Trash2 } from "lucide-react";
 import { useNotes } from "@/context/notes-context";
+import { findNotePath } from "@/lib/note-tree";
 
-export function NoteHeader({ noteId, title }: { noteId: string; title: string }) {
-  const { renameNote, deleteNote } = useNotes();
+export function NoteHeader({ noteId, title: initialTitle }: { noteId: string; title: string }) {
+  const { tree, renameNote, deleteNote } = useNotes();
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const deleteResetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Derive the live title from the context tree (updates optimistically on rename
+  // from sidebar, palette, or header), falling back to SSR initialTitle.
+  const activeNode = useMemo(() => {
+    const path = findNotePath(tree, noteId);
+    return path ? path[path.length - 1] : null;
+  }, [tree, noteId]);
+
+  const title = activeNode?.title ?? initialTitle;
 
   useEffect(() => {
     return () => {

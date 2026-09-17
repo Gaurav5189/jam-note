@@ -46,6 +46,12 @@ export interface Block {
   canvas_metadata?: CanvasMetadata | null;
 }
 
+export interface BlockConnection {
+  from_id: string;
+  to_id: string;
+  color?: string | null;
+}
+
 export interface NoteListItem {
   id: string;
   parent_id: string | null;
@@ -59,6 +65,7 @@ export interface NoteListItem {
 
 export interface Note extends NoteListItem {
   blocks: Block[];
+  block_connections?: BlockConnection[];
 }
 
 export interface NoteTreeItem extends NoteListItem {
@@ -71,6 +78,7 @@ export interface NoteCreateInput {
   layout_type?: LayoutType;
   emoji_icon?: string | null;
   blocks?: Block[];
+  block_connections?: BlockConnection[];
 }
 
 export interface NoteUpdateInput {
@@ -78,4 +86,5 @@ export interface NoteUpdateInput {
   layout_type?: LayoutType;
   emoji_icon?: string | null;
   blocks?: Block[];
+  block_connections?: BlockConnection[];
 }

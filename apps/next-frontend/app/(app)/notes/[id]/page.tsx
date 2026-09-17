@@ -3,8 +3,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { ApiError, serverFetchApi } from "@/lib/server-api";
-import { BlockEditor } from "@/components/editor/block-editor";
 import { NoteHeader } from "@/components/note-header";
+import { NoteLayoutView } from "@/components/note-layout-view";
 import type { Note } from "@/lib/types";
 
 interface NotePageProps {
@@ -78,7 +78,7 @@ export default async function NotePage({ params }: NotePageProps) {
 
   return (
     <div className="p-8">
-      <div className="max-w-[75ch] mx-auto">
+      <div className="max-w-6xl mx-auto">
         {parent && (
           <Link
             href={`/notes/${parent.id}`}
@@ -92,16 +92,7 @@ export default async function NotePage({ params }: NotePageProps) {
 
         <NoteHeader noteId={note.id} title={note.title} />
 
-        <div className="flex items-center gap-3 mt-2 px-2 -mx-2">
-          <span className="text-[10px] font-mono uppercase tracking-widest text-text-muted border border-border-thin rounded-sm px-2 py-0.5">
-            {note.layout_type}
-          </span>
-          <span className="text-[10px] font-mono text-text-muted">
-            created {note.created_at.slice(0, 10)} · updated {note.updated_at.slice(0, 16).replace("T", " ")} UTC
-          </span>
-        </div>
-
-        <BlockEditor noteId={note.id} initialBlocks={note.blocks} />
+        <NoteLayoutView note={note} />
       </div>
     </div>
   );

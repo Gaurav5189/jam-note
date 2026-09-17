@@ -37,12 +37,19 @@ class Block(BaseModel):
     canvas_metadata: CanvasMetadata | None = None
 
 
+class BlockConnection(BaseModel):
+    from_id: str
+    to_id: str
+    color: str | None = None
+
+
 class NoteCreate(BaseModel):
     title: str = Field(min_length=1, max_length=200)
     parent_id: str | None = None
     layout_type: LayoutType = "document"
     emoji_icon: str | None = None
     blocks: list[Block] = Field(default_factory=list)
+    block_connections: list[BlockConnection] = Field(default_factory=list)
 
     @field_validator("title", mode="before")
     @classmethod
@@ -65,6 +72,7 @@ class NoteUpdate(BaseModel):
     layout_type: LayoutType | None = None
     emoji_icon: str | None = None
     blocks: list[Block] | None = None
+    block_connections: list[BlockConnection] | None = None
 
     @field_validator("title", mode="before")
     @classmethod
@@ -101,9 +109,10 @@ class NoteListItem(BaseModel):
 
 
 class NoteOut(NoteListItem):
-    """Full note shape including block contents."""
+    """Full note shape including block contents and canvas block connections."""
 
     blocks: list[Block] = Field(default_factory=list)
+    block_connections: list[BlockConnection] = Field(default_factory=list)
 
     @classmethod
     def from_mongo(cls, data: dict[str, Any]) -> "NoteOut":
@@ -117,6 +126,10 @@ class NoteOut(NoteListItem):
             created_at=data["created_at"],
             updated_at=data["updated_at"],
             blocks=[Block.model_validate(block) for block in data.get("blocks", [])],
+            block_connections=[
+                BlockConnection.model_validate(conn)
+                for conn in data.get("block_connections", [])
+            ],
         )
 
 

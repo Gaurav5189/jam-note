@@ -58,6 +58,11 @@ export interface EditableBlockProps {
   onSlashNavigate: (direction: -1 | 1) => void;
   onSlashSelect: () => void;
   onSlashDismiss: (strip: boolean) => void;
+  onPaste?: (
+    blockId: string,
+    event: React.ClipboardEvent<HTMLTextAreaElement>,
+    caretOffset: number
+  ) => boolean | void;
   registerHandle: (blockId: string, handle: EditableBlockHandle | null) => void;
 }
 
@@ -65,6 +70,7 @@ const PLACEHOLDER: Record<string, string> = {
   text: "Type '/' for commands…",
   "header-1": "Heading 1",
   "header-2": "Heading 2",
+  "header-3": "Heading 3",
   todo: "To-do",
   "list-item": "List item",
   code: "// code",
@@ -75,7 +81,7 @@ function EditableBlockImpl(props: EditableBlockProps) {
   const {
     onTextChange, onSplit, onMergeBackward, onRemove, onConvert, onNavigate,
     onMoveBlock, onProperties, onSlashOpen, onSlashQuery,
-    onSlashNavigate, onSlashSelect, onSlashDismiss, registerHandle,
+    onSlashNavigate, onSlashSelect, onSlashDismiss, onPaste, registerHandle,
   } = props;
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -290,6 +296,18 @@ function EditableBlockImpl(props: EditableBlockProps) {
 
   const handleFocus = useCallback(() => setFocused(true), []);
 
+  const handlePaste = useCallback(
+    (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+      if (!onPaste || block.type === "code") return;
+      const caret = e.currentTarget.selectionStart ?? 0;
+      const handled = onPaste(block.id, e, caret);
+      if (handled) {
+        e.preventDefault();
+      }
+    },
+    [block.id, block.type, onPaste]
+  );
+
   const textareaClass =
     "w-full bg-transparent text-text-primary placeholder:text-text-muted/60 focus:outline-none resize-none overflow-hidden";
 
@@ -304,6 +322,7 @@ function EditableBlockImpl(props: EditableBlockProps) {
           onKeyDown={handleKeyDown}
           onFocus={handleFocus}
           onBlur={handleBlur}
+          onPaste={handlePaste}
           placeholder={PLACEHOLDER["header-1"]}
           aria-label="Heading 1"
           className={`${textareaClass} text-2xl font-semibold leading-snug mt-6 mb-1 break-words`}
@@ -319,9 +338,26 @@ function EditableBlockImpl(props: EditableBlockProps) {
           onKeyDown={handleKeyDown}
           onFocus={handleFocus}
           onBlur={handleBlur}
+          onPaste={handlePaste}
           placeholder={PLACEHOLDER["header-2"]}
           aria-label="Heading 2"
           className={`${textareaClass} text-xl font-semibold leading-snug mt-5 mb-1 break-words`}
+        />
+      );
+    case "header-3":
+      return (
+        <textarea
+          ref={textareaRef}
+          rows={1}
+          value={draft}
+          onChange={handleChange}
+          onKeyDown={handleKeyDown}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
+          onPaste={handlePaste}
+          placeholder={PLACEHOLDER["header-3"]}
+          aria-label="Heading 3"
+          className={`${textareaClass} text-lg font-semibold leading-snug mt-4 mb-1 break-words`}
         />
       );
     case "todo":
@@ -351,6 +387,7 @@ function EditableBlockImpl(props: EditableBlockProps) {
             onKeyDown={handleKeyDown}
             onFocus={handleFocus}
             onBlur={handleBlur}
+            onPaste={handlePaste}
             placeholder={PLACEHOLDER.todo}
             aria-label="To-do item"
             className={`${textareaClass} text-[15px] leading-7 break-words ${
@@ -373,6 +410,7 @@ function EditableBlockImpl(props: EditableBlockProps) {
             onKeyDown={handleKeyDown}
             onFocus={handleFocus}
             onBlur={handleBlur}
+            onPaste={handlePaste}
             placeholder={PLACEHOLDER["list-item"]}
             aria-label="List item"
             className={`${textareaClass} text-[15px] leading-7 break-words`}
@@ -403,6 +441,7 @@ function EditableBlockImpl(props: EditableBlockProps) {
           onKeyDown={handleKeyDown}
           onFocus={handleFocus}
           onBlur={handleBlur}
+          onPaste={handlePaste}
           placeholder={PLACEHOLDER.text}
           aria-label="Text block"
           className={`${textareaClass} text-[15px] leading-7 break-words`}

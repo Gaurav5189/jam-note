@@ -88,9 +88,9 @@ This document maps out a structured, 5-phase build order to take `jam-note` from
    - Single-line and plain-text pastes stay inline exactly as today — only structured multi-line chunks are parsed.
 
 ### Verification Checklist
-- [ ] Switching between standard and canvas layouts preserves block coordinates and content.
-- [ ] Zooming and panning is fluid and handles multiple block nodes without performance degradation.
-- [ ] Pasting a markdown document splits into correctly typed blocks (headings, lists, todos, code); plain-text and single-line pastes behave exactly as before.
+- [x] Switching between standard and canvas layouts preserves block coordinates and content.
+- [x] Zooming and panning is fluid and handles multiple block nodes without performance degradation.
+- [x] Pasting a markdown document splits into correctly typed blocks (headings, lists, todos, code); plain-text and single-line pastes behave exactly as before.
 
 ---
 

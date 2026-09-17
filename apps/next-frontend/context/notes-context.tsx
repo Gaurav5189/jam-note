@@ -10,6 +10,8 @@ import {
 } from "@/lib/note-tree";
 import type {
   Block,
+  BlockConnection,
+  LayoutType,
   Note,
   NoteCreateInput,
   NoteTreeItem,
@@ -35,6 +37,18 @@ interface NotesContextType {
   saveBlocks: (
     id: string,
     blocks: Block[],
+    options?: { keepalive?: boolean }
+  ) => Promise<void>;
+  /**
+   * Quiet canvas-level save for canvas positions, dimensions, and block connections.
+   */
+  saveCanvas: (
+    id: string,
+    payload: {
+      blocks?: Block[];
+      block_connections?: BlockConnection[];
+      layout_type?: LayoutType;
+    },
     options?: { keepalive?: boolean }
   ) => Promise<void>;
 }
@@ -135,9 +149,45 @@ export function NotesProvider({
     []
   );
 
+  const saveCanvas = useCallback(
+    async (
+      id: string,
+      payload: {
+        blocks?: Block[];
+        block_connections?: BlockConnection[];
+        layout_type?: LayoutType;
+      },
+      options?: { keepalive?: boolean }
+    ) => {
+      const note = await fetchApi<Note>(`/api/notes/${id}`, {
+        method: "PUT",
+        body: JSON.stringify(payload),
+        ...(options?.keepalive ? { keepalive: true } : {}),
+      });
+      setTree((current) =>
+        updateTreeItem(current, id, {
+          updated_at: note.updated_at,
+          ...(payload.layout_type ? { layout_type: payload.layout_type } : {}),
+        })
+      );
+    },
+    []
+  );
+
   return (
     <NotesContext.Provider
-      value={{ tree, mutating, error, createNote, updateNote, renameNote, deleteNote, refreshTree, saveBlocks }}
+      value={{
+        tree,
+        mutating,
+        error,
+        createNote,
+        updateNote,
+        renameNote,
+        deleteNote,
+        refreshTree,
+        saveBlocks,
+        saveCanvas,
+      }}
     >
       {children}
     </NotesContext.Provider>

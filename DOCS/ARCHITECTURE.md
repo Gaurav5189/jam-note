@@ -85,7 +85,7 @@ Using a parent-child adjacency list representation. This allows infinite nesting
   "blocks": [
     {
       "id": "string (UUID)",
-      "type": "text | header-1 | header-2 | code | image | todo | list-item | canvas-node",
+      "type": "text | header-1 | header-2 | header-3 | code | image | todo | list-item | canvas-node",
       "properties": {
         "text": "string",
         "language": "string | null",

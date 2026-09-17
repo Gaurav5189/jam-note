@@ -153,15 +153,19 @@ export const DrawingBlock = memo(function DrawingBlock({
   useEffect(() => {
     const src = block.properties.src;
     const canvas = canvasRef.current;
-    if (!canvas || !src) return;
+    if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    const img = new Image();
-    img.onload = () => {
+    if (src) {
+      const img = new Image();
+      img.onload = () => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0);
+      };
+      img.src = src;
+    } else {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, 0, 0);
-    };
-    img.src = src;
+    }
   }, [block.properties.src]);
 
   const toCanvasPoint = (event: React.PointerEvent<HTMLCanvasElement>) => {
@@ -183,7 +187,7 @@ export const DrawingBlock = memo(function DrawingBlock({
     drawingRef.current = true;
     const point = toCanvasPoint(event);
     ctx.strokeStyle = colorRef.current;
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 2.5;
     ctx.lineJoin = "round";
     ctx.lineCap = "round";
     ctx.beginPath();
@@ -211,7 +215,9 @@ export const DrawingBlock = memo(function DrawingBlock({
     drawingRef.current = false;
     lastPointRef.current = null;
     const data = canvasRef.current?.toDataURL("image/png");
-    if (data) onProperties(block.id, { src: data });
+    if (data) {
+      onProperties(block.id, { src: data });
+    }
   };
 
   const clearDrawing = () => {
@@ -240,7 +246,9 @@ export const DrawingBlock = memo(function DrawingBlock({
             style={{ backgroundColor: c }}
           />
         ))}
+
         <span className="flex-1" />
+
         <button
           type="button"
           onMouseDown={(e) => e.preventDefault()}
@@ -262,13 +270,13 @@ export const DrawingBlock = memo(function DrawingBlock({
       </div>
       <canvas
         ref={canvasRef}
-        width={480}
-        height={280}
+        width={720}
+        height={320}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerLeave={handlePointerUp}
-        className="block w-full max-w-[480px] cursor-crosshair touch-none bg-background-base"
+        className="block w-full h-[280px] cursor-crosshair touch-none bg-background-base"
         aria-label="Drawing canvas"
       />
     </div>

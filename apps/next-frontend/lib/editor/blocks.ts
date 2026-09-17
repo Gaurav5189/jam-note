@@ -11,6 +11,7 @@ export const EDITOR_BLOCK_TYPES = [
   "text",
   "header-1",
   "header-2",
+  "header-3",
   "todo",
   "list-item",
   "code",
@@ -26,6 +27,7 @@ export const TEXTUAL_BLOCK_TYPES = [
   "text",
   "header-1",
   "header-2",
+  "header-3",
   "todo",
   "list-item",
   "code",
@@ -200,6 +202,59 @@ export function splitBlock(
   );
   nextBlocks.splice(index + 1, 0, newBlock);
   return { blocks: nextBlocks, focus: { blockId: newBlock.id, caretOffset: 0 } };
+}
+
+/**
+ * Insert blocks parsed from multi-line markdown paste at the caret position.
+ */
+export function insertPastedBlocks(
+  blocks: Block[],
+  targetBlockId: string,
+  caretOffset: number,
+  parsed: Array<{
+    type: EditorBlockType;
+    text: string;
+    properties?: Partial<BlockProperties>;
+  }>
+): BlockOpResult {
+  if (parsed.length === 0) return { blocks, focus: null };
+  const index = blocks.findIndex((b) => b.id === targetBlockId);
+  if (index === -1) return { blocks, focus: null };
+
+  const current = blocks[index];
+  const currentText = blockText(current);
+  const offset = Math.max(0, Math.min(caretOffset, currentText.length));
+  const before = currentText.slice(0, offset);
+  const after = currentText.slice(offset);
+
+  const newBlocks: Block[] = parsed.map((p) =>
+    createBlock(p.type, { text: p.text, ...p.properties })
+  );
+
+  const nextBlocks = blocks.slice();
+
+  if (current.type === "text" && currentText.trim() === "") {
+    // Replace empty block with the parsed blocks
+    nextBlocks.splice(index, 1, ...newBlocks);
+  } else {
+    // Keep text before caret in target block
+    nextBlocks[index] = setBlockTextTextOnly(current, before);
+    let insertItems = newBlocks;
+    if (after.length > 0) {
+      const trailingBlock = createBlock("text", { text: after });
+      insertItems = [...newBlocks, trailingBlock];
+    }
+    nextBlocks.splice(index + 1, 0, ...insertItems);
+  }
+
+  const lastInserted = newBlocks[newBlocks.length - 1];
+  return {
+    blocks: nextBlocks,
+    focus: {
+      blockId: lastInserted.id,
+      caretOffset: "end",
+    },
+  };
 }
 
 function setBlockTextTextOnly(block: Block, text: string): Block {

@@ -47,4 +47,16 @@
   .text-body {
     max-width: 75ch;
   }
+
+  /* Flashed when a block is jumped-to from the canvas double-click */
+  @keyframes block-flash {
+    0%   { box-shadow: 0 0 0 2px #D1FF4D; background-color: #D1FF4D18; }
+    70%  { box-shadow: 0 0 0 2px #D1FF4D; background-color: #D1FF4D18; }
+    100% { box-shadow: none; background-color: transparent; }
+  }
+
+  .block-highlight {
+    animation: block-flash 2s ease-out forwards;
+    border-radius: 3px;
+  }
 }

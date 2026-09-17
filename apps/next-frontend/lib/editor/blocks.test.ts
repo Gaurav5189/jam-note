@@ -8,6 +8,7 @@ import {
   createSeedBlock,
   getBlock,
   insertBlockAfter,
+  insertPastedBlocks,
   isTextualBlock,
   mergeDrafts,
   mergeWithPrevious,
@@ -54,7 +55,7 @@ describe("createBlock / createSeedBlock", () => {
 
 describe("isTextualBlock", () => {
   it("classifies textual types", () => {
-    for (const type of ["text", "header-1", "header-2", "todo", "list-item", "code"]) {
+    for (const type of ["text", "header-1", "header-2", "header-3", "todo", "list-item", "code"]) {
       expect(isTextualBlock(type)).toBe(true);
     }
   });
@@ -324,5 +325,49 @@ describe("convertBlock", () => {
   it("no-ops for unknown ids", () => {
     const blocks = [block("a", "x")];
     expect(convertBlock(blocks, "zzz", "y", "text")).toBe(blocks);
+  });
+});
+
+describe("insertPastedBlocks", () => {
+  it("replaces an empty seed block with the pasted blocks", () => {
+    const blocks = [block("seed", "")];
+    const { blocks: next, focus } = insertPastedBlocks(blocks, "seed", 0, [
+      { type: "header-1", text: "Title" },
+      { type: "list-item", text: "Item 1" },
+    ]);
+    expect(next.length).toBe(2);
+    expect(next[0].type).toBe("header-1");
+    expect(next[0].properties.text).toBe("Title");
+    expect(next[1].type).toBe("list-item");
+    expect(next[1].properties.text).toBe("Item 1");
+    expect(focus?.blockId).toBe(next[1].id);
+    expect(focus?.caretOffset).toBe("end");
+  });
+
+  it("inserts parsed blocks after non-empty block and preserves text after caret", () => {
+    const blocks = [block("b1", "Hello World")];
+    // Caret after "Hello " (index 6)
+    const { blocks: next, focus } = insertPastedBlocks(blocks, "b1", 6, [
+      { type: "header-2", text: "Subheading" },
+      { type: "todo", text: "Task", properties: { checked: true } },
+    ]);
+    expect(next.length).toBe(4);
+    expect(next[0].id).toBe("b1");
+    expect(next[0].properties.text).toBe("Hello ");
+    expect(next[1].type).toBe("header-2");
+    expect(next[1].properties.text).toBe("Subheading");
+    expect(next[2].type).toBe("todo");
+    expect(next[2].properties.text).toBe("Task");
+    expect(next[2].properties.checked).toBe(true);
+    expect(next[3].type).toBe("text");
+    expect(next[3].properties.text).toBe("World");
+    expect(focus?.blockId).toBe(next[2].id);
+  });
+
+  it("returns unchanged blocks when parsed array is empty", () => {
+    const blocks = [block("b1", "Content")];
+    const { blocks: next, focus } = insertPastedBlocks(blocks, "b1", 0, []);
+    expect(next).toBe(blocks);
+    expect(focus).toBeNull();
   });
 });

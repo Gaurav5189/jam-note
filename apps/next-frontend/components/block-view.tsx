@@ -13,6 +13,8 @@ export function BlockContent({ block }: { block: Block }) {
       return <h1 className="text-2xl text-text-primary font-semibold mt-6 mb-2 break-words">{text}</h1>;
     case "header-2":
       return <h2 className="text-xl text-text-primary font-semibold mt-5 mb-2 break-words">{text}</h2>;
+    case "header-3":
+      return <h3 className="text-lg text-text-primary font-semibold mt-4 mb-2 break-words">{text}</h3>;
     case "code":
       return (
         <div className="bg-background-panel border border-border-thin rounded-sm overflow-hidden my-2">
