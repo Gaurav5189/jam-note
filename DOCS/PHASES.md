@@ -144,16 +144,15 @@ This document maps out a structured, 5-phase build order to take `jam-note` from
    - `scripts/reindex.py` backfills the full index from MongoDB (idempotent, re-runnable).
 3. **Search API:**
    - `GET /api/search?q=` (CurrentUserDep) — Lucene full-text with fuzziness (typos still match), per-`user_id` filter (multi-tenant isolation enforced at the index level), highlighted fragments returned with `note_id` + `block_id` + `note_title`.
-   - The existing title-regex search remains the fallback when OpenSearch is unavailable.
-4. **Palette Integration — "Jump to the Line":**
-   - The ⌘K palette gains content results: note title + highlighted block snippet.
+   - Graceful degradation (decided): when OpenSearch is unavailable, the palette falls back to the existing title-regex search and shows a small amber "magic search offline" chip — saves and everything else keep working.
+4. **Palette Integration — "Jump to the Line"** (decided: unified results):
+   - One search box, no modes or tabs: title matches rank first, then content matches render as note title + highlighted block snippet.
    - Enter navigates to `/notes/{id}#block-{block_id}`; the editor scrolls to the block and flashes it neon. Stable block ids make the deep-link shareable.
-5. **Stretch — other OpenSearch uses** (decide after core ships; candidates from the viability audit):
-   - Search-as-you-type autocomplete (edge n-grams) for the palette.
-   - k-NN vector search for semantic "ask my notes" (free tier permits small-scale experiments).
-   - Public publishing-site search (Phase 6 CRM pages).
-   - Fuzzy phrase search / "similar notes" (more-like-this).
-   - Aggregations for usage analytics (popular searches, most-edited notes).
+5. **Stretch uses** (decided scope — all ride the same cluster, in priority order):
+   - Search-as-you-type autocomplete (edge n-grams) in the palette — first stretch, cheap on the same index.
+   - k-NN vector search for semantic "ask my notes" — needs an embeddings source; verify free-tier capacity before committing.
+   - "Similar notes" (more-like-this) suggestions on the note page.
+   - Aggregations for usage analytics (popular searches, most-edited notes — internal dashboard).
 
 ### Verification Checklist
 - [ ] Search finds text inside any block of any note, tolerating typos.
