@@ -23,9 +23,9 @@ This document maps out a structured, 5-phase build order to take `jam-note` from
    - Implement client session context providers (`AuthContext`) and secure Route Guards.
 
 ### Verification Checklist
-- [ ] Backend runs with `fastapi dev` and returns 200 on Swagger `/docs`.
-- [ ] User can signup, log in, secure cookie is issued, and `/me` returns correct JSON.
-- [ ] Next.js app routes block unauthenticated users and redirect correctly.
+- [x] Backend runs with `fastapi dev` and returns 200 on Swagger `/docs`.
+- [x] User can signup, log in, secure cookie is issued, and `/me` returns correct JSON.
+- [x] Next.js app routes block unauthenticated users and redirect correctly.
 
 ---
 
@@ -44,9 +44,9 @@ This document maps out a structured, 5-phase build order to take `jam-note` from
    - Setup global search interface shortcut `Cmd+K` targeting `/api/notes/search` to instantly filter all note titles.
 
 ### Verification Checklist
-- [ ] Creating nested folders/notes in sidebar reflects instantaneously in the database.
-- [ ] Sidebar renders recursive hierarchy cleanly without layout shifting.
-- [ ] Dynamic `/notes/[id]` route correctly displays note page layouts.
+- [x] Creating nested folders/notes in sidebar reflects instantaneously in the database.
+- [x] Sidebar renders recursive hierarchy cleanly without layout shifting.
+- [x] Dynamic `/notes/[id]` route correctly displays note page layouts.
 
 ---
 

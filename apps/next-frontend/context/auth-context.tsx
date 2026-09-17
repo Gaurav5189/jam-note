@@ -3,24 +3,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { fetchApi } from "@/lib/api";
-
-export interface User {
-  id: string;
-  email: string;
-  username: string;
-  profile: {
-    display_name?: string;
-    avatar_url?: string;
-  };
-  settings: {
-    theme: string;
-    editor_preferences: {
-      default_layout: string;
-      font_family: string;
-      font_size: number;
-    };
-  };
-}
+import type { User } from "@/lib/types";
 
 interface AuthContextType {
   user: User | null;

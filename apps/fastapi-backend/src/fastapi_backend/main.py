@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from fastapi_backend.config import settings
 from fastapi_backend.database import Database
 from fastapi_backend.auth.router import router as auth_router
+from fastapi_backend.notes.router import router as notes_router
 
 
 @asynccontextmanager
@@ -38,10 +39,11 @@ class HealthResponse(BaseModel):
     database: str
 
 
-@app.get("/api/health")
-async def health_check() -> HealthResponse:
+@app.get("/health")
+async def liveness_check() -> HealthResponse:
     db_status = "connected" if Database.db is not None else "disconnected"
     return HealthResponse(status="ok", database=db_status)
 
 
 app.include_router(auth_router, prefix="/api")
+app.include_router(notes_router, prefix="/api")

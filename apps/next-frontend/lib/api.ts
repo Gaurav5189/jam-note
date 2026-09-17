@@ -9,6 +9,7 @@ export async function fetchApi<T>(endpoint: string, options?: RequestInit): Prom
   const response = await fetch(url, {
     ...options,
     headers,
+    credentials: "include",
   });
 
   if (!response.ok) {
