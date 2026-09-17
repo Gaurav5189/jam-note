@@ -27,7 +27,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setError(null);
       const userData = await fetchApi<User>("/api/auth/me");
       setUser(userData);
-    } catch (err) {
+    } catch {
       setUser(null);
     } finally {
       setLoading(false);
@@ -44,9 +44,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [router]);
 
+  // Rehydrate the session on mount. Every state update happens after the
+  // fetch resolves (never synchronously inside the effect), and the
+  // cancellation guard avoids setState after unmount.
   useEffect(() => {
-    refreshUser();
-  }, [refreshUser]);
+    let cancelled = false;
+    (async () => {
+      try {
+        const userData = await fetchApi<User>("/api/auth/me");
+        if (!cancelled) setUser(userData);
+      } catch {
+        if (!cancelled) setUser(null);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <AuthContext.Provider value={{ user, loading, error, refreshUser, logout }}>

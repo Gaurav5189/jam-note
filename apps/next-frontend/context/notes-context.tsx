@@ -9,6 +9,7 @@ import {
   toTreeItem,
 } from "@/lib/note-tree";
 import type {
+  Block,
   Note,
   NoteCreateInput,
   NoteTreeItem,
@@ -26,6 +27,16 @@ interface NotesContextType {
   renameNote: (id: string, title: string) => Promise<void>;
   deleteNote: (id: string) => Promise<void>;
   refreshTree: () => Promise<void>;
+  /**
+   * Quiet blocks-only save for the editor's autosave. Deliberately bypasses
+   * `mutating`/`error` so keystroke-driven saves never churn the sidebar —
+   * the editor surfaces its own save state (Saving…/Saved/Sync error).
+   */
+  saveBlocks: (
+    id: string,
+    blocks: Block[],
+    options?: { keepalive?: boolean }
+  ) => Promise<void>;
 }
 
 const NotesContext = createContext<NotesContextType | undefined>(undefined);
@@ -110,9 +121,23 @@ export function NotesProvider({
     }
   }, [refreshTree]);
 
+  const saveBlocks = useCallback(
+    async (id: string, blocks: Block[], options?: { keepalive?: boolean }) => {
+      const note = await fetchApi<Note>(`/api/notes/${id}`, {
+        method: "PUT",
+        body: JSON.stringify({ blocks }),
+        // Spread into fetch — keepalive lets unload flushes survive navigation.
+        ...(options?.keepalive ? { keepalive: true } : {}),
+      });
+      // Keep the tree's updated_at fresh for the dashboard's recent list.
+      setTree((current) => updateTreeItem(current, id, { updated_at: note.updated_at }));
+    },
+    []
+  );
+
   return (
     <NotesContext.Provider
-      value={{ tree, mutating, error, createNote, updateNote, renameNote, deleteNote, refreshTree }}
+      value={{ tree, mutating, error, createNote, updateNote, renameNote, deleteNote, refreshTree, saveBlocks }}
     >
       {children}
     </NotesContext.Provider>

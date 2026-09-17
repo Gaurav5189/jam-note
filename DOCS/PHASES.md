@@ -65,8 +65,8 @@ This document maps out a structured, 5-phase build order to take `jam-note` from
    - Add drawing blocks (embed sketch-pads via SVG/Canvas), Code highlighting, and image blocks.
 
 ### Verification Checklist
-- [ ] Block list can be rearranged, new blocks added via `/` command, and typing behaves cleanly with zero lag.
-- [ ] Autosave executes in background without locking/jittering the user interface.
+- [x] Block list can be rearranged, new blocks added via `/` command, and typing behaves cleanly with zero lag.
+- [x] Autosave executes in background without locking/jittering the user interface.
 - [ ] Sub-70ms keypress-to-screen performance is met.
 
 ---

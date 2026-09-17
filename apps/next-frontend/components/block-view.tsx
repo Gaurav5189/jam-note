@@ -1,11 +1,11 @@
 import type { Block } from "@/lib/types";
 
-// Read-only block rendering for the Phase 2 document view. The interactive
-// slash-command editor (block insertion, markdown auto-conversion, drag
-// reordering) arrives in Phase 3 — this guarantees note content created via
-// the API renders faithfully in the meantime.
+// Read-only block rendering. The Phase 3 editor renders its own editable
+// blocks, but this stays the canonical read-only view: the editor falls
+// back to it for block types it cannot edit (e.g. Phase 4 canvas nodes),
+// and the Phase 5 public publishing pages will reuse it wholesale.
 
-function BlockContent({ block }: { block: Block }) {
+export function BlockContent({ block }: { block: Block }) {
   const text = block.properties.text ?? "";
 
   switch (block.type) {
@@ -63,6 +63,22 @@ function BlockContent({ block }: { block: Block }) {
         />
       ) : (
         <p className="text-[13px] font-mono text-text-muted py-1">image block missing src</p>
+      );
+    case "drawing":
+      return block.properties.src ? (
+        <div className="relative my-2 inline-block max-w-full">
+          {/* eslint-disable-next-line @next/next/no-img-element -- drawings are canvas dataURLs, not the Next image pipeline */}
+          <img
+            src={block.properties.src}
+            alt={text || "Drawing block"}
+            className="max-w-full border border-border-thin rounded-sm block"
+          />
+          <span className="absolute top-2 left-2 text-[9px] font-mono uppercase tracking-widest text-text-muted bg-background-panel/80 border border-border-thin rounded-sm px-1.5 py-0.5">
+            Sketch
+          </span>
+        </div>
+      ) : (
+        <p className="text-[13px] font-mono text-text-muted py-1">empty drawing block</p>
       );
     case "canvas-node":
       return (

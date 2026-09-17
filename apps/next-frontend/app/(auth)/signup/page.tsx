@@ -29,8 +29,8 @@ export default function SignupPage() {
       });
       await refreshUser();
       router.push("/");
-    } catch (err: any) {
-      setError(err.message || "Failed to create workspace");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create workspace");
     } finally {
       setLoading(false);
     }

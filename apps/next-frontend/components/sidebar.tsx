@@ -28,20 +28,24 @@ export function Sidebar() {
     : null;
 
   // Auto-expand the ancestors of the active note so it is always visible
-  // in the tree, even when reached via search.
-  useEffect(() => {
-    if (!activeNoteId) return;
-    const path = findNotePath(tree, activeNoteId);
-    if (!path) return;
-    setCollapsed((prev) => {
-      const next = new Set(prev);
-      let changed = false;
-      for (const node of path) {
-        if (next.delete(node.id)) changed = true;
-      }
-      return changed ? next : prev;
-    });
-  }, [activeNoteId, tree]);
+  // in the tree, even when reached via search. This is the React-documented
+  // render-time state adjustment keyed on the active id — manual collapses
+  // between navigations are preserved.
+  const [prevActiveNoteId, setPrevActiveNoteId] = useState<string | null>(activeNoteId);
+  if (activeNoteId !== prevActiveNoteId) {
+    setPrevActiveNoteId(activeNoteId);
+    const path = activeNoteId ? findNotePath(tree, activeNoteId) : null;
+    if (path) {
+      setCollapsed((prev) => {
+        const next = new Set(prev);
+        let changed = false;
+        for (const node of path) {
+          if (next.delete(node.id)) changed = true;
+        }
+        return changed ? next : prev;
+      });
+    }
+  }
 
   const toggleCollapse = (id: string) => {
     setCollapsed((prev) => {

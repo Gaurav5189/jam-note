@@ -3,7 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { ApiError, serverFetchApi } from "@/lib/server-api";
-import { BlockList } from "@/components/block-view";
+import { BlockEditor } from "@/components/editor/block-editor";
 import { NoteHeader } from "@/components/note-header";
 import type { Note } from "@/lib/types";
 
@@ -101,7 +101,7 @@ export default async function NotePage({ params }: NotePageProps) {
           </span>
         </div>
 
-        <BlockList blocks={note.blocks} />
+        <BlockEditor noteId={note.id} initialBlocks={note.blocks} />
       </div>
     </div>
   );

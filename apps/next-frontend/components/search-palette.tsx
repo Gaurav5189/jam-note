@@ -56,20 +56,19 @@ export function SearchPalette() {
     };
   }, []);
 
-  // Debounced search, cancelling stale requests.
+  // Debounced search, cancelling stale requests. The empty-query state is
+  // derived at render time (`query.trim() === ""` branch below), so this
+  // effect only arms the timer for non-empty queries — no synchronous
+  // setState inside the effect.
   useEffect(() => {
     if (!open) return;
     const trimmed = query.trim();
-    if (!trimmed) {
-      setResults([]);
-      setSearching(false);
-      return;
-    }
+    if (!trimmed) return;
 
-    setSearching(true);
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
     debounceTimer.current = setTimeout(async () => {
       const seq = ++requestSeq.current;
+      setSearching(true);
       try {
         const found = await fetchApi<NoteListItem[]>(
           `/api/notes/search?q=${encodeURIComponent(trimmed)}`

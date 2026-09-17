@@ -26,8 +26,8 @@ export default function LoginPage() {
       });
       await refreshUser();
       router.push("/");
-    } catch (err: any) {
-      setError(err.message || "Failed to login");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to login");
     } finally {
       setLoading(false);
     }
@@ -87,7 +87,7 @@ export default function LoginPage() {
 
         <div className="mt-8 text-center">
           <p className="text-text-muted text-sm">
-            Don't have an account?{" "}
+            {"Don't have an account? "}
             <Link href="/signup" className="text-accent-amber hover:underline">
               Create workspace
             </Link>
