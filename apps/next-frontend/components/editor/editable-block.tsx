@@ -44,7 +44,6 @@ export interface EditableBlockProps {
   onNavigate: (blockId: string, direction: -1 | 1) => void;
   onMoveBlock: (blockId: string, direction: -1 | 1) => void;
   onProperties: (blockId: string, patch: Partial<BlockProperties>) => void;
-  onBlurBlock: (blockId: string) => void;
   onSlashOpen: (blockId: string, slashOffset: number) => void;
   onSlashQuery: (blockId: string, query: string) => void;
   onSlashNavigate: (direction: -1 | 1) => void;
@@ -66,7 +65,7 @@ function EditableBlockImpl(props: EditableBlockProps) {
   const { block, slashActive } = props;
   const {
     onTextChange, onSplit, onMergeBackward, onRemove, onConvert, onNavigate,
-    onMoveBlock, onProperties, onBlurBlock, onSlashOpen, onSlashQuery,
+    onMoveBlock, onProperties, onSlashOpen, onSlashQuery,
     onSlashNavigate, onSlashSelect, onSlashDismiss, registerHandle,
   } = props;
 
@@ -274,10 +273,10 @@ function EditableBlockImpl(props: EditableBlockProps) {
     ]
   );
 
-  const handleBlur = useCallback(() => {
-    setFocused(false);
-    onBlurBlock(block.id);
-  }, [block.id, onBlurBlock]);
+  // Blur only toggles the code overlay — it never triggers a save. Saving
+  // happens after the 10s idle window or the safety flushes (tab hide,
+  // unload, unmount), so block-to-block caret hops don't write-amplify.
+  const handleBlur = useCallback(() => setFocused(false), []);
 
   const handleFocus = useCallback(() => setFocused(true), []);
 

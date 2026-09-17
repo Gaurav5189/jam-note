@@ -121,7 +121,7 @@ export function BlockEditor({
     [noteId, saveBlocks]
   );
 
-  const { status, notifyChange, flush, retry } = useAutosave({ getPayload, save });
+  const { status, notifyChange, retry } = useAutosave({ getPayload, save });
 
   /** Commit-first structural mutation + focus request + save ping. */
   const applyOp = useCallback(
@@ -251,10 +251,6 @@ export function BlockEditor({
     },
     [applyOp]
   );
-
-  const handleBlurBlock = useCallback(() => {
-    flush();
-  }, [flush]);
 
   // ─── Slash menu ────────────────────────────────────────────────────────
 
@@ -437,7 +433,6 @@ export function BlockEditor({
           onNavigate={handleNavigate}
           onMoveBlock={handleMoveBlock}
           onProperties={handleProperties}
-          onBlurBlock={handleBlurBlock}
           onSlashOpen={handleSlashOpen}
           onSlashQuery={handleSlashQuery}
           onSlashNavigate={handleSlashNavigate}

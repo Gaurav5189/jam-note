@@ -15,7 +15,7 @@ export interface UseAutosaveOptions<T> {
   save: (payload: T, options?: { keepalive?: boolean }) => Promise<void>;
 }
 
-const DEFAULT_DELAY_MS = 500;
+const DEFAULT_DELAY_MS = 10_000;
 const DEFAULT_SAVED_HOLD_MS = 1500;
 /** Re-flush delay when changes landed while a save was already in flight. */
 const REFLUSH_MS = 100;
@@ -26,6 +26,11 @@ interface FlushOptions {
 
 /**
  * Debounced autosave state machine: idle → dirty → saving → saved → idle.
+ * The debounce resets on every keystroke and only flushes after a long
+ * idle window (10s) — a short window would write-amplify MongoDB badly
+ * once many users type concurrently. Safety flushes still fire on tab
+ * hide, page unload (keepalive) and editor unmount, so the idle window
+ * is the ONLY path where data is at risk, capped at 10s of typing.
  * Errors keep the payload dirty (nothing is ever silently lost) and the
  * status stays "error" until a retry or the next edit re-arms the flush.
  */
