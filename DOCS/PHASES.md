@@ -82,10 +82,15 @@ This document maps out a structured, 5-phase build order to take `jam-note` from
    - Use simple mouse drag-and-drop actions for nodes.
    - Implement drag-connections to link notes (draw customizable SVG vectors between connected cards).
    - Implement resizing, group coloring, and scale zoom controls.
+3. **Editor Polish — Markdown Paste Parsing:**
+   - Extend `lib/editor/markdown.ts` with a paste parser + a paste handler in the block component (typing triggers like `# `/`[] `/```` ``` `` already convert live; pasted chunks currently land as literal text).
+   - Multi-line paste auto-detects markdown structure and splits into typed blocks: `#`/`##` → headings, `-`/`*` → list items, `[ ]`/`[x]` → todos, fenced code regions → code blocks, plain lines → text blocks.
+   - Single-line and plain-text pastes stay inline exactly as today — only structured multi-line chunks are parsed.
 
 ### Verification Checklist
 - [ ] Switching between standard and canvas layouts preserves block coordinates and content.
 - [ ] Zooming and panning is fluid and handles multiple block nodes without performance degradation.
+- [ ] Pasting a markdown document splits into correctly typed blocks (headings, lists, todos, code); plain-text and single-line pastes behave exactly as before.
 
 ---
 
