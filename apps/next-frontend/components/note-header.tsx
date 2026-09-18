@@ -46,7 +46,7 @@ export function NoteHeader({ noteId, title: initialTitle }: { noteId: string; ti
     if (deleteResetTimer.current) clearTimeout(deleteResetTimer.current);
     setConfirmingDelete(false);
     await deleteNote(noteId);
-    router.push("/");
+    router.push("/dashboard");
   };
 
   return (

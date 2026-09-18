@@ -28,7 +28,7 @@ export default function SignupPage() {
         body: JSON.stringify({ email, username, password, display_name: displayName || undefined }),
       });
       await refreshUser();
-      router.push("/");
+      router.push("/dashboard");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create workspace");
     } finally {

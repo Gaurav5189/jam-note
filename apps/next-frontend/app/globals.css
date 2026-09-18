@@ -5,12 +5,27 @@
   --color-background-panel: #14161C;
   --color-background-steel: #1D2027;
   --color-border-thin: #2A2F3D;
-  
+
   --color-accent-neon: #D1FF4D;
   --color-accent-amber: #FFB800;
-  
+
   --color-text-primary: #F3F4F6;
   --color-text-muted: #8A94A6;
+
+  /* Phase 5 — landing page marketing tokens. Deliberately scoped: the
+     in-app neo-industrial theme above stays untouched; these utilities are
+     only used by app/page.tsx + components/landing/* (PHASES.md Phase 5). */
+  --color-landing-base: #222831;
+  --color-landing-panel: #393E46;
+  --color-landing-border: #2E343D;
+  --color-landing-accent: #FFD369;
+  --color-landing-text: #EEEEEE;
+  --color-landing-muted: #AEB4BD;
+
+  /* Geist fonts (self-hosted via the `geist` package) — set by the
+     GeistSans/GeistMono .variable classes on the landing wrapper. */
+  --font-landing-sans: var(--font-geist-sans), system-ui, sans-serif;
+  --font-landing-mono: var(--font-geist-mono), ui-monospace, "SF Mono", monospace;
 }
 
 @layer base {
@@ -58,5 +73,51 @@
   .block-highlight {
     animation: block-flash 2s ease-out forwards;
     border-radius: 3px;
+  }
+
+  /* Phase 5 landing: fade the streamed-in 3D canvas over the static
+     dot-grid fallback without blocking first paint. */
+  @keyframes landing-canvas-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+
+  .landing-canvas-in {
+    animation: landing-canvas-in 900ms ease-out 150ms both;
+  }
+
+  /* The 3D hero is decorative — parallax is driven from window-level
+     pointer events, so the canvas itself never hit-tests (swipes and
+     scrolls over the hero pass straight through to the page). */
+  .landing-canvas canvas {
+    pointer-events: none;
+  }
+}
+
+@layer components {
+  /* Shared keyboard-focus treatment for the landing surface: a quiet
+     double ring in the marketing palette, no layout shift. */
+  .landing-focus {
+    outline: none;
+  }
+
+  .landing-focus:focus-visible {
+    box-shadow:
+      0 0 0 2px var(--color-landing-base),
+      0 0 0 4px var(--color-landing-accent);
+  }
+}
+
+/* Respect the OS "reduce motion" switch everywhere: the 3D hero never
+   mounts for these users (detected in hero-canvas.tsx); this resets any
+   remaining CSS animation, including the landing canvas fade-in and the
+   in-app block-highlight flash. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

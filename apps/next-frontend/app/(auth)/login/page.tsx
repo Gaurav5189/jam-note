@@ -25,7 +25,7 @@ export default function LoginPage() {
         body: JSON.stringify({ email_or_username: identifier, password }),
       });
       await refreshUser();
-      router.push("/");
+      router.push("/dashboard");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to login");
     } finally {

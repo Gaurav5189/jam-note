@@ -80,7 +80,7 @@ export function Sidebar() {
   const handleDelete = async (id: string) => {
     await deleteNote(id);
     if (pathname === `${NOTE_URL_PREFIX}${id}`) {
-      router.push("/");
+      router.push("/dashboard");
     }
   };
 

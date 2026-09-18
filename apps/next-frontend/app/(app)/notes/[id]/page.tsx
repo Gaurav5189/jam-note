@@ -58,7 +58,7 @@ export default async function NotePage({ params }: NotePageProps) {
             This note does not exist, or belongs to another workspace.
           </p>
           <Link
-            href="/"
+            href="/dashboard"
             className="inline-block mt-6 text-xs font-mono uppercase tracking-wider text-text-muted hover:text-accent-neon border border-border-thin hover:border-accent-neon px-4 py-2 rounded-sm transition-colors"
           >
             Back to workspace

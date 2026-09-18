@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { SITE_URL } from "@/lib/site";
 
 export const metadata: Metadata = {
+  // Resolves relative metadata URLs (canonical, OG image) for every route.
+  metadataBase: new URL(SITE_URL),
   title: "jam-note",
   description: "Tactile, ultra-fast note-taking for creators.",
 };
