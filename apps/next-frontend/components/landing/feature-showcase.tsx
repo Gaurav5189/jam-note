@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { Hand, MousePointer2, Redo2, Undo2 } from "lucide-react";
+import { AnimateIn } from "./animate-in";
 
 type TabId = "editor" | "canvas" | "publish";
 
@@ -96,7 +97,7 @@ function CanvasCard({
 }) {
   return (
     <div
-      className={`absolute w-[34%] rounded-sm border border-landing-border bg-landing-panel/95 p-3 shadow-[3px_3px_0_#22283199] ${className}`}
+      className={`absolute w-[34%] rounded-sm border border-landing-border bg-landing-panel/95 p-3 shadow-[3px_3px_0_#161b2499] ${className}`}
     >
       <p className="font-landing-mono text-[10px] uppercase tracking-widest text-landing-accent">
         {tag}
@@ -204,7 +205,7 @@ function PublishPanel() {
           editing the note behind it.
         </p>
         <p className="mt-5 inline-block rounded-[2px] border border-landing-border px-2.5 py-1 font-landing-mono text-[10px] text-landing-muted">
-          published with jam-note
+          published with Jam Notes
         </p>
       </div>
     </div>
@@ -239,15 +240,17 @@ export function FeatureShowcase() {
   return (
     <section id="showcase" className="scroll-mt-14 border-t border-landing-border">
       <div className="mx-auto max-w-6xl px-5 py-20 sm:px-8 sm:py-28">
-        <p className="font-landing-mono text-[13px] text-landing-accent">{"// showcase"}</p>
-        <h2 className="mt-4 max-w-2xl font-landing-sans text-3xl font-semibold tracking-tight text-landing-text sm:text-4xl">
-          One note, three ways to work it.
-        </h2>
-        <p className="mt-4 max-w-[62ch] text-sm leading-relaxed text-landing-muted sm:text-base">
-          Every note is a document and a spatial board at the same time — the
-          same blocks, the same save, two geometries. When it is ready for
-          readers, it goes public with one click.
-        </p>
+        <AnimateIn>
+          <p className="font-landing-mono text-[13px] text-landing-accent">{"// showcase"}</p>
+          <h2 className="mt-4 max-w-2xl font-landing-sans text-3xl font-semibold tracking-tight text-landing-text sm:text-4xl">
+            One note, three ways to work it.
+          </h2>
+          <p className="mt-4 max-w-[62ch] text-sm leading-relaxed text-landing-muted sm:text-base">
+            Every note is a document and a spatial board at the same time — the
+            same blocks, the same save, two geometries. When it is ready for
+            readers, it goes public with one click.
+          </p>
+        </AnimateIn>
 
         <div
           role="tablist"
@@ -291,9 +294,9 @@ export function FeatureShowcase() {
         >
           <div className="flex h-9 items-center gap-3 border-b border-landing-border bg-landing-panel px-4">
             <div className="flex gap-1.5" aria-hidden="true">
-              <span className="h-2.5 w-2.5 rounded-[2px] bg-[#4A5160]" />
-              <span className="h-2.5 w-2.5 rounded-[2px] bg-[#4A5160]" />
-              <span className="h-2.5 w-2.5 rounded-[2px] bg-[#4A5160]" />
+              <span className="h-2.5 w-2.5 rounded-[2px] bg-[#2a3040]" />
+              <span className="h-2.5 w-2.5 rounded-[2px] bg-[#2a3040]" />
+              <span className="h-2.5 w-2.5 rounded-[2px] bg-[#2a3040]" />
             </div>
             <span className="font-landing-mono text-[11px] text-landing-muted">
               {active === "editor" && "note — untitled transmission"}
@@ -301,7 +304,15 @@ export function FeatureShowcase() {
               {active === "publish" && "public page preview"}
             </span>
           </div>
-          <div className="relative h-[400px] sm:h-[420px]">{PANELS[active]}</div>
+          {/* Crossfade between panels */}
+          <div className="relative h-[400px] sm:h-[420px]">
+            <div
+              key={active}
+              className="absolute inset-0 animate-[tab-fade-in_250ms_ease-out_both]"
+            >
+              {PANELS[active]}
+            </div>
+          </div>
         </div>
       </div>
     </section>

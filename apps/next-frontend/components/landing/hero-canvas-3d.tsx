@@ -2,7 +2,8 @@
 
 import { Canvas, useFrame } from "@react-three/fiber";
 import { useEffect, useMemo, useRef } from "react";
-import * as THREE from "three";
+import { AdditiveBlending } from "three";
+import type { Mesh, MeshBasicMaterial } from "three";
 
 import { silenceR3fClockDeprecation } from "./silence-r3f-clock";
 
@@ -106,7 +107,7 @@ function Dust({ count }: { count: number }) {
 // The only motion in the scene besides the beacon, and it lives strictly
 // below the text zone.
 function SignalPulses() {
-  const pulses = useRef<Array<THREE.Mesh | null>>([]);
+  const pulses = useRef<Array<Mesh | null>>([]);
   const elapsed = useRef(0);
 
   useFrame((_, delta) => {
@@ -141,7 +142,7 @@ function SignalPulses() {
               color={ACCENT}
               transparent
               opacity={0.9}
-              blending={THREE.AdditiveBlending}
+              blending={AdditiveBlending}
               depthWrite={false}
             />
           </mesh>
@@ -154,7 +155,7 @@ function SignalPulses() {
 // A single distant light breathing on the skyline — quiet proof the scene is
 // alive without demanding attention.
 function Beacon({ position }: { position: Vec3 }) {
-  const mat = useRef<THREE.MeshBasicMaterial>(null);
+  const mat = useRef<MeshBasicMaterial>(null);
   const t = useRef(0);
 
   useFrame((_, delta) => {
@@ -172,7 +173,7 @@ function Beacon({ position }: { position: Vec3 }) {
         color={ACCENT}
         transparent
         opacity={0.4}
-        blending={THREE.AdditiveBlending}
+        blending={AdditiveBlending}
         depthWrite={false}
       />
     </mesh>

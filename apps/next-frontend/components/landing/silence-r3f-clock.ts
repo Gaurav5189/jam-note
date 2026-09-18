@@ -13,7 +13,7 @@
 // once @react-three/fiber v10 stable is installed. Verify with:
 //   grep -rn "new THREE.Clock" node_modules/@react-three/fiber/dist
 
-import * as THREE from "three";
+import { getConsoleFunction, setConsoleFunction } from "three";
 
 const CLOCK_DEPRECATION =
   "THREE.Clock: This module has been deprecated. Please use THREE.Timer instead.";
@@ -32,9 +32,9 @@ export function silenceR3fClockDeprecation(): void {
   }
   window.__jamNoteClockWarningFiltered = true;
 
-  const original = THREE.getConsoleFunction();
+  const original = getConsoleFunction();
 
-  THREE.setConsoleFunction((type, message, ...params) => {
+  setConsoleFunction((type, message, ...params) => {
     if (type === "warn" && message === CLOCK_DEPRECATION) return;
     if (original) {
       original(type, message, ...params);

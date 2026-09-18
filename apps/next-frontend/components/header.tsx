@@ -26,7 +26,7 @@ export function Header({ user }: { user: User }) {
   return (
     <header className="h-14 border-b border-border-thin bg-background-panel px-4 flex items-center justify-between shrink-0">
       <div className="flex items-center gap-3">
-        <h1 className="text-lg font-bold font-mono text-text-primary tracking-tight">jam-note</h1>
+        <h1 className="text-lg font-bold font-mono text-text-primary tracking-tight">Jam Notes</h1>
         <span className="text-[10px] font-mono text-accent-neon border border-accent-neon/30 px-2 py-0.5 rounded-sm bg-accent-neon/10 uppercase tracking-widest">
           Phase 3
         </span>

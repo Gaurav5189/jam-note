@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 
-export const alt = "jam-note — write fast, think in space";
+export const alt = "Jam Notes — write fast, think in space";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -37,7 +37,7 @@ export default function Image() {
               letterSpacing: -0.5,
             }}
           >
-            jam-note
+            Jam Notes
           </div>
         </div>
 

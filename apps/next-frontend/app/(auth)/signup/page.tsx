@@ -40,7 +40,7 @@ export default function SignupPage() {
     <div className="min-h-screen flex items-center justify-center bg-background-base p-4">
       <div className="w-full max-w-md bg-background-panel border border-border-thin rounded-md p-8 shadow-2xl">
         <div className="mb-8 text-center">
-          <h1 className="text-2xl font-mono font-bold text-text-primary">jam-note</h1>
+          <h1 className="text-2xl font-mono font-bold text-text-primary">Jam Notes</h1>
           <p className="text-text-muted mt-2 text-sm uppercase tracking-widest">provision workspace</p>
         </div>
 

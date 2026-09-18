@@ -15,9 +15,11 @@
   /* Phase 5 — landing page marketing tokens. Deliberately scoped: the
      in-app neo-industrial theme above stays untouched; these utilities are
      only used by app/page.tsx + components/landing/* (PHASES.md Phase 5). */
-  --color-landing-base: #222831;
-  --color-landing-panel: #393E46;
-  --color-landing-border: #2E343D;
+  /* Darkened variant of the original #222831/#393E46 palette — same
+     blue-dark character but noticeably deeper, matching the reference designs. */
+  --color-landing-base: #161b24;
+  --color-landing-panel: #1d2330;
+  --color-landing-border: #262e3c;
   --color-landing-accent: #FFD369;
   --color-landing-text: #EEEEEE;
   --color-landing-muted: #AEB4BD;
@@ -84,6 +86,12 @@
 
   .landing-canvas-in {
     animation: landing-canvas-in 900ms ease-out 150ms both;
+  }
+
+  /* Tab panel crossfade — fires each time `key` changes on the wrapper div. */
+  @keyframes tab-fade-in {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
   }
 
   /* The 3D hero is decorative — parallax is driven from window-level

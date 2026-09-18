@@ -25,12 +25,12 @@ export async function generateMetadata({ params }: NotePageProps): Promise<Metad
   try {
     const note = await fetchNote(id);
     return {
-      title: note ? `${note.title} — jam-note` : "Note not found — jam-note",
+      title: note ? `${note.title} — Jam Notes` : "Note not found — Jam Notes",
     };
   } catch {
     // Auth failures and outages are handled by the page body (redirect to
     // /login or error rendering) — metadata must not throw on its own.
-    return { title: "jam-note" };
+    return { title: "Jam Notes" };
   }
 }
 

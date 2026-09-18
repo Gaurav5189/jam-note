@@ -12,7 +12,7 @@ import { SITE_URL } from "@/lib/site";
 // Phase 5: unauthenticated visitors get this marketing surface at "/".
 // Logged-in users are redirected to /dashboard by proxy.ts before any
 // HTML is rendered — no marketing flash.
-const TITLE = "jam-note — write fast, think in space";
+const TITLE = "Jam Notes — write fast, think in space";
 const DESCRIPTION =
   "A tactile, keyboard-first note system: a block editor that keeps up with your hands, an infinite spatial canvas for non-linear thinking, and one-click self-publishing for the drafts that are ready.";
 
@@ -23,7 +23,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     url: SITE_URL,
-    siteName: "jam-note",
+    siteName: "Jam Notes",
     title: TITLE,
     description: DESCRIPTION,
   },
@@ -37,7 +37,7 @@ export const metadata: Metadata = {
 const structuredData = {
   "@context": "https://schema.org",
   "@type": "WebApplication",
-  name: "jam-note",
+  name: "Jam Notes",
   url: SITE_URL,
   description: DESCRIPTION,
   applicationCategory: "ProductivityApplication",
