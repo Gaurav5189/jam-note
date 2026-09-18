@@ -112,7 +112,7 @@ function CanvasCard({
 
 function CanvasPanel() {
   return (
-    <div className="absolute inset-0 bg-[radial-gradient(circle,#393E46_1.2px,transparent_1.6px)] bg-[size:24px_24px]">
+    <div className="absolute inset-0 bg-[radial-gradient(circle,#1d2330_1.2px,transparent_1.6px)] bg-[size:24px_24px]">
       {/* Connections: endpoints in percentage coordinates so they track the
           cards at any panel size; non-scaling strokes keep the 1.5px width. */}
       <svg

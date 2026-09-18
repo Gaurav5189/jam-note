@@ -4,7 +4,6 @@ import {
   FolderTree,
   Link2,
   RefreshCw,
-  Rss,
   Type,
 } from "lucide-react";
 import { AnimateIn } from "./animate-in";
@@ -32,7 +31,7 @@ const MODULES = [
     statusVariant: "muted" as const,
     title: "The Jam Canvas",
     body: "Flip any note into an infinite board. Drag cards around, draw connections, color-code groups, zoom and pan — with a 50-step undo stack over every gesture.",
-    metaLeft: "matrix: infinite pan/zoom (0.1x to 4x)",
+    metaLeft: "matrix: infinite pan/zoom (0.25x to 2.5x)",
     metaRight: "undo buffer: 50 states",
     soon: false,
   },

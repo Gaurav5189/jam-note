@@ -95,13 +95,13 @@ This document maps out a structured, 5-phase build order to take `jam-note` from
 ---
 
 ## Phase 5: Landing Page & 3D Showcase (Sprint 5)
-**Goal:** A high-quality marketing landing page with background 3D designs, scoped to its own palette — `#222831` / `#393E46` / `#FFD369` / `#EEEEEE` (colorhunt.co/palette/222831393e46ffd369eeeeee) — without disturbing the in-app neo-industrial theme.
+**Goal:** A high-quality marketing landing page with background 3D designs, scoped to its own palette — a darkened variant of the colorhunt scheme (colorhunt.co/palette/222831393e46ffd369eeeeee): ground `#161b24`, panels `#1d2330`, borders `#262e3c`, accent `#FFD369`, text `#EEEEEE` — without disturbing the in-app neo-industrial theme.
 
 ### Milestones
 1. **Route Architecture (prerequisite):**
    - `/` currently renders the authenticated `(app)` shell. Split it: unauthenticated visitors get the landing at `/`; logged-in users are redirected straight into the app (no marketing flash). The dashboard moves to its own route (e.g. `/dashboard`) inside the existing `(app)` group; `proxy.ts` guards and all internal links (`/` references in note-header, recent-notes, logout) are updated.
 2. **Marketing Design System:**
-   - Scoped CSS variables for the landing palette: `#222831` ground, `#393E46` panels, `#FFD369` amber-yellow accent, `#EEEEEE` text. Palette audit: a deliberate cousin of the in-app neo-industrial scheme (dark ground + yellow accent) so the brand reads consistently, but the marketing surface owns its own tokens.
+   - Scoped CSS variables for the landing palette: `#161b24` ground, `#1d2330` panels, `#262e3c` borders, `#FFD369` amber-yellow accent, `#EEEEEE` text (a deliberate darkening of the original `#222831`/`#393E46`/`#2E343D` scheme; the 3D scene ground/panel, the CSS dot-grid fallbacks, and the generated OpenGraph card use these same values). Palette audit: a deliberate cousin of the in-app neo-industrial scheme (dark ground + yellow accent) so the brand reads consistently, but the marketing surface owns its own tokens.
    - Same typographic discipline as the app (mono labels, tight tracking, razor-thin borders) for brand continuity.
 3. **3D Background:**
    - `react-three-fiber` (three.js) scene as the only new dependency, loaded via `next/dynamic` off the critical path so the text-first hero paints instantly; the 3D chunk streams in after LCP.
@@ -111,7 +111,7 @@ This document maps out a structured, 5-phase build order to take `jam-note` from
 
 ### Verification Checklist
 - [x] Unauthenticated `/` shows the landing; authenticated users land directly in the app with no marketing flash. — **Verified**: HTTP smoke test — `/` returns 200; `/dashboard` without a cookie redirects 307 → `/login`; `/` with a `jam_session` cookie redirects 307 → `/dashboard`.
-- [x] 3D loads lazily: static shell passes Lighthouse ≥ 90 / LCP < 2.5s; the three.js bundle never blocks first paint. — **Verified**: the initial landing HTML contains zero three.js code and zero `modulepreload` links; the dot-grid fallback is SSR'd. Lighthouse ≥ 90 / LCP < 2.5s not measured — headless Chromium screenshots verified the rendering visually (desktop + 360px).
+- [x] 3D loads lazily: static shell passes Lighthouse ≥ 90 / LCP < 2.5s; the three.js bundle never blocks first paint. — **Verified**: the initial landing HTML contains zero three.js code and zero `modulepreload` links; the dot-grid fallback is SSR'd. Lighthouse (real-browser runs): LCP 0.5s; A11y 100 after the Phase 5.2 fixes; Performance 93–100 depending on run (dev-mode audits carry the known unminified-chunk cost) — the ≥ 90 target is met. Final performance call: judged on the live production deployment (user decision; Phase 5 closed).
 - [x] `prefers-reduced-motion` and non-WebGL browsers get a static fallback. — **Verified**: `useSyncExternalStore` capability gates in `hero-canvas.tsx`, an always-SSR'd CSS dot-grid, and a global reduced-motion animation reset.
 - [x] Fully responsive (360px → desktop) and keyboard navigable. — **Verified**: mobile-first Tailwind layout, arrow-key tab navigation in the showcase, visible focus rings. Viewport rendering confirmed via headless Chromium screenshots (1440px + 360px).
 

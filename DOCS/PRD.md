@@ -6,6 +6,8 @@
 
 By marrying the structure of block-based nesting with the fluidity of an audio synthesizer or game, `jam-note` turns note-taking from a chore into a creative act. It features dynamic canvas-like workspaces, seamless keyboard-driven markdown editing, and deep customization (themes, flexible schemas, and instant layout modifications) that let users jam on their thoughts.
 
+The user-facing display brand is **Jam Notes** (UI headers, browser tab titles, social share cards); `jam-note` remains the repository and package name.
+
 ### Target Audience & Tone
 - **Audience:** Developers, designers, writers, and technical creators who care deeply about aesthetic execution, speed, keyboard ergonomics, and extensibility.
 - **Tone:** Technical, expressive, intentional, tactile. Less "enterprise productivity tool", more "high-end physical notebook meets retro-synthesizer".

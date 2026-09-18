@@ -13,8 +13,8 @@ import { silenceR3fClockDeprecation } from "./silence-r3f-clock";
 // once @react-three/fiber v10 stable ships.
 silenceR3fClockDeprecation();
 
-const GROUND = "#222831";
-const PANEL = "#393E46";
+const GROUND = "#161b24";
+const PANEL = "#1d2330";
 const GRID = "#4A5160";
 const ACCENT = "#FFD369";
 const TEXT = "#EEEEEE";

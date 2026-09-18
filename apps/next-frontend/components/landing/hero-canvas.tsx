@@ -79,7 +79,7 @@ export function HeroCanvas() {
     <div className="absolute inset-0 overflow-hidden" aria-hidden="true">
       {/* Static fallback: zero-JS dot lattice, masked so it dissolves
           towards the edges of the hero. */}
-      <div className="absolute inset-0 bg-[radial-gradient(circle,#393E46_1px,transparent_1.5px)] bg-[size:34px_34px] [mask-image:radial-gradient(ellipse_75%_65%_at_50%_45%,black_35%,transparent_100%)]" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle,#1d2330_1px,transparent_1.5px)] bg-[size:34px_34px] [mask-image:radial-gradient(ellipse_75%_65%_at_50%_45%,black_35%,transparent_100%)]" />
 
       {enable3D && idle && (
         <div className="landing-canvas landing-canvas-in absolute inset-0">

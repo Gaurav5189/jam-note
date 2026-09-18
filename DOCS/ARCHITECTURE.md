@@ -195,7 +195,7 @@ fastapi-backend/
   * `GET /` - Fetches the directory tree/index of notes.
   * `POST /` - Creates a new note (as document or canvas).
   * `GET /{note_id}` - Retrieves a single note's full block contents.
-  * `PUT /{note_id}` - Updates a note's blocks/meta. Supports JSON patch / optimistic delta syncing.
+  * `PUT /{note_id}` - Updates a note's blocks/meta. **Shipped:** sends the full ordered `blocks` array (delta/JSON-patch syncing deliberately deferred until documents grow — see MEMORY.md Phase 3).
   * `DELETE /{note_id}` - Deletes a note and cleanly detaches parent/child pointers.
 * **Publishing Engine (`/api/pub`)**:
   * `GET /posts` - Returns list of public posts for a given username.
@@ -217,7 +217,7 @@ Leverages a hybrid rendering model where UI skeleton frames are generated instan
    - Dynamic layout switching between Standard Flow (standard markdown list) and Spatial Canvas (absolute layouts synced back with coordinates).
 3. **Optimistic UI Upgrades:**
    - Local state is modified instantly upon typing, with keypress throttling.
-   - Changes are queued and pushed to FastAPI `/api/notes/{id}` in debounced batches (500ms inactivity or on focus changes).
+   - Changes are queued and pushed to FastAPI `/api/notes/{id}` in debounced batches. **Shipped:** a 10s idle debounce plus a 30s max-wait cap (never flushed on block blur — caret hops between blocks fire blur constantly), safety flushes on `visibilitychange`/`pagehide`/`beforeunload` (fetch `keepalive`), and a localStorage draft mirror that recovers unsaved edits after crashes.
 
 ---
 

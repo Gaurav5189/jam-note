@@ -94,6 +94,27 @@
     to   { opacity: 1; transform: translateY(0); }
   }
 
+  /* Hero reveal — CSS-driven by design. The hero copy must never depend on
+     hydration (Speed Index penalizes JS-gated opacity-0 reveals) or on JS
+     being available at all (a JS-gated reveal leaves no-JS visitors staring
+     at an empty hero). Keyframes start at first style application, so the
+     stagger is part of first paint; the reduced-motion reset below collapses
+     it to an instant paint. AnimateIn (IntersectionObserver) stays reserved
+     for below-the-fold sections where a scroll reveal is pure polish. */
+  @keyframes landing-hero-reveal {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .landing-reveal {
+    animation: landing-hero-reveal 450ms ease-out both;
+  }
+
+  .landing-reveal-1 { animation-delay: 60ms; }
+  .landing-reveal-2 { animation-delay: 120ms; }
+  .landing-reveal-3 { animation-delay: 180ms; }
+  .landing-reveal-4 { animation-delay: 240ms; }
+
   /* The 3D hero is decorative — parallax is driven from window-level
      pointer events, so the canvas itself never hit-tests (swipes and
      scrolls over the hero pass straight through to the page). */
@@ -118,14 +139,18 @@
 
 /* Respect the OS "reduce motion" switch everywhere: the 3D hero never
    mounts for these users (detected in hero-canvas.tsx); this resets any
-   remaining CSS animation, including the landing canvas fade-in and the
-   in-app block-highlight flash. */
+   remaining CSS animation, including the landing canvas fade-in, the
+   hero reveal stagger, and the in-app block-highlight flash. Delays are
+   zeroed too — a staggered reveal is motion over time, even when each
+   step is instant. */
 @media (prefers-reduced-motion: reduce) {
   *,
   ::before,
   ::after {
     animation-duration: 0.01ms !important;
+    animation-delay: 0s !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    transition-delay: 0s !important;
   }
 }
