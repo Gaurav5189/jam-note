@@ -39,6 +39,8 @@ This document details the software architecture, database design, and technical 
 1. **Frontend:** Next.js (v16.3+), React 19, TypeScript, TailwindCSS, and pnpm. Utilizes the App Router with Partial Prefetching (PPR) and Cache Components.
 2. **Backend:** FastAPI, Python 3.14, Pydantic v2. Fully asynchronous MongoDB connection via motor/pymongo.
 3. **Database:** MongoDB (using motor async driver). A document-based DB is perfect for storing block hierarchies, nested trees, and flexible custom block configurations.
+4. **Event stream:** Aiven Kafka, used for durable asynchronous domain events. Kafka is not the source of truth for notes.
+5. **Workers:** Separate Python processes that publish outbox records or consume Kafka topics. MongoDB and Aiven do not provide these application workers.
 
 ---
 
@@ -117,6 +119,41 @@ Using a parent-child adjacency list representation. This allows infinite nesting
 
 ---
 
+### C. Event Outbox Collection (`event_outbox`)
+The outbox keeps a successful MongoDB mutation paired with its event. The note
+mutation and outbox insert must be committed together. This internal collection
+is never exposed through the API.
+
+```json
+{
+  "_id": "ObjectId",
+  "event_id": "UUID (unique)",
+  "event_type": "note.changed | note.deleted | note.published",
+  "schema_version": 1,
+  "aggregate_type": "note",
+  "aggregate_id": "ObjectId",
+  "user_id": "ObjectId",
+  "payload": {
+    "changed_fields": ["blocks"],
+    "updated_at": "ISODate"
+  },
+  "status": "pending | publishing | published | failed",
+  "attempts": 0,
+  "available_at": "ISODate",
+  "claimed_at": "ISODate | null",
+  "published_at": "ISODate | null",
+  "last_error": "string | null",
+  "created_at": "ISODate"
+}
+```
+
+The Go streamer claims candidate records atomically, publishes a clean event
+envelope to `jam-note.note-events.v1`, and marks the outbox record published
+only after Kafka acknowledges the message. Failed records become replayable
+dead-letter records. A lease on `claimed_at` allows recovery after a crash.
+Delivery is at-least-once, so downstream consumers must be idempotent using
+`event_id` and a stable target id such as `aggregate_id:block_id`.
+
 ## 3. Backend Architecture (FastAPI)
 
 Following standard FastAPI modular layout.
@@ -138,6 +175,10 @@ fastapi-backend/
 │       │   ├── router.py
 │       │   ├── models.py      # Pydantic schemas
 │       │   └── service.py
+│       ├── events/
+│       │   ├── schemas.py       # Versioned domain-event payloads
+│       │   ├── outbox.py        # Transactional outbox writes and claiming
+│       │   └── producer.py      # Aiven Kafka producer configuration
 │       ├── publishing/
 │       │   ├── router.py
 │       │   └── service.py
@@ -188,3 +229,52 @@ Leverages a hybrid rendering model where UI skeleton frames are generated instan
    - Every DB operation implicitly appends the `user_id` context resolved from the auth dependency. No user can ever query, update, or read notes belonging to another user.
 3. **CORS Configuration:**
    - Restrict FastAPI backend CORS strictly to the Next.js origin.
+
+## 6. Eventing, Outbox, and Worker Model
+
+### Write path
+For a note create, update, delete, or publish operation, FastAPI performs the
+business mutation and inserts the corresponding outbox event in the same
+MongoDB transaction. MongoDB remains authoritative; a Kafka outage must not
+make the user lose a successfully accepted note update.
+
+Standalone MongoDB deployments do not support the transactions required for a
+strict cross-document atomic write. Production outbox mode should therefore use
+MongoDB Atlas or a replica-set deployment. Until then, local development can
+use Kafka-disabled tests plus reconciliation/reindex tooling.
+
+### What the worker is
+The worker is not supplied by MongoDB or Aiven. It is a separately deployed Go
+daemon in the `outbox-streamer` service, running on AlwaysData as a persistent
+service with `Idle time = 0`.
+
+```text
+./streamer
+```
+
+It uses MongoDB Change Streams only to generate low-latency candidates. A
+reconciliation loop independently scans pending records, expired publishing
+leases, and replayable failed records. The publisher atomically claims each
+candidate, publishes the complete event envelope to Kafka, updates MongoDB,
+and persists the resume token only after successful delivery.
+
+### Kafka consumers
+The OpenSearch indexer is a separate consumer process with its own Kafka
+consumer group, for example `jam-note-search-indexer`. Future consumers use
+different groups, allowing the same event stream to independently feed search,
+analytics, notifications, or publishing workflows. Consumers must preserve
+tenant isolation using `user_id`.
+
+### Delivery and recovery rules
+
+1. Events are published at least once; consumers must be idempotent.
+2. Failed outbox records remain in MongoDB for explicit replay/reset and
+  monitoring; this is the initial dead-letter store.
+3. `scripts/reindex.py` remains available to rebuild OpenSearch from MongoDB.
+4. Reconciliation covers pending, expired publishing, and replayable failed
+  records without deleting unacknowledged events.
+5. Kafka credentials and CA certificates are backend/worker secrets only; the
+  Next.js browser never connects directly to Kafka.
+6. Heartbeats are operational `system.heartbeat` events, sent at startup with
+  retry backoff and every six hours thereafter to satisfy Aiven inactivity
+  requirements. Consumers ignore them for domain processing.

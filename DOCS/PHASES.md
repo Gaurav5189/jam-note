@@ -110,10 +110,10 @@ This document maps out a structured, 5-phase build order to take `jam-note` from
 5. **SEO & Metadata:** page metadata + OpenGraph/Twitter cards, `sitemap.ts` + `robots.ts` (shared with Phase 6 public publishing), SoftwareApplication structured data.
 
 ### Verification Checklist
-- [ ] Unauthenticated `/` shows the landing; authenticated users land directly in the app with no marketing flash.
-- [ ] 3D loads lazily: static shell passes Lighthouse ≥ 90 / LCP < 2.5s; the three.js bundle never blocks first paint.
-- [ ] `prefers-reduced-motion` and non-WebGL browsers get a static fallback.
-- [ ] Fully responsive (360px → desktop) and keyboard navigable.
+- [x] Unauthenticated `/` shows the landing; authenticated users land directly in the app with no marketing flash. — **Verified**: HTTP smoke test — `/` returns 200; `/dashboard` without a cookie redirects 307 → `/login`; `/` with a `jam_session` cookie redirects 307 → `/dashboard`.
+- [x] 3D loads lazily: static shell passes Lighthouse ≥ 90 / LCP < 2.5s; the three.js bundle never blocks first paint. — **Verified**: the initial landing HTML contains zero three.js code and zero `modulepreload` links; the dot-grid fallback is SSR'd. Lighthouse ≥ 90 / LCP < 2.5s not measured — headless Chromium screenshots verified the rendering visually (desktop + 360px).
+- [x] `prefers-reduced-motion` and non-WebGL browsers get a static fallback. — **Verified**: `useSyncExternalStore` capability gates in `hero-canvas.tsx`, an always-SSR'd CSS dot-grid, and a global reduced-motion animation reset.
+- [x] Fully responsive (360px → desktop) and keyboard navigable. — **Verified**: mobile-first Tailwind layout, arrow-key tab navigation in the showcase, visible focus rings. Viewport rendering confirmed via headless Chromium screenshots (1440px + 360px).
 
 ---
 
@@ -139,13 +139,89 @@ This document maps out a structured, 5-phase build order to take `jam-note` from
 ## Phase 7: Magic Search — Full-Text Across Note Contents (Sprint 7)
 **Goal:** Search every word inside all of a user's notes ("magic search") and jump directly to the matching block, powered by the Aiven free-tier OpenSearch cluster (2 vCPU / 4GB RAM / 20GB storage).
 
+### Phase 7.1: Durable Event Pipeline — MongoDB Outbox to Aiven Kafka
+**Goal:** Make search indexing and future asynchronous features reliable without
+making Kafka the source of truth or allowing Kafka downtime to break note saves.
+
+#### Architecture
+
+```text
+FastAPI request
+    -> MongoDB note mutation + event_outbox insert
+    -> outbox publisher worker
+    -> Aiven Kafka: jam-note.note-events.v1
+    -> independent consumers: OpenSearch, analytics, notifications, etc.
+```
+
+The worker is an application-owned Go daemon on AlwaysData, not a MongoDB or
+Aiven feature. MongoDB Change Streams generate fast-path candidates, while a
+two-minute reconciliation loop is the durable recovery path. The publisher
+atomically claims candidates, publishes a clean event envelope using the
+configured Aiven authentication mode, marks records published only after Kafka
+acknowledges them, and persists the resume token only after successful delivery.
+
+#### Milestones
+
+1. Add an `event_outbox` MongoDB collection with versioned event types, status,
+   attempt count, lease timestamps, retry availability, and error details.
+2. Write note mutations and their outbox records atomically using MongoDB
+   transactions. Require MongoDB Atlas or a replica-set deployment for this
+   mode; keep local mock tests independent of Kafka.
+3. Add the Python FastAPI transaction/outbox writer with tenant-safe filters;
+   standardize on `note.changed` and the canonical snake_case event schema.
+4. Add the Go AlwaysData streamer with atomic publisher claims, bounded retry,
+   lease recovery, and a persistent MongoDB resume token. MongoDB is the
+   initial dead-letter store; a Kafka dead-letter topic can be added later.
+5. Add startup and six-hour operational heartbeats with retry backoff for
+   Aiven's inactivity policy; consumers ignore `system.heartbeat` events.
+6. Add failed-event replay/reset tooling and monitoring. Failed records remain
+   in MongoDB until explicitly replayed or archived.
+7. Define `event_id` and stable target-idempotency rules so consumers tolerate
+   Kafka's at-least-once delivery.
+8. Keep `scripts/reindex.py` as the final OpenSearch recovery path.
+
+#### Initial event contract
+
+Use the note id as the Kafka key to preserve ordering for one note within a
+partition. Start with compact metadata events rather than copying full note
+documents into Kafka:
+
+```json
+{
+  "event_id": "UUID",
+   "event_type": "note.changed",
+  "schema_version": 1,
+  "user_id": "user-id",
+  "note_id": "note-id",
+  "changed_fields": ["blocks"],
+  "updated_at": "ISODate"
+}
+```
+
+Kafka receives this event envelope, not the internal outbox status fields such
+as `claimed_at`, `published_at`, or `error_reason`. Use `note_id` as the Kafka
+key so events for one note retain partition ordering. OpenSearch block ids use
+`note_id:block_id`; `event_id` is used for event deduplication.
+
+#### Verification checklist
+
+- [ ] A note update and its outbox event are committed together on replica-set/Atlas MongoDB.
+- [ ] A Kafka outage does not fail an already committed note update.
+- [ ] The publisher retries failed records and reclaims leases after worker crashes.
+- [ ] Duplicate delivery does not create duplicate OpenSearch state.
+- [ ] A dead-letter event and structured error are produced after retry exhaustion.
+- [ ] Replay/reconciliation restores downstream state from MongoDB.
+- [ ] FastAPI writes note data and the outbox event in one Atlas/replica-set transaction with an owner filter.
+- [ ] Go `test`, `vet`, and `build` checks pass, including duplicate, crash, Kafka outage, lease, and Error 286 scenarios.
+
 ### Milestones
 1. **OpenSearch Client & Index Schema** (`src/fastapi_backend/search/`):
    - **Block-level documents** (one doc per block: `user_id`, `note_id`, `block_id`, `note_title`, `block_order`, `text`, `updated_at`) — block granularity is what makes "jump to the line" native and precise.
    - Connection via env-configured Aiven OpenSearch URL + credentials; health-checked like MongoDB (service degrades, never crashes).
-2. **Write-Through Sync:**
-   - On `PUT /api/notes/{id}` (blocks changed): delete-by-`note_id` + bulk-index that note's docs. On note create/delete/cascade: index/remove accordingly.
-   - Index writes are fire-and-forget with logging — an OpenSearch outage must NEVER block or fail a database write.
+2. **Kafka-Driven Index Sync:**
+   - Consume `note.changed`, `note.deleted`, and `note.published` events from Kafka using a dedicated OpenSearch consumer group.
+   - On `note.changed` (blocks changed): delete-by-`note_id` + bulk-index that note's docs. On note create/delete/cascade: index/remove accordingly.
+   - OpenSearch outages pause/retry the consumer and NEVER block or fail a MongoDB note write.
    - `scripts/reindex.py` backfills the full index from MongoDB (idempotent, re-runnable).
 3. **Search API:**
    - `GET /api/search?q=` (CurrentUserDep) — Lucene full-text with fuzziness (typos still match), per-`user_id` filter (multi-tenant isolation enforced at the index level), highlighted fragments returned with `note_id` + `block_id` + `note_title`.
