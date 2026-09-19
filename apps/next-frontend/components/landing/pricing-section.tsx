@@ -1,110 +1,60 @@
-import Link from "next/link";
-import { AnimateIn } from "./animate-in";
+"use client";
 
-const INCLUDED = [
-  { label: "Unlimited notes & infinite nesting", done: true },
-  { label: "Canvas mode on every note", done: true },
-  { label: "Crash-safe autosave + draft recovery", done: true },
-  { label: "⌘K search across the workspace", done: true },
-  { label: "Publishing hub — shipping next", done: false },
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { inkBurst } from "./feedback";
+
+const terms = [
+  ["Unlimited notes & infinite nesting", "no ceilings, no counts"],
+  ["The whole rack — every module", "nothing held back"],
+  ["Local-first · your notes are files", "plain, portable, yours"],
+  ["Instant search across everything", "before you finish typing"],
+  ["Export to Markdown, anytime", "no lock-in, ever"],
+  ["Offline-first sync", "when you say so"],
 ] as const;
 
+function Scissors() {
+  return <svg viewBox="0 0 24 14" aria-hidden="true"><circle cx="5" cy="4" r="2.6" fill="none" stroke="currentColor" strokeWidth="1.5" /><circle cx="5" cy="10" r="2.6" fill="none" stroke="currentColor" strokeWidth="1.5" /><path d="M7.4 5 21 12M7.4 9 21 2" stroke="currentColor" strokeWidth="1.5" /></svg>;
+}
+
+function Barcode() {
+  return <svg viewBox="0 0 120 26" aria-hidden="true" fill="currentColor"><path d="M0 0h2.6v26H0zM5 0h1.4v26H5zM9.4 0h3.2v26H9.4zM15 0h1.4v26H15zM18.6 0h2.2v26h-2.2zM23.4 0h1.4v26h-1.4zM26.8 0h3.4v26h-3.4zM32.4 0h1.4v26h-1.4zM35.8 0h2.2v26h-2.2zM40.4 0h1.4v26h-1.4zM44 0h3.2v26H44zM49.6 0h1.4v26h-1.4zM53 0h2.2v26H53zM57.6 0h1.4v26h-1.4zM61 0h3.4v26H61zM67 0h1.4v26h-1.4zM70.4 0h2.2v26h-2.2zM75 0h1.4v26h-1.4zM78.6 0h3.2v26h-3.2zM84.2 0h1.4v26h-1.4zM87.6 0h2.2v26h-2.2zM92.2 0h1.4v26h-1.4zM95.8 0h3.4v26h-3.4zM101.6 0h1.4v26h-1.4zM105 0h2.2v26h-2.2zM109.6 0h1.4v26h-1.4zM113 0h3.2v26h-3.2zM118.4 0h1.6v26h-1.6z" /></svg>;
+}
+
 export function PricingSection() {
-  return (
-    <section id="pricing" className="scroll-mt-14 border-t border-landing-border">
-      <div className="mx-auto max-w-6xl px-5 py-20 sm:px-8 sm:py-28">
-        {/* Two-column layout */}
-        <div className="flex flex-col gap-10 lg:flex-row lg:items-start lg:gap-16">
-          {/* ── Left column: copy ───────────────────────────────────── */}
-          <AnimateIn className="lg:max-w-sm xl:max-w-md">
-            <p className="font-landing-mono text-[13px] text-landing-accent">
-              {"// pricing"}
-            </p>
-            <h2 className="mt-4 font-landing-sans text-3xl font-semibold tracking-tight text-landing-text sm:text-4xl">
-              Free while it is in beta.
-            </h2>
-            <p className="mt-4 max-w-[52ch] text-sm leading-relaxed text-landing-muted sm:text-base">
-              Everything below is included from day one. No seat math, no
-              paywalled basics — the list is the roadmap, and it is honest.
-            </p>
-          </AnimateIn>
+  const router = useRouter();
+  const [clipped, setClipped] = useState(false);
+  const [countdown, setCountdown] = useState(3);
+  useEffect(() => { router.prefetch("/signup"); }, [router]);
+  useEffect(() => {
+    if (!clipped) return;
+    const interval = window.setInterval(() => setCountdown((value) => Math.max(0, value - 1)), 1000);
+    const redirect = window.setTimeout(() => router.push("/signup"), 3000);
+    return () => { window.clearInterval(interval); window.clearTimeout(redirect); };
+  }, [clipped, router]);
+  const claim = () => {
+    if (clipped) return;
+    setCountdown(3);
+    setClipped(true);
+    inkBurst(innerWidth * 0.7, innerHeight * 0.7);
+  };
 
-          {/* ── Right column: tier card ──────────────────────────────── */}
-          <AnimateIn className="flex-1" delay={120}>
-            <div className="rounded-md border border-landing-border bg-landing-panel/20">
-              {/* Card header */}
-              <div className="border-b border-landing-border px-6 py-4">
-                <p className="font-landing-mono text-[11px] uppercase tracking-widest text-landing-accent">
-                  {"// Included in Beta Tier"}
-                </p>
-              </div>
-
-              {/* Feature list — clean bullet style, no brackets */}
-              <ul className="space-y-4 px-6 py-6">
-                {INCLUDED.map((item) => (
-                  <li
-                    key={item.label}
-                    className="flex items-center gap-3"
-                  >
-                    {item.done ? (
-                      /* Filled check circle for shipped features */
-                      <span
-                        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-landing-accent/15 text-landing-accent"
-                        aria-hidden="true"
-                      >
-                        <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
-                          <path
-                            d="M1 4l2.5 2.5L9 1"
-                            stroke="currentColor"
-                            strokeWidth="1.6"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                        </svg>
-                      </span>
-                    ) : (
-                      /* Hollow circle for upcoming */
-                      <span
-                        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-landing-border"
-                        aria-hidden="true"
-                      />
-                    )}
-                    <span
-                      className={`font-landing-sans text-[13px] leading-snug ${
-                        item.done ? "text-landing-text" : "text-landing-muted"
-                      }`}
-                    >
-                      {item.label}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-
-              {/* Card footer: CTA + portability badge */}
-              <div className="flex flex-col gap-4 border-t border-landing-border px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex flex-wrap items-center gap-4">
-                  <Link
-                    href="/signup"
-                    className="landing-focus rounded-full bg-landing-accent px-6 py-2.5 font-landing-mono text-sm font-semibold text-landing-base transition-all hover:bg-landing-text hover:scale-[1.03] active:scale-[0.98]"
-                  >
-                    Start free
-                  </Link>
-                  <span className="font-landing-mono text-[11px] text-landing-muted">
-                    no card&nbsp;·&nbsp;export anytime
-                  </span>
-                </div>
-                <span className="flex items-center gap-1.5 font-landing-mono text-[10px] uppercase tracking-wide text-green-400">
-                  <span
-                    className="h-1.5 w-1.5 rounded-full bg-green-400"
-                    aria-hidden="true"
-                  />
-                  Portability Guaranteed (JSON/MD)
-                </span>
-              </div>
-            </div>
-          </AnimateIn>
+  return <section className="spread beta" id="beta">
+    <span className="folio-n">04</span>
+    <div className="wrap">
+      <div data-reveal data-drift><p className="kicker">SPREAD 04 — TERMS</p><h2 className="h-xl">FREE WHILE<br />IT IS IN BETA<span className="acc">.</span></h2></div>
+      <div className="beta-grid" data-reveal>
+        <div><div className="price"><span className="big">FREE</span><sup className="ast">*</sup></div><p className="price-note">While the beta lasts. No card, no clock, no drip pricing. When beta ends you keep every note — and the price stays honest.</p></div>
+        <div>
+          <ul className="terms">{terms.map(([title, note], index) => <li className="term" key={title}><i>{String(index + 1).padStart(2, "0")}</i><b>{title}</b><span>{note}</span></li>)}</ul>
+          <button className={`coupon ${clipped ? "is-clipped" : ""}`} aria-disabled={clipped} onClick={claim}>
+            <span className="cp-cut"><Scissors />NO. 000042 — VALID WHILE β</span>
+            <span className="cp-row"><span className="cp-main"><span className="cp-claim">CLIP THIS COUPON —<br />START WRITING</span>{clipped && <span className="cp-said" role="status" aria-live="polite">CLIPPED — SEE YOU<br />IN THE BETA {countdown}..</span>}</span><span className="cp-code"><Barcode /><span>8 4JAM2 βETA9</span></span></span>
+            <strong className="cp-stamp">CLAIMED</strong>
+          </button>
+          <p className="after-line">AFTER BETA — HONEST PRICING · EVERY NOTE STAYS YOURS · EXPORT ANYTIME</p>
         </div>
       </div>
-    </section>
-  );
+    </div>
+  </section>;
 }

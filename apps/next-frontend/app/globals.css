@@ -12,22 +12,6 @@
   --color-text-primary: #F3F4F6;
   --color-text-muted: #8A94A6;
 
-  /* Phase 5 — landing page marketing tokens. Deliberately scoped: the
-     in-app neo-industrial theme above stays untouched; these utilities are
-     only used by app/page.tsx + components/landing/* (PHASES.md Phase 5). */
-  /* Darkened variant of the original #222831/#393E46 palette — same
-     blue-dark character but noticeably deeper, matching the reference designs. */
-  --color-landing-base: #161b24;
-  --color-landing-panel: #1d2330;
-  --color-landing-border: #262e3c;
-  --color-landing-accent: #FFD369;
-  --color-landing-text: #EEEEEE;
-  --color-landing-muted: #AEB4BD;
-
-  /* Geist fonts (self-hosted via the `geist` package) — set by the
-     GeistSans/GeistMono .variable classes on the landing wrapper. */
-  --font-landing-sans: var(--font-geist-sans), system-ui, sans-serif;
-  --font-landing-mono: var(--font-geist-mono), ui-monospace, "SF Mono", monospace;
 }
 
 @layer base {
@@ -77,72 +61,17 @@
     border-radius: 3px;
   }
 
-  /* Phase 5 landing: fade the streamed-in 3D canvas over the static
-     dot-grid fallback without blocking first paint. */
-  @keyframes landing-canvas-in {
-    from { opacity: 0; }
-    to   { opacity: 1; }
-  }
-
-  .landing-canvas-in {
-    animation: landing-canvas-in 900ms ease-out 150ms both;
-  }
-
-  /* Tab panel crossfade — fires each time `key` changes on the wrapper div. */
-  @keyframes tab-fade-in {
-    from { opacity: 0; transform: translateY(4px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-
-  /* Hero reveal — CSS-driven by design. The hero copy must never depend on
-     hydration (Speed Index penalizes JS-gated opacity-0 reveals) or on JS
-     being available at all (a JS-gated reveal leaves no-JS visitors staring
-     at an empty hero). Keyframes start at first style application, so the
-     stagger is part of first paint; the reduced-motion reset below collapses
-     it to an instant paint. AnimateIn (IntersectionObserver) stays reserved
-     for below-the-fold sections where a scroll reveal is pure polish. */
-  @keyframes landing-hero-reveal {
-    from { opacity: 0; transform: translateY(20px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-
-  .landing-reveal {
-    animation: landing-hero-reveal 450ms ease-out both;
-  }
-
-  .landing-reveal-1 { animation-delay: 60ms; }
-  .landing-reveal-2 { animation-delay: 120ms; }
-  .landing-reveal-3 { animation-delay: 180ms; }
-  .landing-reveal-4 { animation-delay: 240ms; }
-
-  /* The 3D hero is decorative — parallax is driven from window-level
-     pointer events, so the canvas itself never hit-tests (swipes and
-     scrolls over the hero pass straight through to the page). */
-  .landing-canvas canvas {
-    pointer-events: none;
-  }
+  /* Phase 5 landing utilities were superseded by the Monograph migration —
+     the landing now owns its bespoke CSS in app/landing.css (print chrome,
+     kinetic type, film strip, rack, coupon, colophon). The old .landing-focus
+     component class went with them: focus rings are now the concept's
+     2px red outline, declared inside landing.css under `.landing`. */
 }
 
-@layer components {
-  /* Shared keyboard-focus treatment for the landing surface: a quiet
-     double ring in the marketing palette, no layout shift. */
-  .landing-focus {
-    outline: none;
-  }
-
-  .landing-focus:focus-visible {
-    box-shadow:
-      0 0 0 2px var(--color-landing-base),
-      0 0 0 4px var(--color-landing-accent);
-  }
-}
-
-/* Respect the OS "reduce motion" switch everywhere: the 3D hero never
-   mounts for these users (detected in hero-canvas.tsx); this resets any
-   remaining CSS animation, including the landing canvas fade-in, the
-   hero reveal stagger, and the in-app block-highlight flash. Delays are
-   zeroed too — a staggered reveal is motion over time, even when each
-   step is instant. */
+/* Respect the OS "reduce motion" switch everywhere; this resets any
+   remaining CSS animation, including the landing monograph's kinetic intro
+   and the in-app block-highlight flash. Delays are zeroed too — a staggered
+   reveal is motion over time, even when each step is instant. */
 @media (prefers-reduced-motion: reduce) {
   *,
   ::before,

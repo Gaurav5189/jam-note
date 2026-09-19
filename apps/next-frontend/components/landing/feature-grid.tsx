@@ -1,234 +1,150 @@
-import {
-  Boxes,
-  Command,
-  FolderTree,
-  Link2,
-  RefreshCw,
-  Type,
-} from "lucide-react";
-import { AnimateIn } from "./animate-in";
+"use client";
 
-// ── Module definitions ─────────────────────────────────────────────────────
+import { useEffect, useRef, useState } from "react";
 
-const MODULES = [
-  {
-    num: "01",
-    tag: "EDITOR",
-    icon: Type,
-    status: "Core",
-    statusVariant: "accent" as const,
-    title: "Block editor, slash commands",
-    body: "Type / for headings, todos, code, drawings. Markdown triggers (#, -, [x]) convert as you type, and a pasted markdown doc splits itself into typed blocks.",
-    metaLeft: "triggers: #, ##, -, [x], ``` ",
-    metaRight: "AST parser inline",
-    soon: false,
-  },
-  {
-    num: "02",
-    tag: "CANVAS",
-    icon: Boxes,
-    status: "Spatial",
-    statusVariant: "muted" as const,
-    title: "The Jam Canvas",
-    body: "Flip any note into an infinite board. Drag cards around, draw connections, color-code groups, zoom and pan — with a 50-step undo stack over every gesture.",
-    metaLeft: "matrix: infinite pan/zoom (0.25x to 2.5x)",
-    metaRight: "undo buffer: 50 states",
-    soon: false,
-  },
-  {
-    num: "03",
-    tag: "SYNC",
-    icon: RefreshCw,
-    status: "Resilient",
-    statusVariant: "muted" as const,
-    title: "Crash-safe autosave",
-    body: "10-second idle saves with a 30-second hard cap, flushes on tab-hide and unload, plus a local draft mirror that puts itself back on the wire after a crash.",
-    metaLeft: "resilience: 100% crash recovery",
-    metaRight: "hard cap: 30s max lag",
-    soon: false,
-  },
-  {
-    num: "04",
-    tag: "PALETTE",
-    icon: Command,
-    status: "Global",
-    statusVariant: "muted" as const,
-    title: "⌘K, everywhere",
-    body: "Search the whole workspace from any screen — results deep-link straight into the note with the sidebar already open at the right place.",
-    metaLeft: "latency: < 10ms indexing",
-    metaRight: "fuzzy match enabled",
-    soon: false,
-  },
-  {
-    num: "05",
-    tag: "TREE",
-    icon: FolderTree,
-    status: "Hierarchy",
-    statusVariant: "muted" as const,
-    title: "Infinite nesting",
-    body: "Notes nest to any depth in the sidebar. Deleting a parent lifts its children up one level — nothing is ever orphaned, nothing is ever lost.",
-    metaLeft: "safety: auto-lift orphan guardian",
-    metaRight: "depth: unconstrained",
-    soon: false,
-  },
-  {
-    num: "06",
-    tag: "PUBLISH",
-    icon: Link2,
-    status: "SOON",
-    statusVariant: "soon" as const,
-    title: "Self-publishing hub",
-    body: "When a note is ready for readers, flip it public — it gets a URL at pub/you/slug, readable by anyone, no account needed. You keep editing the note behind it.",
-    metaLeft: "routing: pub/you/<slug>",
-    metaRight: "headless edge HTML",
-    soon: true,
-  },
-] as const;
+type Module = {
+  id: string;
+  tag: string;
+  category: string;
+  icon: string;
+  title: string;
+  description: string;
+  scale: 1 | 2 | 3;
+  x: number;
+  y: number;
+  badge?: string;
+};
 
-// ── Left sidebar: module index ─────────────────────────────────────────────
-
-function ModuleIndex() {
-  return (
-    <div className="max-h-[calc(100vh-5.5rem)] overflow-y-auto overflow-x-hidden rounded-md border border-landing-border bg-landing-panel/30">
-      {/* Header */}
-      <div className="border-b border-landing-border px-4 py-3">
-        <p className="font-landing-mono text-[9px] uppercase tracking-[0.18em] text-landing-muted">
-          Module Index
-        </p>
-      </div>
-
-      {/* Module list */}
-      <ul>
-        {MODULES.map((mod) => (
-          <li
-            key={mod.tag}
-            className="flex items-center justify-between border-b border-landing-border/60 px-4 py-2.5 last:border-b-0"
-          >
-            <span className="font-landing-mono text-[11px] text-landing-muted">
-              <span className="text-landing-accent">{mod.num}</span>
-              {" // "}
-              {mod.tag}
-            </span>
-            {mod.statusVariant === "soon" ? (
-              <span className="rounded-[2px] border border-landing-accent/50 px-1.5 py-px font-landing-mono text-[9px] uppercase tracking-wide text-landing-accent">
-                {mod.status}
-              </span>
-            ) : mod.statusVariant === "accent" ? (
-              <span className="font-landing-mono text-[10px] text-landing-accent">
-                {mod.status}
-              </span>
-            ) : (
-              <span className="font-landing-mono text-[10px] text-landing-muted">
-                {mod.status}
-              </span>
-            )}
-          </li>
-        ))}
-      </ul>
-
-      {/* Verified spec footer */}
-      <div className="border-t border-landing-border bg-green-950/20 px-4 py-3">
-        <p className="flex items-center gap-1.5 font-landing-mono text-[10px] text-green-400">
-          <span className="h-1.5 w-1.5 rounded-full bg-green-400" aria-hidden="true" />
-          Architect Verified Specs
-        </p>
-        <p className="mt-1.5 text-[10px] leading-relaxed text-landing-muted">
-          Zero dependencies on cloud blast. Local writes commit immediately to
-          memory before dispatching to transport.
-        </p>
-      </div>
-    </div>
-  );
-}
-
-// ── Right panel: one card per module ──────────────────────────────────────
-
-function ModuleCard({
-  mod,
-  index,
-}: {
-  mod: (typeof MODULES)[number];
-  index: number;
-}) {
-  const Icon = mod.icon;
-  return (
-    <AnimateIn delay={index * 70}>
-      <article className="overflow-hidden rounded-md border border-landing-border bg-landing-panel/20 transition-colors hover:border-landing-muted/50 hover:bg-landing-panel/40">
-        {/* Card header row */}
-        <div className="flex items-center justify-between border-b border-landing-border px-5 py-3">
-          <p className="font-landing-mono text-[11px] text-landing-accent">
-            {"// "}
-            {mod.num} {mod.tag}
-          </p>
-          <span className="grid h-6 w-6 place-items-center rounded-[2px] border border-landing-border text-landing-muted transition-colors hover:border-landing-muted hover:text-landing-text">
-            <Icon size={11} aria-hidden="true" />
-          </span>
-        </div>
-
-        {/* Body */}
-        <div className="px-5 py-4">
-          <h3 className="flex flex-wrap items-center gap-2 font-landing-sans text-base font-semibold text-landing-text">
-            {mod.title}
-            {mod.soon && (
-              <span className="rounded-[2px] border border-landing-accent/40 px-1.5 py-px font-landing-mono text-[9px] lowercase tracking-normal text-landing-accent">
-                soon
-              </span>
-            )}
-          </h3>
-          <p className="mt-2 text-[13px] leading-relaxed text-landing-muted">
-            {mod.body}
-          </p>
-        </div>
-
-        {/* Metadata footer bar */}
-        <div className="flex items-center justify-between border-t border-landing-border bg-landing-base/40 px-5 py-2.5">
-          <span className="font-landing-mono text-[10px] text-landing-accent">
-            {mod.metaLeft}
-          </span>
-          <span className="font-landing-mono text-[10px] text-landing-muted">
-            {mod.metaRight}
-          </span>
-        </div>
-      </article>
-    </AnimateIn>
-  );
-}
-
-// ── Section ────────────────────────────────────────────────────────────────
+const modules: Module[] = [
+  { id: "M-01", tag: "/block-editor", category: "EDITOR", icon: "▤", title: "BLOCK EDITOR", description: "Type / for headings, todos, code, drawings.", scale: 1, x: 25, y: 30 },
+  { id: "M-02", tag: "/jam-canvas", category: "CANVAS", icon: "✻", title: "JAM CANVAS", description: "Arrange every block in an infinite field.", scale: 1, x: 65, y: 40 },
+  { id: "M-03", tag: "/autosave", category: "SYNC", icon: "↺", title: "AUTOSAVE", description: "Crash-safe saves with a local draft mirror.", scale: 2, x: 45, y: 70 },
+  { id: "M-04", tag: "/palette", category: "PALETTE", icon: "⊕", title: "⌘K PALETTE", description: "Search the whole workspace instantly.", scale: 1, x: 75, y: 20 },
+  { id: "M-05", tag: "/note-tree", category: "TREE", icon: "⎘", title: "NOTE TREE", description: "Nest notes to any depth; lose nothing.", scale: 2, x: 15, y: 65 },
+  { id: "M-06", tag: "/publishing", category: "PUBLISH", icon: "✶", title: "PUBLISHING", description: "A public URL for the draft that is ready.", scale: 1, x: 35, y: 80, badge: "SOON" },
+  { id: "M-07", tag: "/multiplayer", category: "SYNC", icon: "⧉", title: "MULTIPLAYER", description: "Real-time sync with your team.", scale: 3, x: 85, y: 55 },
+  { id: "M-08", tag: "/export", category: "EXPORT", icon: "⎚", title: "PDF EXPORT", description: "Document rendering for JSON and Markdown.", scale: 3, x: 50, y: 15 },
+  { id: "M-09", tag: "/api-access", category: "DEV", icon: "⏣", title: "REST API", description: "Headless access to all workspace nodes.", scale: 2, x: 80, y: 80 },
+  { id: "M-10", tag: "/dark-mode", category: "THEME", icon: "◐", title: "DARK MODE", description: "Toggle the physical environment stock.", scale: 3, x: 10, y: 20 },
+];
 
 export function FeatureGrid() {
-  return (
-    <section id="features" className="scroll-mt-14 border-t border-landing-border">
-      <div className="mx-auto max-w-6xl px-5 py-20 sm:px-8 sm:py-28">
-        {/* Section heading */}
-        <AnimateIn>
-          <p className="font-landing-mono text-[13px] text-landing-accent">
-            {"// features"}
-          </p>
-          <h2 className="mt-4 max-w-2xl font-landing-sans text-3xl font-semibold tracking-tight text-landing-text sm:text-4xl">
-            A rack of modules, not a toolbar.
-          </h2>
-          <p className="mt-4 max-w-[62ch] text-sm leading-relaxed text-landing-muted sm:text-base">
-            Six systems doing one job: keeping your ideas where your hands are.
-            Each one is wired to the same note, the same save, the same tree.
-          </p>
-        </AnimateIn>
+  const rackRef = useRef<HTMLElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+  const activeTagRef = useRef<HTMLButtonElement | null>(null);
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
 
-        {/* Two-column layout: index sidebar + module cards */}
-        <div className="mt-12 flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">
-          {/* Left: sticky module index (hidden on mobile — cards carry all info) */}
-          <aside className="hidden shrink-0 lg:sticky lg:top-24 lg:block lg:w-56 xl:w-64">
-            <ModuleIndex />
-          </aside>
+  useEffect(() => {
+    const rack = rackRef.current;
+    const popover = popoverRef.current;
+    if (!rack || !popover) return;
 
-          {/* Right: stacked module cards */}
-          <div className="flex min-w-0 flex-1 flex-col gap-3">
-            {MODULES.map((mod, i) => (
-              <ModuleCard key={mod.tag} mod={mod} index={i} />
-            ))}
-          </div>
-        </div>
+    const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const tags = [...rack.querySelectorAll<HTMLButtonElement>(".spatial-tag")];
+    let targetX = 0;
+    let targetY = 0;
+    let currentX = 0;
+    let currentY = 0;
+    let frame = 0;
+
+    const positionPopover = () => {
+      const activeTag = activeTagRef.current;
+      if (!activeTag) return;
+
+      const rect = activeTag.getBoundingClientRect();
+      const popoverWidth = 240;
+      const popoverHeight = popover.offsetHeight || 180;
+      let left = rect.left;
+      let top = rect.bottom + 8;
+
+      if (left + popoverWidth > innerWidth - 20) left = rect.right - popoverWidth;
+      if (left < 20) left = 20;
+
+      if (top + popoverHeight > innerHeight - 20) {
+        top = rect.top - popoverHeight - 8;
+        popover.style.transformOrigin = "bottom left";
+      } else {
+        popover.style.transformOrigin = "top left";
+      }
+
+      top = Math.max(20, Math.min(top, innerHeight - popoverHeight - 20));
+
+      popover.style.left = `${left}px`;
+      popover.style.top = `${top}px`;
+    };
+
+    const onPointerMove = (event: PointerEvent) => {
+      targetX = (event.clientX / innerWidth - 0.5) * 2;
+      targetY = (event.clientY / innerHeight - 0.5) * 2;
+    };
+
+    const animate = () => {
+      if (!reducedMotion) {
+        currentX += (targetX - currentX) * 0.08;
+        currentY += (targetY - currentY) * 0.08;
+        tags.forEach((tag) => {
+          const scale = Number(tag.dataset.scale);
+          const depth = (4 - scale) * 15;
+          tag.style.transform = `translate(calc(-50% + ${currentX * depth}px), calc(-50% + ${currentY * depth}px))`;
+        });
+      }
+      positionPopover();
+      frame = requestAnimationFrame(animate);
+    };
+
+    addEventListener("pointermove", onPointerMove, { passive: true });
+    animate();
+    return () => {
+      removeEventListener("pointermove", onPointerMove);
+      cancelAnimationFrame(frame);
+    };
+  }, []);
+
+  const activate = (index: number, tag: HTMLButtonElement) => {
+    activeTagRef.current = tag;
+    setActiveIndex(index);
+  };
+
+  const dismiss = (index: number) => {
+    if (activeIndex !== index) return;
+    activeTagRef.current = null;
+    setActiveIndex(null);
+  };
+
+  const activeModule = activeIndex === null ? null : modules[activeIndex];
+
+  return <section ref={rackRef} className="modules module-rack-spread" id="modules" aria-label="Module rack">
+    <div className="plate-intro" data-reveal data-drift>
+      <p className="kicker">SPREAD 03 — PLATE 01 · THE RACK</p>
+      <h2 className="plate-statement"><span>A RACK OF</span><span>MODULES,</span><span>NOT A TOOLBAR<i>.</i></span></h2>
+      <p className="dek">A toolbar decides what you can do. A rack decides what you can mount. Snap in the modules a thought needs — outliner, canvas, sketch, timer — and pull them off when the work is done. Your rack, your business.</p>
+    </div>
+    <div className="spatial-rack">
+      <header className="rack-running rack-running-head"><span className="rack-title"><b>03</b> / MODULE RACK</span><span className="rack-hint">HOVER OVER A MODULE FOR ITS SPECIMEN</span></header>
+      <div className="spatial-canvas">
+        {modules.map((module, index) => <button
+          key={module.id}
+          className={`spatial-tag ${activeIndex === index ? "active" : ""}`}
+          data-scale={module.scale}
+          style={{ left: `${module.x}%`, top: `${module.y}%` }}
+          aria-describedby={activeIndex === index ? "module-specimen" : undefined}
+          onPointerEnter={(event) => { if (event.pointerType === "mouse") activate(index, event.currentTarget); }}
+          onPointerLeave={(event) => { if (event.pointerType === "mouse") dismiss(index); }}
+          onFocus={(event) => activate(index, event.currentTarget)}
+          onBlur={() => dismiss(index)}
+          onClick={(event) => activate(index, event.currentTarget)}
+        >{module.tag}</button>)}
       </div>
-    </section>
-  );
+      <div ref={popoverRef} id="module-specimen" className={`module-specimen ${activeModule ? "visible" : ""}`} aria-live="polite">
+        {activeModule && <>
+          <div className="specimen-top"><span>{activeModule.id} / {activeModule.category}</span><i aria-hidden="true" /></div>
+          <div className="specimen-icon" aria-hidden="true">{activeModule.icon}</div>
+          <h2>{activeModule.title}{activeModule.badge && <small>{activeModule.badge}</small>}</h2>
+          <p>{activeModule.description}</p>
+          <span className="specimen-corner" aria-hidden="true">⌟</span>
+        </>}
+      </div>
+      <footer className="rack-running rack-running-foot" aria-hidden="true" />
+    </div>
+  </section>;
 }

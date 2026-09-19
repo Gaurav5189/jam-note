@@ -4,8 +4,8 @@ export const alt = "Jam Notes — write fast, think in space";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-// Generated at build time (no request-time APIs). Uses next/og's bundled
-// default font — no external font downloads.
+// Generated at build time (no request-time APIs). Keep the social card in the
+// same paper-monograph world as the landing surface.
 export default function Image() {
   return new ImageResponse(
     (
@@ -16,8 +16,10 @@ export default function Image() {
           display: "flex",
           flexDirection: "column",
           justifyContent: "space-between",
-          background: "#161b24",
-          padding: 72,
+           background: "#f3efe6",
+           color: "#151310",
+           padding: 64,
+           border: "12px solid #151310",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
@@ -25,13 +27,12 @@ export default function Image() {
             style={{
               width: 22,
               height: 22,
-              background: "#FFD369",
-              borderRadius: 3,
+              background: "#ff3d1c",
             }}
           />
           <div
             style={{
-              color: "#EEEEEE",
+              color: "#151310",
               fontSize: 30,
               fontWeight: 600,
               letterSpacing: -0.5,
@@ -44,7 +45,7 @@ export default function Image() {
         <div style={{ display: "flex", flexDirection: "column" }}>
           <div
             style={{
-              color: "#EEEEEE",
+              color: "#151310",
               fontSize: 84,
               fontWeight: 700,
               letterSpacing: -2.5,
@@ -60,7 +61,7 @@ export default function Image() {
             style={{
               marginTop: 28,
               display: "flex",
-              color: "#FFD369",
+              color: "#ff3d1c",
               fontSize: 26,
             }}
           >
@@ -72,7 +73,7 @@ export default function Image() {
           style={{
             display: "flex",
             justifyContent: "space-between",
-            color: "#AEB4BD",
+              color: "#151310",
             fontSize: 22,
           }}
         >
