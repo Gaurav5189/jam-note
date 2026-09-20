@@ -1,0 +1,178 @@
+/* ============================================================
+   Jam Notes — auth pages (paper "access slip" monograph).
+   Route-scoped under .auth (the wrapper in app/(auth)/layout.tsx);
+   every rule is scoped so nothing leaks into the landing and no
+   landing chrome leaks in. Visual reference:
+   make/concept_design_login_signup.html. The pointer dot trail is
+   NOT part of this port — success confirmation is a single gold
+   ink burst, never a trail (landing rule).
+   ============================================================ */
+
+/* Tokens & scope. Fonts are supplied by next/font on the wrapper
+   (--font-archivo / --font-newsreader / --font-space-mono). */
+.auth{--paper:#f3efe6;--sheet:#faf7ef;--ink:#151310;--red:#ff3d1c;--gold:#ffb511;--acc:var(--gold);--slipw:min(480px,94vw);--ease-settle:cubic-bezier(.16,1,.3,1);--ease-slide:cubic-bezier(.2,.8,.2,1);--ease-pop:cubic-bezier(.2,1.5,.4,1);position:relative;background:var(--ink);color:var(--paper);font-family:var(--font-newsreader),Georgia,serif;overflow-x:hidden;line-height:1.4;-webkit-tap-highlight-color:transparent;min-height:100svh}
+html:has(.auth){scrollbar-color:var(--paper) var(--ink)}
+body:has(.auth){background:var(--ink)}
+.auth *,.auth *::before,.auth *::after{box-sizing:border-box;cursor:inherit}
+.auth ::selection{background:var(--gold);color:var(--ink)}
+.auth img,.auth svg{display:block}
+.auth button{font:inherit;color:inherit;background:none;border:none}
+.auth a{color:inherit;text-decoration:none}
+.auth :focus-visible{outline:2px solid var(--gold);outline-offset:3px}
+.auth,.auth *,.auth *::before,.auth *::after{cursor:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='26' height='26' viewBox='0 0 26 26'%3E%3Cg fill='none' stroke-linecap='round'%3E%3Cg stroke='%23151310' stroke-width='3.6'%3E%3Ccircle cx='13' cy='13' r='7.5'/%3E%3Cpath d='M13 0v5.2M13 20.8V26M0 13h5.2M20.8 13H26'/%3E%3C/g%3E%3Cg stroke='%23f3efe6' stroke-width='1.3'%3E%3Ccircle cx='13' cy='13' r='7.5'/%3E%3Cpath d='M13 0v5.2M13 20.8V26M0 13h5.2M20.8 13H26'/%3E%3C/g%3E%3C/g%3E%3C/g%3E%3C/svg%3E") 13 13,crosshair}
+
+/* Chrome — crop marks / running head / foot line / grain / toast.
+   `body.go` is set by the client boot after fonts settle (same
+   choreography gate as the landing). */
+.auth .chrome{opacity:0;transition:opacity .9s ease .2s}
+body.go .auth .chrome{opacity:1}
+.auth .cropmarks i{position:fixed;width:15px;height:15px;z-index:340;pointer-events:none;mix-blend-mode:difference}
+.auth .cm-tl{top:7px;left:7px;border-top:1.5px solid var(--paper);border-left:1.5px solid var(--paper)}
+.auth .cm-tr{top:7px;right:7px;border-top:1.5px solid var(--paper);border-right:1.5px solid var(--paper)}
+.auth .cm-bl{bottom:7px;left:7px;border-bottom:1.5px solid var(--paper);border-left:1.5px solid var(--paper)}
+.auth .cm-br{bottom:7px;right:7px;border-bottom:1.5px solid var(--paper);border-right:1.5px solid var(--paper)}
+.auth .runhead{position:fixed;top:0;left:0;right:0;height:42px;z-index:320;display:flex;justify-content:space-between;align-items:center;gap:16px;padding:0 26px;border-bottom:1.5px solid var(--ink);background:color-mix(in srgb,var(--paper) 92%,transparent);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);font-family:var(--font-space-mono),monospace;font-size:10px;letter-spacing:.16em;color:var(--ink)}
+.auth .runhead .rh-l{display:flex;align-items:center;gap:10px;white-space:nowrap}
+.auth .runhead .rh-l::before{content:"";width:8px;height:8px;background:var(--acc);flex:0 0 auto}
+.auth .runhead a:hover{color:var(--gold)}
+.auth .runhead .rh-c{white-space:nowrap}
+.auth .runhead .rh-r{white-space:nowrap;color:var(--acc)}
+.auth .rh-min{display:none}
+.auth .tick{animation:auth-tick .3s ease}
+@keyframes auth-tick{0%{opacity:0;transform:translateY(5px)}100%{opacity:1;transform:none}}
+.auth .footbar{position:fixed;left:0;right:0;bottom:0;height:36px;z-index:320;display:flex;justify-content:space-between;align-items:center;gap:16px;padding:0 26px;border-top:1.5px solid rgba(243,239,230,.32);background:color-mix(in srgb,var(--ink) 88%,transparent);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);font-family:var(--font-space-mono),monospace;font-size:9px;letter-spacing:.16em;color:rgba(243,239,230,.75)}
+.auth .footbar span{white-space:nowrap}
+.auth .grain{position:fixed;inset:0;z-index:330;pointer-events:none;opacity:.08;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E")}
+.auth .toast{position:fixed;left:20px;bottom:56px;z-index:500;display:flex;align-items:center;gap:10px;background:var(--paper);border:1.5px solid var(--ink);box-shadow:5px 5px 0 var(--gold);padding:11px 16px 11px 13px;font-family:var(--font-space-mono),monospace;font-size:10.5px;letter-spacing:.1em;color:var(--ink);transform:translateY(160%);transition:transform .38s cubic-bezier(.2,.9,.2,1);max-width:min(80vw,440px)}
+.auth .toast i{width:9px;height:9px;background:var(--gold);flex:0 0 auto}
+.auth .toast.show{transform:none}
+
+/* Success confirmation — single gold ink burst (never a trail). */
+.auth .ink-bursts{position:fixed;inset:0;z-index:510;pointer-events:none}
+.auth .ink-bursts i{position:absolute;width:var(--size);height:var(--size);background:var(--gold);border-radius:50%;animation:auth-ink-burst .62s var(--ease-pop) forwards}
+@keyframes auth-ink-burst{to{opacity:0;transform:translate(var(--x),var(--y)) scale(.35)}}
+
+/* The plate — black ground, ghost word, rails. */
+.auth .plate{position:relative;min-height:100svh;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:110px 5vw 110px}
+.auth .plate::before{content:"";position:absolute;inset:0;pointer-events:none;background-image:radial-gradient(circle,rgba(243,239,230,.07) 1px,transparent 1.4px);background-size:24px 24px}
+.auth .ghost{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:0;opacity:0;pointer-events:none;user-select:none;-webkit-user-select:none;overflow:hidden;transition:opacity 1.4s ease .25s}
+body.go .auth .ghost{opacity:.09}
+.auth .g-in{display:block;will-change:transform}
+.auth .ghost-word{display:inline-block;white-space:nowrap;font-family:var(--font-archivo),'Helvetica Neue',Helvetica,Arial,sans-serif;font-weight:900;font-variation-settings:'wght' 900,'wdth' 120;font-size:clamp(5.5rem,23vw,24rem);line-height:1;letter-spacing:-.02em}
+@supports (-webkit-text-stroke:1px #000){.auth .ghost-word{color:transparent;-webkit-text-stroke:1.5px var(--paper)}}
+.auth .ghost-word.gtick{animation:auth-gtick .55s cubic-bezier(.2,.8,.2,1)}
+@keyframes auth-gtick{0%{opacity:0;transform:translateY(28px)}100%{opacity:1;transform:none}}
+.auth .rail{position:absolute;top:50%;writing-mode:vertical-rl;z-index:2;font-family:var(--font-space-mono),monospace;font-size:9px;letter-spacing:.34em;opacity:.6;white-space:nowrap}
+.auth .rail-l{left:16px;transform:translateY(-50%)}
+.auth .rail-r{right:16px;transform:translateY(-50%) rotate(180deg)}
+.auth .rail.io{opacity:0;transition:opacity 1s ease var(--d,0s)}
+body.go .auth .rail.io{opacity:.6}
+
+/* The access slip — printed form specimen, loose on the plate.
+   Hidden slips are visibility:hidden (delayed past the fade) so
+   their inputs leave the tab order; the active slip is also un-
+   inerted from JSX. */
+.auth .slip-stage{position:relative;z-index:1;width:var(--slipw);transition:height .45s ease}
+.auth .slip{position:absolute;top:0;left:0;right:0;opacity:0;transform:translateX(28px);pointer-events:none;visibility:hidden;transition:opacity .42s ease,transform .46s cubic-bezier(.2,.8,.2,1),visibility 0s linear .42s;will-change:transform,opacity}
+body.go .auth .slip.on{opacity:1;transform:none;pointer-events:auto;visibility:visible;transition:opacity .42s ease,transform .46s cubic-bezier(.2,.8,.2,1),visibility 0s}
+.auth .slip.out-l{opacity:0;transform:translateX(-28px)}
+.auth .slip.out-r{opacity:0;transform:translateX(28px)}
+.auth .slip.shake{animation:auth-shake .42s cubic-bezier(.36,.07,.19,.97)}
+@keyframes auth-shake{10%,90%{transform:translateX(-2px)}20%,80%{transform:translateX(4px)}30%,50%,70%{transform:translateX(-7px)}40%,60%{transform:translateX(7px)}}
+
+.auth .slip-card{position:relative;background:var(--paper);color:var(--ink);border:1.5px solid var(--ink);box-shadow:12px 14px 0 rgba(255,181,17,.26);opacity:0;transform:translateY(28px) rotate(-1.8deg);transition:opacity .7s ease .12s,transform .8s cubic-bezier(.16,1,.3,1) .12s}
+body.go .auth .slip.on .slip-card{opacity:1;transform:translateY(0) rotate(-.4deg)}
+
+/* Perforated top edge — the slip was torn off a pad. */
+.auth .slip-perf{display:flex;justify-content:space-between;align-items:center;height:17px;padding:0 14px;border-bottom:1.5px dashed var(--ink)}
+.auth .slip-perf i{width:7px;height:7px;border-radius:50%;background:var(--ink);transform:scale(0);transition:transform .35s cubic-bezier(.2,1.5,.4,1) var(--pd,0s)}
+body.go .auth .slip.on .slip-perf i{transform:scale(1)}
+
+.auth .slip-inner{padding:14px 26px 22px}
+.auth .slip-head{display:flex;justify-content:space-between;gap:14px;font-family:var(--font-space-mono),monospace;font-size:8.5px;letter-spacing:.18em;user-select:none;-webkit-user-select:none;touch-action:none}
+.auth .slip-head span{transition:color .2s}
+.auth .slip-head:hover span{color:var(--gold)}
+
+.auth .slip-title{padding:22px 0 4px}
+.auth .kinetic{font-family:var(--font-archivo),'Helvetica Neue',Helvetica,Arial,sans-serif;font-weight:850;letter-spacing:-.02em;font-variation-settings:'wght' 850,'wdth' 111;font-size:clamp(2.5rem,9vw,3.9rem);line-height:.9}
+.auth .kinetic .ht{display:inline-block;white-space:nowrap}
+.auth .k{display:inline-block;will-change:transform;font-weight:inherit}
+.auth .kinetic .k{transform:translateY(118%) rotate(3deg);font-variation-settings:'wght' 120,'wdth' 72;transition:transform .72s cubic-bezier(.16,1,.3,1) var(--d,0s),font-variation-settings .95s cubic-bezier(.16,1,.3,1) var(--d,0s)}
+body.go .auth .kinetic .k{transform:none;font-variation-settings:'wght' 850,'wdth' 111}
+body.go .auth .kinetic{text-shadow:.045em .04em 0 rgba(255,181,17,.5)}
+body.intro-done .auth .kinetic .k{transition:none}
+.auth .k.sp{width:.26em;overflow:hidden}
+.auth .slip-sub{display:flex;align-items:center;gap:10px;margin-top:14px;font-family:var(--font-space-mono),monospace;font-size:9.5px;letter-spacing:.3em;font-weight:700}
+.auth .slip-sub::before{content:"";width:8px;height:8px;background:var(--acc);flex:0 0 auto}
+
+/* The form — a printed field sheet with a red notebook margin. */
+.auth .slip-form{position:relative;margin-top:24px;padding-left:26px}
+.auth .slip-form::before{content:"";position:absolute;left:0;top:2px;bottom:2px;width:1.5px;background:var(--red);transform:scaleY(0);transform-origin:top;transition:transform .7s cubic-bezier(.7,0,.2,1) .45s}
+body.go .auth .slip.on .slip-form::before{transform:scaleY(1)}
+
+.auth .field{position:relative;margin-bottom:20px;opacity:0;transform:translateY(14px);transition:opacity .6s ease var(--rd,0s),transform .6s cubic-bezier(.16,1,.3,1) var(--rd,0s)}
+body.go .auth .slip.on .field{opacity:1;transform:none}
+.auth .field::before{content:"";position:absolute;left:-30px;top:5px;width:8px;height:8px;background:var(--gold);opacity:0;transform:scale(0);transition:opacity .2s,transform .25s cubic-bezier(.2,1.5,.4,1)}
+.auth .field:focus-within::before{opacity:1;transform:scale(1)}
+.auth .field-top{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.auth .field-top label{font-family:var(--font-space-mono),monospace;font-size:9px;letter-spacing:.22em;font-weight:700;transition:color .2s}
+.auth .field:focus-within .field-top label{color:var(--gold)}
+.auth .fno{font-family:var(--font-space-mono),monospace;font-size:8px;letter-spacing:.14em;opacity:.5;transition:color .2s,opacity .2s}
+.auth .field.err .fno{color:var(--red);opacity:1;font-weight:700}
+.auth .field-in{position:relative}
+.auth .field input{width:100%;background:transparent;border:0;border-bottom:1.5px solid var(--ink);border-radius:0;font-family:var(--font-space-mono),'Courier New',monospace;font-size:15px;color:var(--ink);caret-color:var(--red);padding:8px 0 9px;transition:border-color .2s}
+.auth .field input:focus{outline:none}
+.auth .field:focus-within input{border-color:var(--gold)}
+.auth .field.err input{border-color:var(--red)}
+.auth input:-webkit-autofill{-webkit-text-fill-color:var(--ink);-webkit-box-shadow:0 0 0 60px var(--sheet) inset;transition:background-color 99999s}
+/* Proofreader's squiggle for invalid entries. */
+.auth .squig{position:absolute;left:0;right:0;bottom:-3px;width:100%;height:5px;opacity:0;transition:opacity .2s}
+.auth .squig path{fill:none;stroke:var(--red);stroke-width:1.6;vector-effect:non-scaling-stroke;stroke-dasharray:1;stroke-dashoffset:1;transition:stroke-dashoffset .55s ease .1s}
+.auth .field.err .squig{opacity:1}
+.auth .field.err .squig path{stroke-dashoffset:0}
+
+.auth .slip-cta{display:block;width:100%;margin-top:26px;padding:16px 18px;background:var(--gold);color:var(--ink);border:1.5px solid var(--ink);font-family:var(--font-archivo),'Helvetica Neue',Helvetica,Arial,sans-serif;font-weight:850;font-variation-settings:'wght' 850,'wdth' 110;font-size:clamp(1rem,2.2vw,1.25rem);letter-spacing:.07em;text-transform:uppercase;box-shadow:4px 5px 0 var(--ink);transition:transform .16s,box-shadow .16s,background .2s,color .2s;opacity:0;transform:translateY(14px)}
+body.go .auth .slip.on .slip-cta{opacity:1;transform:none;transition:transform .16s,box-shadow .16s,background .2s,color .2s,opacity .6s ease var(--rd,0s)}
+.auth .slip-cta:hover{transform:translate(-2px,-2px);box-shadow:7px 8px 0 var(--ink)}
+.auth .slip-cta:active{transform:translate(2px,3px);box-shadow:1px 1px 0 var(--ink)}
+.auth .slip-cta.busy{background:var(--ink);color:var(--gold);transform:translate(2px,3px);box-shadow:1px 1px 0 var(--ink);pointer-events:none}
+
+.auth .slip-foot{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-top:24px;padding-top:14px;border-top:1.5px solid var(--ink);font-family:var(--font-space-mono),monospace;font-size:8px;letter-spacing:.14em;opacity:0;transition:opacity .6s ease .95s}
+body.go .auth .slip.on .slip-foot{opacity:1}
+.auth .foot-code{display:flex;align-items:center;gap:10px;flex:0 0 auto}
+.auth .foot-code svg{height:13px;width:auto;opacity:.9}
+
+/* "ACCESS GRANTED" / "WORKSPACE CREATED" stamp. */
+.auth .stamp{position:absolute;left:50%;top:40%;transform:translate(-50%,-50%) rotate(-14deg) scale(2.4);opacity:0;pointer-events:none;white-space:nowrap;border:3px solid var(--gold);color:var(--gold);padding:10px 22px;font-family:var(--font-archivo),'Helvetica Neue',Helvetica,Arial,sans-serif;font-weight:900;font-variation-settings:'wght' 900,'wdth' 116;font-size:clamp(1.3rem,3.4vw,2rem);letter-spacing:.08em;transition:transform .32s cubic-bezier(.2,1.6,.4,1),opacity .18s}
+.auth .stamp::before{content:"";position:absolute;inset:-7px;border:1.5px solid var(--gold)}
+.auth .slip-card.stamped .stamp{transform:translate(-50%,-50%) rotate(-7deg) scale(1);opacity:1}
+
+/* Cross-links — verbatim from the screenshots. */
+.auth .crosslink{margin-top:22px;text-align:center;font-style:italic;font-size:15px;color:color-mix(in srgb,var(--paper) 85%,transparent);opacity:0;transition:opacity .6s ease 1s}
+body.go .auth .slip.on .crosslink{opacity:1}
+.auth .crosslink a{font-family:var(--font-space-mono),monospace;font-style:normal;font-size:11px;letter-spacing:.14em;color:var(--gold);padding-bottom:3px;background:linear-gradient(var(--red),var(--red)) no-repeat 0 100%/0 2px;transition:background-size .25s,color .18s}
+.auth .crosslink a:hover{background-size:100% 2px}
+
+/* Responsive & motion. */
+@media (max-width:1020px){
+  .auth .rail{display:none}
+}
+@media (max-width:640px){
+  .auth .rh-full{display:none}
+  .auth .rh-min{display:inline}
+  .auth .runhead{padding:0 16px}
+  .auth .runhead .rh-c{letter-spacing:.08em}
+  .auth .footbar .fb-side{display:none}
+  .auth .footbar{justify-content:center}
+  .auth .slip-inner{padding:12px 18px 18px}
+  .auth .slip-form{padding-left:20px}
+  .auth .field::before{left:-24px}
+  .auth .field input{font-size:16px} /* keep iOS from zooming */
+  .auth .foot-code span{display:none}
+  .auth .crosslink{font-size:14px}
+  .auth .plate{padding:96px 6vw 96px}
+}
+@media (prefers-reduced-motion:reduce){
+  .auth *,.auth *::before,.auth *::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;transition-delay:0s!important;animation-delay:0s!important}
+  .auth,.auth *,.auth *::before,.auth *::after{cursor:auto}
+}

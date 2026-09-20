@@ -1,5 +1,19 @@
-import Link from "next/link";
+import type { Metadata } from "next";
+import { Archivo, Newsreader, Space_Mono } from "next/font/google";
 import { AuthProvider } from "@/context/auth-context";
+import "./auth.css";
+
+// Same variable-font setup as the landing monograph. `display: "block"`
+// keeps the kinetic slip titles from rising in a fallback font and then
+// re-laying-out mid-jump.
+const archivo = Archivo({ variable: "--font-archivo", subsets: ["latin"], axes: ["wdth"], display: "block" });
+const newsreader = Newsreader({ variable: "--font-newsreader", subsets: ["latin"], style: ["normal", "italic"], axes: ["opsz"], display: "block" });
+const spaceMono = Space_Mono({ variable: "--font-space-mono", subsets: ["latin"], weight: ["400", "700"], style: ["normal", "italic"], display: "block" });
+
+export const metadata: Metadata = {
+  title: "Jam Notes",
+  description: "System access. Write fast. Think in space.",
+};
 
 // Session context is scoped to the unauthenticated auth flows (login,
 // signup). The authenticated `(app)` shell uses server-fetched user/tree
@@ -11,17 +25,12 @@ export default function AuthLayout({
 }>) {
   return (
     <AuthProvider>
-      {/* Home button — shared across login + signup; positioned fixed so it
-          floats above whatever card the page renders at any scroll position. */}
-      <Link
-        href="/"
-        className="fixed left-5 top-5 z-50 flex items-center gap-2 rounded-sm border border-border-thin bg-background-panel/80 px-3 py-2 font-mono text-[12px] text-text-muted backdrop-blur-sm transition-all hover:border-accent-amber/50 hover:text-accent-amber group"
-        aria-label="Back to home"
-      >
-        <span className="hidden sm:inline">← Jam Notes</span>
-        <span className="sm:hidden">←</span>
-      </Link>
-      {children}
+      {/* The paper slip plate — black ground, print chrome, and the loose
+          access slips. The runhead's left block (inside the page) is the
+          home link; there is no separate floating back button. */}
+      <div className={`auth ${archivo.variable} ${newsreader.variable} ${spaceMono.variable}`}>
+        {children}
+      </div>
     </AuthProvider>
   );
 }
