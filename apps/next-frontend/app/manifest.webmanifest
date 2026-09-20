@@ -1,0 +1,21 @@
+{
+	"name": "Jam Notes",
+	"short_name": "Jam Notes",
+	"description": "Tactile, ultra-fast note-taking for creators.",
+	"start_url": "/",
+	"display": "standalone",
+	"background_color": "#ffffff",
+	"theme_color": "#ffffff",
+	"icons": [
+		{
+			"src": "/android-chrome-192x192.png",
+			"sizes": "192x192",
+			"type": "image/png"
+		},
+		{
+			"src": "/android-chrome-512x512.png",
+			"sizes": "512x512",
+			"type": "image/png"
+		}
+	]
+}
