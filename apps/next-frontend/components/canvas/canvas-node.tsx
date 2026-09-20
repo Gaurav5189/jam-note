@@ -132,14 +132,12 @@ function CanvasNodeImpl({
     [block.id, onResizeEnd]
   );
 
-  const borderColor = meta.color || "var(--color-border-thin)";
+  const borderColor = meta.color || "#151310";
 
   return (
     <div
       data-block-id={block.id}
-      className={`group absolute rounded-sm bg-background-panel border flex flex-col select-none shadow-md transition-shadow ${
-        isConnecting ? "ring-2 ring-accent-neon" : ""
-      }`}
+      className={`cn-card${isConnecting ? " is-connecting" : ""}`}
       style={{
         left: `${meta.x}px`,
         top: `${meta.y}px`,
@@ -154,20 +152,17 @@ function CanvasNodeImpl({
         onPointerMove={handleDragPointerMove}
         onPointerUp={handleDragPointerUp}
         onPointerCancel={handleDragPointerUp}
-        className={`h-7 px-2 border-b border-border-thin bg-background-steel/60 flex items-center justify-between shrink-0 ${
-          isHandMode ? "cursor-default" : "cursor-grab active:cursor-grabbing"
-        }`}
+        className="cn-head"
+        style={{ cursor: isHandMode ? "default" : "grab" }}
         title={isHandMode ? undefined : "Drag to move card (or double-click to edit content in Document view)"}
         onDoubleClick={() => onOpenInDocument?.(block.id)}
       >
-        <div className="flex items-center gap-1.5 text-text-muted">
-          <GripHorizontal size={12} className={isHandMode ? "opacity-30" : "opacity-60 group-hover:opacity-100"} />
-          <span className="text-[9px] font-mono uppercase tracking-widest text-text-muted">
-            {block.type}
-          </span>
+        <div className="cn-badge">
+          <GripHorizontal size={12} style={{ opacity: isHandMode ? 0.3 : 0.6 }} />
+          <span>{block.type}</span>
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="cn-btns">
           {/* Color Switcher Button */}
           <button
             type="button"
@@ -176,13 +171,13 @@ function CanvasNodeImpl({
               e.stopPropagation();
               onCycleColor(block.id);
             }}
-            className="flex items-center gap-1 px-1.5 py-0.5 hover:text-text-primary text-text-muted hover:bg-background-panel transition-colors rounded-xs border border-border-thin/70 cursor-pointer"
-            title="Change card color (cycles 4 colors)"
+            className="cn-btn"
+            title="Change card color (cycles 4 inks)"
             aria-label="Change node color"
           >
             <span
-              className="w-2.5 h-2.5 rounded-full border border-border-thin shrink-0 transition-colors"
-              style={{ backgroundColor: meta.color || "#8A94A6" }}
+              className="cn-dot"
+              style={{ backgroundColor: meta.color || "rgba(21,19,16,.35)" }}
             />
             <Palette size={10} />
           </button>
@@ -196,7 +191,7 @@ function CanvasNodeImpl({
                 e.stopPropagation();
                 onOpenInDocument(block.id);
               }}
-              className="p-1 hover:text-accent-neon text-text-muted transition-colors rounded-xs border border-border-thin/70 cursor-pointer"
+              className="cn-btn edit"
               title="Edit text in Document view"
               aria-label="Edit in Document"
             >
@@ -210,7 +205,7 @@ function CanvasNodeImpl({
       <div
         data-canvas-scrollable="true"
         onDoubleClick={() => onOpenInDocument?.(block.id)}
-        className="p-3 overflow-y-auto flex-1 pointer-events-auto text-[13px] leading-relaxed cursor-default scrollbar-thin"
+        className="cn-body-el"
         title="Double-click to edit content in Document view"
       >
         <BlockContent block={block} />
@@ -226,19 +221,11 @@ function CanvasNodeImpl({
               e.stopPropagation();
               onPortClick(block.id);
             }}
-            className={`absolute -left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full border border-border-thin bg-background-panel flex items-center justify-center transition-all ${
-              isConnecting
-                ? "scale-125 border-accent-neon bg-accent-neon text-background-base"
-                : "opacity-0 group-hover:opacity-100 hover:border-accent-neon hover:scale-110"
-            }`}
+            className={`cn-port cn-port-l${isConnecting ? " is-connecting" : ""}`}
             title={isConnecting ? "Cancel connection" : "Connect node"}
             aria-label="Connect node port"
           >
-            <div
-              className={`w-1.5 h-1.5 rounded-full ${
-                isConnecting ? "bg-background-base" : "bg-accent-neon"
-              }`}
-            />
+            <i />
           </button>
 
           <button
@@ -248,19 +235,11 @@ function CanvasNodeImpl({
               e.stopPropagation();
               onPortClick(block.id);
             }}
-            className={`absolute -right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full border border-border-thin bg-background-panel flex items-center justify-center transition-all ${
-              isConnecting
-                ? "scale-125 border-accent-neon bg-accent-neon text-background-base"
-                : "opacity-0 group-hover:opacity-100 hover:border-accent-neon hover:scale-110"
-            }`}
+            className={`cn-port cn-port-r${isConnecting ? " is-connecting" : ""}`}
             title={isConnecting ? "Cancel connection" : "Connect node"}
             aria-label="Connect node port"
           >
-            <div
-              className={`w-1.5 h-1.5 rounded-full ${
-                isConnecting ? "bg-background-base" : "bg-accent-neon"
-              }`}
-            />
+            <i />
           </button>
 
           {/* Resize Handle (Bottom-Right) */}
@@ -269,10 +248,10 @@ function CanvasNodeImpl({
             onPointerMove={handleResizePointerMove}
             onPointerUp={handleResizePointerUp}
             onPointerCancel={handleResizePointerUp}
-            className="absolute bottom-0 right-0 w-3.5 h-3.5 cursor-nwse-resize opacity-0 group-hover:opacity-100 flex items-center justify-center"
+            className="cn-resize"
             title="Resize node"
           >
-            <div className="w-1.5 h-1.5 border-r border-b border-text-muted hover:border-accent-neon" />
+            <i />
           </div>
         </>
       )}

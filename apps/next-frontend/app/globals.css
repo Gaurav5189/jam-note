@@ -49,10 +49,11 @@
     max-width: 75ch;
   }
 
-  /* Flashed when a block is jumped-to from the canvas double-click */
+  /* Flashed when a block is jumped-to from the canvas double-click.
+     Phase 5.3 desk redesign: Flat Gold ink instead of the old neon. */
   @keyframes block-flash {
-    0%   { box-shadow: 0 0 0 2px #D1FF4D; background-color: #D1FF4D18; }
-    70%  { box-shadow: 0 0 0 2px #D1FF4D; background-color: #D1FF4D18; }
+    0%   { box-shadow: 0 0 0 2px #ffb511; background-color: #ffb51118; }
+    70%  { box-shadow: 0 0 0 2px #ffb511; background-color: #ffb51118; }
     100% { box-shadow: none; background-color: transparent; }
   }
 

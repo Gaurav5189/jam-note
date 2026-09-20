@@ -186,20 +186,17 @@ export function CanvasView({
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
       onWheel={handleWheel}
-      className={`relative w-full h-[calc(100vh-140px)] min-h-[520px] overflow-hidden bg-background-base select-none border border-border-thin rounded-md focus:outline-none ${
-        isHandMode
-          ? "cursor-grab active:cursor-grabbing"
-          : "cursor-crosshair"
-      }`}
+      className="canvas-plate"
       style={{
-        backgroundImage: `radial-gradient(#2A2F3D 1px, transparent 1px)`,
+        backgroundImage: `radial-gradient(rgba(243,239,230,.16) 1px, transparent 1.4px)`,
         backgroundSize: `${24 * transform.scale}px ${24 * transform.scale}px`,
         backgroundPosition: `${transform.x}px ${transform.y}px`,
+        cursor: isHandMode ? "grab" : "crosshair",
       }}
     >
       {/* Transformed Canvas World */}
       <div
-        className="absolute inset-0 pointer-events-none"
+        className="canvas-world"
         style={{
           transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`,
           transformOrigin: "0 0",
@@ -217,7 +214,7 @@ export function CanvasView({
         {blocks.map((block) => (
           <div
             key={block.id}
-            className="pointer-events-auto"
+            className="world-node"
           >
             <CanvasNode
               block={block}
@@ -236,19 +233,15 @@ export function CanvasView({
         ))}
       </div>
 
-      {/* Floating Right-Side Tool Palette (Reference Image 2) */}
-      <div className="absolute right-4 top-1/2 -translate-y-1/2 z-30 flex flex-col items-center select-none pointer-events-auto">
-        <div className="bg-background-panel/95 border border-border-thin rounded-full p-1 flex flex-col items-center gap-1 shadow-xl backdrop-blur-sm">
+      {/* Floating Right-Side Tool Palette */}
+      <div className="tool-pal">
+        <div className="tool-group">
           {/* Pointer Mode Button */}
           <button
             type="button"
             onPointerDown={(e) => e.stopPropagation()}
             onClick={() => setTool("pointer")}
-            className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${
-              tool === "pointer"
-                ? "bg-text-primary text-background-base shadow-sm"
-                : "text-text-muted hover:text-text-primary hover:bg-background-steel"
-            }`}
+            className={`tool-btn${tool === "pointer" ? " on" : ""}`}
             title="Pointer mode (select, move & connect nodes) — Tab to toggle"
             aria-label="Pointer mode"
           >
@@ -260,11 +253,7 @@ export function CanvasView({
             type="button"
             onPointerDown={(e) => e.stopPropagation()}
             onClick={() => setTool("hand")}
-            className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${
-              tool === "hand"
-                ? "bg-text-primary text-background-base shadow-sm"
-                : "text-text-muted hover:text-text-primary hover:bg-background-steel"
-            }`}
+            className={`tool-btn${tool === "hand" ? " on" : ""}`}
             title="Hand mode (pan view only) — Tab to toggle"
             aria-label="Hand mode"
           >
@@ -273,19 +262,17 @@ export function CanvasView({
         </div>
 
         {/* Tab Shortcut Tooltip hint */}
-        <div className="mt-2 px-2 py-0.5 rounded-sm bg-background-panel/80 border border-border-thin text-[9px] font-mono uppercase tracking-wider text-text-muted/70 text-center whitespace-nowrap shadow-sm">
-          Tab to switch
+        <div className="tool-hint">
+          TAB TO SWITCH
         </div>
       </div>
 
       {/* Empty Canvas Notice */}
       {blocks.length === 0 && (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="p-6 rounded-md bg-background-panel/90 border border-border-thin text-center max-w-sm shadow-xl">
-            <p className="text-xs font-mono uppercase tracking-widest text-accent-neon">
-              Empty Canvas
-            </p>
-            <p className="mt-2 text-xs text-text-muted">
+        <div className="canvas-empty">
+          <div className="canvas-empty-inner">
+            <p className="canvas-empty-kicker">EMPTY CANVAS</p>
+            <p className="canvas-empty-copy">
               Toggle back to document view to add blocks, then arrange them here in spatial mode.
             </p>
           </div>
@@ -293,19 +280,13 @@ export function CanvasView({
       )}
 
       {/* Bottom-Left Status & Instructions */}
-      <div className="absolute bottom-6 left-6 z-20 pointer-events-none select-none">
-        <div className="flex items-center gap-2 text-[10px] font-mono text-text-muted/70 bg-background-panel/85 border border-border-thin rounded-sm px-2.5 py-1 backdrop-blur-xs">
-          <span
-            className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-              isHandMode ? "bg-accent-amber" : "bg-accent-neon animate-pulse"
-            }`}
-          />
-          <span>
-            {isHandMode
-              ? "HAND VIEW MODE · DRAG ANYWHERE TO PAN · TAB TO SWITCH TO POINTER"
-              : "POINTER MODE · DRAG CARDS · DOUBLE-CLICK CARD TO EDIT · TAB TO SWITCH TO HAND"}
-          </span>
-        </div>
+      <div className="canvas-status">
+        <i className={isHandMode ? "hand" : ""} aria-hidden="true" />
+        <span>
+          {isHandMode
+            ? "HAND VIEW MODE · DRAG ANYWHERE TO PAN · TAB TO SWITCH TO POINTER"
+            : "POINTER MODE · DRAG CARDS · DOUBLE-CLICK CARD TO EDIT · TAB TO SWITCH TO HAND"}
+        </span>
       </div>
 
       {/* HUD Controls with Undo / Redo */}

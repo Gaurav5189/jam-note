@@ -118,19 +118,27 @@ This document maps out a structured, 5-phase build order to take `jam-note` from
 ---
 
 ## Phase 6: Publishing Hub (CRM) & Aesthetics Polish (Sprint 6)
-**Goal:** Build the news blog/CRM publishing layer, apply the custom neo-industrial aesthetics across all modules, and perform integration testing.
+**Goal:** Build the news blog/CRM publishing layer, apply the custom neo-industrial aesthetics across all modules, add note export, and perform integration testing.
 
 ### Milestones
 1. **Publishing Core & public CRM:**
    - Implement "Publish" settings pane for notes.
    - Create route `POST /api/pub/posts/{id}/publish` which generates slug-mapped entries.
    - Develop the unauthenticated public dynamic sub-app/route `apps/next-frontend/app/pub/[username]/[slug]` allowing readers to view notes.
-2. **Neo-Industrial Theme Injection:**
+2. **Note Export (Markdown / JSON):**
+   - Route `GET /api/notes/{note_id}/export?format=md|json` — single note.
+   - Route `GET /api/notes/export?format=md|json` — full workspace as a zip (one file per note, folder structure mirrors sidebar tree).
+   - Markdown export: convert `blocks[]` to standard MD syntax (headers, lists, todos as `- [ ]`, code fences with language). Canvas-layout notes export as MD with a plain block order (canvas coordinates dropped) plus an optional `--include-canvas-json` flag that also emits raw `canvas_metadata`.
+   - JSON export: raw note document (blocks + canvas_metadata + meta), suitable for backup/reimport later.
+   - Add "Export" action to note command palette and note settings menu.
+3. **Neo-Industrial Theme Injection:**
    - Apply the specific visual styles (Off-black matte background, neon accents, razor-thin solid borders, strict typographic limits).
    - Run optimization checks and test compilation using Turbopack during development.
 
 ### Verification Checklist
 - [ ] A note can be marked public and immediately accessed via standard public URL.
+- [ ] Single-note export produces valid Markdown/JSON matching the note's current content.
+- [ ] Full-workspace export zip preserves folder/note tree structure and downloads without timing out on large workspaces.
 - [ ] CSS elements match the precise visual directions with non-templated typography and palette.
 - [ ] The entire developer build passes compile checks and production-ready tests.
 

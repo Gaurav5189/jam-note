@@ -1,32 +1,112 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { FileText, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useNotes } from "@/context/notes-context";
 import { findNotePath, flattenTree } from "@/lib/note-tree";
 import type { NoteTreeItem } from "@/lib/types";
+import { deskBurst, deskToast } from "@/components/desk/desk-chrome";
 
 const RECENT_LIMIT = 8;
 
 // Deterministic UTC stamp (avoids server/client hydration drift of
-// relative-time formatters) — fits the tactile-terminal aesthetic.
+// relative-time formatters) — the mono voice of the desk.
 function formatStamp(iso: string): string {
   return `${iso.slice(0, 10)} ${iso.slice(11, 16)} UTC`;
+}
+
+/** Split a word into per-glyph kinetic spans (the letterpress intro). */
+function KineticWord({ word, line }: { word: string; line: number }) {
+  return (
+    <>
+      {[...word].map((ch, i) => (
+        <b
+          key={i}
+          className="k"
+          style={{ ["--d" as string]: `${0.25 + line * 0.3 + i * 0.045}s` }}
+        >
+          {ch}
+        </b>
+      ))}
+    </>
+  );
 }
 
 export function RecentNotes() {
   const { tree, createNote } = useNotes();
   const router = useRouter();
+  const titleRef = useRef<HTMLHeadingElement>(null);
 
   const notes = flattenTree(tree)
     .slice()
     .sort((a, b) => (a.updated_at < b.updated_at ? 1 : -1))
     .slice(0, RECENT_LIMIT);
 
-  const handleCreate = async () => {
+  // Pointer-proximity weight/width field over the kinetic title — the
+  // same two-phase system as the landing hero: only after
+  // body.intro-done cancels the CSS intro may the rAF loop write
+  // inline font-variation-settings (wght stays parked at 900, wdth
+  // swells 112→125). Self-clears below .004 so CSS reclaims the rest
+  // recipe. Reduced motion: no field.
+  useEffect(() => {
+    if (notes.length > 0) return;
+    const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reducedMotion) return;
+
+    const glyphs: { el: HTMLElement; ci: number; set: boolean }[] = [];
+    titleRef.current?.querySelectorAll<HTMLElement>(".k").forEach((el) => {
+      glyphs.push({ el, ci: 0, set: false });
+    });
+    if (glyphs.length === 0) return;
+
+    const ptr = { x: -9999, y: -9999 };
+    const track = (event: PointerEvent) => {
+      ptr.x = event.clientX;
+      ptr.y = event.clientY;
+    };
+    addEventListener("pointermove", track, { passive: true });
+
+    let frame = 0;
+    const loop = () => {
+      frame = requestAnimationFrame(loop);
+      if (!document.body.classList.contains("intro-done")) return;
+      const hr = titleRef.current?.getBoundingClientRect();
+      if (!hr || hr.bottom < 60 || hr.top > innerHeight - 60) return;
+      for (const L of glyphs) {
+        const r = L.el.getBoundingClientRect();
+        const d = Math.hypot(r.left + r.width / 2 - ptr.x, r.top + r.height / 2 - ptr.y);
+        let t = Math.max(0, 1 - d / 175);
+        t = t * t * (3 - 2 * t); // smoothstep
+        const p = L.ci + (t - L.ci) * 0.16;
+        if (Math.abs(p) > 0.004 || Math.abs(L.ci) > 0.004) {
+          L.ci = p;
+          L.set = true;
+          L.el.style.fontVariationSettings = `'wght' 900, 'wdth' ${(112 + p * 13).toFixed(1)}`;
+        } else if (L.set) {
+          L.set = false;
+          L.ci = 0;
+          L.el.style.fontVariationSettings = "";
+        }
+      }
+    };
+    frame = requestAnimationFrame(loop);
+
+    return () => {
+      cancelAnimationFrame(frame);
+      removeEventListener("pointermove", track);
+    };
+  }, [notes.length]);
+
+  const handleCreate = async (source?: HTMLElement) => {
     try {
       const note = await createNote({ title: "Untitled" });
+      deskToast(`NOTE FILED — ${note.title.toUpperCase()}.`);
+      if (source) {
+        const rect = source.getBoundingClientRect();
+        deskBurst(rect.left + rect.width / 2, rect.top + rect.height / 2, "#ffb511");
+      }
       router.push(`/notes/${note.id}`);
     } catch (err) {
       console.error("Note creation failed:", err);
@@ -35,53 +115,70 @@ export function RecentNotes() {
 
   if (notes.length === 0) {
     return (
-      <div className="max-w-2xl mx-auto">
-        <div className="bg-background-panel border border-border-thin rounded-md p-10 text-center">
-          <p className="text-xs font-mono uppercase tracking-widest text-text-muted mb-2">
-            Empty workspace
-          </p>
-          <h2 className="text-xl text-text-primary font-medium mb-6">
-            No notes detected on this channel.
-          </h2>
-          <button
-            onClick={handleCreate}
-            className="bg-accent-neon text-background-base font-bold text-sm py-2.5 px-6 rounded-sm hover:opacity-90 transition-opacity uppercase tracking-wide"
-          >
-            New Note
-          </button>
-          <p className="mt-4 text-[11px] font-mono text-text-muted">
-            or press <kbd className="border border-border-thin rounded-sm px-1.5 py-0.5">⌘K</kbd> to search
-          </p>
+      <div className="desk-dash">
+        <div className="empty-view">
+          <div className="plate-frame">
+            <i className="fc tl" /><i className="fc tr" /><i className="fc bl" /><i className="fc br" />
+            <p className="fig-cap">FIG. 00 — NOTHING FILED YET</p>
+            <h1 className="ev-title" ref={titleRef} aria-label="Empty workspace">
+              <span className="ev-line">
+                <span className="ht" aria-hidden="true"><KineticWord word="EMPTY" line={0} /></span>
+              </span>
+              <span className="ev-line outline">
+                <span className="ht" aria-hidden="true"><KineticWord word="WORKSPACE" line={1} /></span>
+              </span>
+            </h1>
+            <p className="ev-dek">No notes detected on this channel.</p>
+            <button
+              type="button"
+              className="gold-cta"
+              onClick={(e) => handleCreate(e.currentTarget)}
+            >
+              NEW NOTE
+            </button>
+            <p className="ev-hint">
+              PRESS <kbd>⌘K</kbd> TO SEARCH
+            </p>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-3xl mx-auto">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xs font-mono uppercase tracking-widest text-text-muted">
-          Recent transmissions
-        </h2>
-        <button
-          onClick={handleCreate}
-          className="flex items-center gap-1.5 text-xs font-mono uppercase tracking-wider text-text-muted hover:text-accent-neon border border-border-thin hover:border-accent-neon px-3 py-1.5 rounded-sm transition-colors"
-        >
-          <Plus size={13} />
-          New
-        </button>
-      </div>
+    <div className="desk-dash">
+      <div className="dash-wrap">
+        <div className="dash-head">
+          <p className="kicker">RECENT TRANSMISSIONS</p>
+          <button
+            type="button"
+            className="dash-new"
+            onClick={(e) => handleCreate(e.currentTarget)}
+          >
+            <Plus size={12} />
+            NEW
+          </button>
+        </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {notes.map((note) => (
-          <RecentNoteCard key={note.id} note={note} tree={tree} />
-        ))}
+        <ul className="dash-list">
+          {notes.map((note, index) => (
+            <RecentNoteRow key={note.id} note={note} index={index} tree={tree} />
+          ))}
+        </ul>
       </div>
     </div>
   );
 }
 
-function RecentNoteCard({ note, tree }: { note: NoteTreeItem; tree: NoteTreeItem[] }) {
+function RecentNoteRow({
+  note,
+  index,
+  tree,
+}: {
+  note: NoteTreeItem;
+  index: number;
+  tree: NoteTreeItem[];
+}) {
   const path = findNotePath(tree, note.id);
   const parentPath =
     path && path.length > 1
@@ -89,30 +186,20 @@ function RecentNoteCard({ note, tree }: { note: NoteTreeItem; tree: NoteTreeItem
       : null;
 
   return (
-    <Link
-      href={`/notes/${note.id}`}
-      prefetch={true}
-      className="block bg-background-panel border border-border-thin rounded-sm p-4 hover:border-accent-neon/60 transition-colors"
-    >
-      <div className="flex items-start gap-2.5">
-        {note.emoji_icon ? (
-          <span className="text-base shrink-0">{note.emoji_icon}</span>
-        ) : (
-          <FileText size={15} className="text-text-muted shrink-0 mt-0.5" />
-        )}
-        <div className="min-w-0 flex-1">
-          <p className="text-sm text-text-primary font-medium truncate">{note.title}</p>
-          {parentPath && (
-            <p className="text-[10px] font-mono text-text-muted truncate mt-0.5">{parentPath}</p>
-          )}
-          <p className="text-[10px] font-mono text-text-muted mt-2">
-            {formatStamp(note.updated_at)}
-            {note.layout_type === "canvas" && (
-              <span className="ml-2 text-accent-amber uppercase">canvas</span>
-            )}
-          </p>
-        </div>
-      </div>
-    </Link>
+    <li>
+      <Link
+        href={`/notes/${note.id}`}
+        prefetch={true}
+        className="dash-row"
+      >
+        <i>{String(index + 1).padStart(2, "0")}</i>
+        <span className="dash-main">
+          <span className="dash-title">{note.title}</span>
+          {parentPath && <span className="dash-sub">{parentPath}</span>}
+        </span>
+        {note.layout_type === "canvas" && <span className="dash-canvas">CANVAS</span>}
+        <span className="dash-stamp">{formatStamp(note.updated_at)}</span>
+      </Link>
+    </li>
   );
 }

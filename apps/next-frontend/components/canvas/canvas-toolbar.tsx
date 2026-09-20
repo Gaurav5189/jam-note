@@ -31,35 +31,25 @@ function CanvasToolbarImpl({
   return (
     <div
       onPointerDown={(e) => e.stopPropagation()}
-      className="fixed bottom-6 right-8 z-30 flex items-center gap-2 select-none"
+      className="canvas-toolbar"
     >
       {/* Save indicator */}
       {saveStatus !== "idle" && (
-        <div className="px-2.5 py-1 rounded-sm bg-background-panel/90 border border-border-thin text-[10px] font-mono uppercase tracking-wider backdrop-blur-xs">
-          {saveStatus === "saving" && (
-            <span className="text-text-muted animate-pulse">Syncing…</span>
-          )}
-          {saveStatus === "saved" && (
-            <span className="text-accent-neon">Synced</span>
-          )}
-          {saveStatus === "error" && (
-            <span className="text-accent-amber">Sync error</span>
-          )}
+        <div className={`ct-save ${saveStatus}`}>
+          {saveStatus === "saving" && <span>SYNCING…</span>}
+          {saveStatus === "saved" && <span>FILED</span>}
+          {saveStatus === "error" && <span>SYNC ERROR</span>}
         </div>
       )}
 
       {/* Navigation HUD */}
-      <div className="flex items-center bg-background-panel/90 border border-border-thin rounded-sm divide-x divide-border-thin backdrop-blur-xs shadow-lg">
+      <div className="ct-group">
         {onUndo && (
           <button
             type="button"
             onClick={onUndo}
             disabled={!canUndo}
-            className={`p-1.5 transition-colors ${
-              canUndo
-                ? "hover:bg-background-steel text-text-muted hover:text-text-primary cursor-pointer"
-                : "text-text-muted/30 cursor-not-allowed"
-            }`}
+            className="ct-btn"
             title="Undo canvas change (Ctrl+Z)"
             aria-label="Undo"
           >
@@ -72,11 +62,7 @@ function CanvasToolbarImpl({
             type="button"
             onClick={onRedo}
             disabled={!canRedo}
-            className={`p-1.5 transition-colors ${
-              canRedo
-                ? "hover:bg-background-steel text-text-muted hover:text-text-primary cursor-pointer"
-                : "text-text-muted/30 cursor-not-allowed"
-            }`}
+            className="ct-btn"
             title="Redo canvas change (Ctrl+Shift+Z)"
             aria-label="Redo"
           >
@@ -87,7 +73,7 @@ function CanvasToolbarImpl({
         <button
           type="button"
           onClick={onZoomOut}
-          className="p-1.5 hover:bg-background-steel text-text-muted hover:text-text-primary transition-colors"
+          className="ct-btn"
           title="Zoom out (−)"
           aria-label="Zoom out"
         >
@@ -97,7 +83,7 @@ function CanvasToolbarImpl({
         <button
           type="button"
           onClick={onResetZoom}
-          className="px-2 py-1 text-[11px] font-mono hover:bg-background-steel text-text-muted hover:text-text-primary transition-colors min-w-[50px] text-center"
+          className="ct-btn ct-scale"
           title="Reset zoom to 100%"
           aria-label="Reset zoom"
         >
@@ -107,7 +93,7 @@ function CanvasToolbarImpl({
         <button
           type="button"
           onClick={onZoomIn}
-          className="p-1.5 hover:bg-background-steel text-text-muted hover:text-text-primary transition-colors"
+          className="ct-btn"
           title="Zoom in (+)"
           aria-label="Zoom in"
         >
@@ -117,7 +103,7 @@ function CanvasToolbarImpl({
         <button
           type="button"
           onClick={onFitAll}
-          className="p-1.5 hover:bg-background-steel text-text-muted hover:text-text-primary transition-colors"
+          className="ct-btn"
           title="Fit all nodes in view"
           aria-label="Fit all"
         >
@@ -127,7 +113,7 @@ function CanvasToolbarImpl({
         <button
           type="button"
           onClick={onResetZoom}
-          className="p-1.5 hover:bg-background-steel text-text-muted hover:text-text-primary transition-colors"
+          className="ct-btn"
           title="Reset canvas center"
           aria-label="Reset canvas"
         >

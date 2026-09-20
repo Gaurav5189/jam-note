@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { FileText, Search } from "lucide-react";
+import { FileText } from "lucide-react";
 import { useNotes } from "@/context/notes-context";
 import { fetchApi } from "@/lib/api";
 import { findNotePath } from "@/lib/note-tree";
@@ -130,82 +130,62 @@ export function SearchPalette() {
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/60 flex items-start justify-center pt-[15vh]"
+      className="palette open"
       onClick={close}
       role="dialog"
       aria-modal="true"
       aria-label="Search notes"
     >
-      <div
-        className="w-full max-w-lg bg-background-panel border border-border-thin rounded-md shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-border-thin">
-          <Search size={15} className="text-accent-neon shrink-0" />
+      <div className="pal-card" onClick={(e) => e.stopPropagation()}>
+        <div className="pal-head">
+          <span>INDEX — SEARCH</span>
+          <span>ESC TO CLOSE</span>
+        </div>
+
+        <div style={{ position: "relative" }}>
           <input
             autoFocus
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Search notes…"
-            className="w-full bg-transparent text-sm text-text-primary placeholder:text-text-muted focus:outline-none font-mono"
+            className="pal-input"
             aria-label="Search query"
           />
-          {searching && (
-            <span className="text-[10px] font-mono text-text-muted uppercase">Scanning…</span>
-          )}
+          {searching && <span className="pal-scan">SCANNING…</span>}
         </div>
 
-        <div className="max-h-80 overflow-y-auto">
+        <ul className="pal-list">
           {query.trim() === "" ? (
-            <p className="px-4 py-6 text-xs font-mono text-text-muted text-center uppercase tracking-widest">
-              Type to filter workspace
-            </p>
+            <li className="pal-empty">Type to filter workspace.</li>
           ) : results.length === 0 && !searching ? (
-            <p className="px-4 py-6 text-xs font-mono text-text-muted text-center uppercase tracking-widest">
-              No signal — no notes match
-            </p>
+            <li className="pal-empty">No signal — no notes match.</li>
           ) : (
             results.map((note, index) => {
               const parentPath = parentPathLabel(note.id);
               return (
-                <button
-                  key={note.id}
-                  onClick={() => navigateTo(note.id)}
-                  onMouseEnter={() => setActiveIndex(index)}
-                  className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${
-                    index === activeIndex ? "bg-background-steel" : ""
-                  }`}
-                >
-                  {note.emoji_icon ? (
-                    <span className="text-sm shrink-0">{note.emoji_icon}</span>
-                  ) : (
-                    <FileText size={14} className="text-text-muted shrink-0" />
-                  )}
-                  <span className="min-w-0 flex-1">
-                    <span
-                      className={`block text-sm truncate ${
-                        index === activeIndex ? "text-accent-neon" : "text-text-primary"
-                      }`}
-                    >
-                      {note.title}
+                <li key={note.id}>
+                  <button
+                    onClick={() => navigateTo(note.id)}
+                    onMouseEnter={() => setActiveIndex(index)}
+                    className={`pal-item${index === activeIndex ? " is-active" : ""}`}
+                  >
+                    <FileText size={14} aria-hidden="true" />
+                    <span style={{ minWidth: 0, flex: 1 }}>
+                      <span className="pal-title">{note.title}</span>
+                      {parentPath && <span className="pal-path">{parentPath}</span>}
                     </span>
-                    {parentPath && (
-                      <span className="block text-[10px] font-mono text-text-muted truncate">
-                        {parentPath}
-                      </span>
-                    )}
-                  </span>
-                </button>
+                  </button>
+                </li>
               );
             })
           )}
-        </div>
+        </ul>
 
-        <div className="flex items-center justify-between px-4 py-2 border-t border-border-thin text-[10px] font-mono text-text-muted uppercase">
-          <span>↑↓ navigate</span>
-          <span>↵ open</span>
-          <span>esc close</span>
+        <div className="pal-foot">
+          <span>↑↓ NAVIGATE</span>
+          <span>↵ OPEN</span>
+          <span>ESC CLOSE</span>
         </div>
       </div>
     </div>

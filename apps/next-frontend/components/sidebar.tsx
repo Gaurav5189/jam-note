@@ -6,7 +6,6 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   ChevronDown,
   ChevronRight,
-  FileText,
   Pencil,
   Plus,
   Trash2,
@@ -14,6 +13,7 @@ import {
 import { useNotes } from "@/context/notes-context";
 import { findNotePath } from "@/lib/note-tree";
 import type { NoteTreeItem } from "@/lib/types";
+import { deskBurst, deskToast } from "@/components/desk/desk-chrome";
 
 const NOTE_URL_PREFIX = "/notes/";
 
@@ -79,6 +79,8 @@ export function Sidebar() {
 
   const handleDelete = async (id: string) => {
     await deleteNote(id);
+    deskBurst(innerWidth / 2, innerHeight / 2, "#ff3d1c");
+    deskToast("NOTE SHREDDED — GONE.");
     if (pathname === `${NOTE_URL_PREFIX}${id}`) {
       router.push("/dashboard");
     }
@@ -94,32 +96,32 @@ export function Sidebar() {
   };
 
   return (
-    <aside className="w-64 border-r border-border-thin bg-background-panel flex flex-col shrink-0">
-      <div className="flex items-center justify-between px-3 h-10 border-b border-border-thin">
-        <span className="text-[10px] font-mono uppercase tracking-widest text-text-muted">
-          Workspace
-        </span>
-        <button
-          onClick={() => handleCreate(null)}
-          className="text-text-muted hover:text-accent-neon border border-border-thin hover:border-accent-neon rounded-sm p-1 transition-colors"
-          title="New note"
-          aria-label="New note"
-        >
-          <Plus size={13} />
-        </button>
+    <aside className="side chrome">
+      <div className="side-sec">
+        <div className="side-head">
+          <p className="kicker">WORKSPACE</p>
+          <button
+            onClick={() => handleCreate(null)}
+            className="side-add"
+            title="New note"
+            aria-label="New note"
+          >
+            +
+          </button>
+        </div>
+        {tree.length === 0 && (
+          <p className="side-empty">Empty workspace. Create your first note.</p>
+        )}
       </div>
 
-      <nav className="flex-1 overflow-y-auto py-2 px-1.5" aria-label="Note tree">
-        {tree.length === 0 ? (
-          <p className="px-3 py-4 text-xs font-mono text-text-muted">
-            Empty workspace. Create your first note.
-          </p>
-        ) : (
-          tree.map((node) => (
+      {tree.length > 0 && (
+        <nav className="ns-list" aria-label="Note tree">
+          {tree.map((node, index) => (
             <NoteNode
               key={node.id}
               node={node}
               depth={0}
+              index={index}
               collapsed={collapsed}
               activeNoteId={activeNoteId}
               onToggleCollapse={toggleCollapse}
@@ -127,15 +129,19 @@ export function Sidebar() {
               onDelete={handleDelete}
               onRename={handleRename}
             />
-          ))
-        )}
-      </nav>
-
-      {error && (
-        <div className="m-2 p-2 border border-accent-amber/50 bg-accent-amber/10 rounded-sm text-[11px] font-mono text-accent-amber">
-          {error}
-        </div>
+          ))}
+        </nav>
       )}
+
+      {error && <div className="side-error">{error}</div>}
+
+      <div className="side-foot">
+        <svg viewBox="0 0 20 20" aria-hidden="true">
+          <circle cx="10" cy="10" r="6" fill="none" stroke="currentColor" strokeWidth="1.4" />
+          <path d="M10 0v20M0 10h20" stroke="currentColor" strokeWidth="1.4" />
+        </svg>
+        <span>JAM NOTES — β</span>
+      </div>
     </aside>
   );
 }
@@ -143,6 +149,7 @@ export function Sidebar() {
 function NoteNode({
   node,
   depth,
+  index,
   collapsed,
   activeNoteId,
   onToggleCollapse,
@@ -152,6 +159,8 @@ function NoteNode({
 }: {
   node: NoteTreeItem;
   depth: number;
+  /** Position among its top-level siblings — index labels are for roots. */
+  index: number;
   collapsed: Set<string>;
   activeNoteId: string | null;
   onToggleCollapse: (id: string) => void;
@@ -192,8 +201,10 @@ function NoteNode({
     onRename(node.id, trimmed);
   };
 
+  const indent = depth * 14 + 4;
+
   return (
-    <div>
+    <div className={depth > 0 ? "ns-child" : undefined}>
       {renaming ? (
         <input
           autoFocus
@@ -203,70 +214,71 @@ function NoteNode({
             if (e.key === "Enter") submitRename(e.currentTarget.value);
             if (e.key === "Escape") setRenaming(false);
           }}
-          className="w-full bg-background-steel border border-accent-neon rounded-sm text-sm text-text-primary px-2 py-1.5 my-0.5 focus:outline-none"
-          style={{ marginLeft: depth * 14 + 26 }}
+          className="rename-input"
+          style={{ marginLeft: indent }}
           aria-label="Rename note"
         />
       ) : (
         <div
-          className={`group flex items-center rounded-sm pr-1 hover:bg-background-steel transition-colors ${
-            isActive ? "bg-accent-neon/10" : ""
-          }`}
-          style={{ paddingLeft: depth * 14 + 4 }}
+          className={`ns-item${isActive ? " is-active" : ""}`}
+          style={{ paddingLeft: 10 + indent }}
         >
           <button
             onClick={() => onToggleCollapse(node.id)}
-            className={`p-1 text-text-muted shrink-0 ${hasChildren ? "hover:text-text-primary" : "pointer-events-none opacity-0"}`}
+            className={`ns-caret${hasChildren ? "" : " is-empty"}`}
+            style={{ visibility: hasChildren ? "visible" : "hidden" }}
             aria-label={isCollapsed ? "Expand" : "Collapse"}
             aria-expanded={hasChildren ? !isCollapsed : undefined}
+            type="button"
           >
-            {isCollapsed ? <ChevronRight size={13} /> : <ChevronDown size={13} />}
+            {isCollapsed ? <ChevronRight size={11} /> : <ChevronDown size={11} />}
           </button>
+
+          {depth === 0 && <i>{String(index + 1).padStart(2, "0")}</i>}
 
           <Link
             href={`/notes/${node.id}`}
             prefetch={true}
-            className={`flex-1 flex items-center gap-1.5 min-w-0 py-1.5 text-sm truncate ${
-              isActive ? "text-accent-neon" : "text-text-primary/90"
-            }`}
+            className="ns-title"
           >
-            <span className="text-xs shrink-0">
-              {node.emoji_icon ?? <FileText size={12} className="text-text-muted" />}
-            </span>
-            <span className="truncate">{node.title}</span>
+            {node.title}
           </Link>
 
-          <div className="hidden group-hover:flex items-center gap-0.5 shrink-0">
+          <div className="row-actions">
             <button
               onClick={() => setRenaming(true)}
-              className="p-1 text-text-muted hover:text-text-primary rounded-sm transition-colors"
+              className="row-btn"
               title="Rename"
               aria-label={`Rename ${node.title}`}
+              type="button"
             >
               <Pencil size={12} />
             </button>
             <button
               onClick={() => onCreateChild(node.id)}
-              className="p-1 text-text-muted hover:text-accent-neon rounded-sm transition-colors"
+              className="row-btn"
               title="New sub-note"
               aria-label={`Create sub-note under ${node.title}`}
+              type="button"
             >
               <Plus size={13} />
             </button>
             {confirmingDelete ? (
               <button
                 onClick={confirmDelete}
-                className="p-1 text-background-base bg-accent-amber rounded-sm text-[9px] font-mono uppercase px-1.5 transition-colors"
+                className="del-chip"
                 title="Confirm delete"
+                type="button"
               >
-                Del?
+                DEL?
               </button>
             ) : (
               <button
                 onClick={startDeleteConfirm}
-                className="p-1 text-text-muted hover:text-accent-amber rounded-sm transition-colors"
+                className="row-btn"
                 title="Delete"
                 aria-label={`Delete ${node.title}`}
+                type="button"
               >
                 <Trash2 size={12} />
               </button>
@@ -282,6 +294,7 @@ function NoteNode({
               key={child.id}
               node={child}
               depth={depth + 1}
+              index={0}
               collapsed={collapsed}
               activeNoteId={activeNoteId}
               onToggleCollapse={onToggleCollapse}

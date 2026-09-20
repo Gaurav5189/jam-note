@@ -87,7 +87,7 @@ function CanvasConnectionsImpl({
         path,
         midX,
         midY,
-        color: conn.color ?? "#D1FF4D",
+        color: conn.color ?? "rgba(243,239,230,.75)",
       });
     }
 
@@ -95,8 +95,8 @@ function CanvasConnectionsImpl({
   }, [connections, blockMap]);
 
   return (
-    <div className="absolute inset-0 pointer-events-none z-10">
-      <svg className="w-full h-full overflow-visible">
+    <div className="conn-layer">
+      <svg>
         <defs>
           <marker
             id="canvas-arrow"
@@ -107,7 +107,7 @@ function CanvasConnectionsImpl({
             markerHeight="6"
             orient="auto-start-reverse"
           >
-            <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#D1FF4D" />
+            <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="rgba(243,239,230,.75)" />
           </marker>
         </defs>
 
@@ -123,7 +123,7 @@ function CanvasConnectionsImpl({
                 fill="none"
                 stroke="transparent"
                 strokeWidth={20}
-                className="pointer-events-auto cursor-pointer"
+                className="conn-hit"
                 onMouseEnter={() => setHoveredConn(key)}
                 onMouseLeave={() => setHoveredConn(null)}
               />
@@ -135,7 +135,7 @@ function CanvasConnectionsImpl({
                 stroke={line.color}
                 strokeWidth={isHovered ? 2.5 : 1.5}
                 strokeDasharray={isHovered ? "4 2" : undefined}
-                className="transition-all opacity-80"
+                className="conn-line"
               />
 
               {/* Endpoint circles */}
@@ -143,8 +143,8 @@ function CanvasConnectionsImpl({
                 cx={line.midX}
                 cy={line.midY}
                 r={isHovered ? 10 : 3}
-                fill={isHovered ? "#FF5533" : line.color}
-                className="pointer-events-auto cursor-pointer transition-all"
+                fill={isHovered ? "#ff3d1c" : line.color}
+                className="conn-hit"
                 onMouseEnter={() => setHoveredConn(key)}
                 onMouseLeave={() => setHoveredConn(null)}
                 onClick={() => onRemoveConnection(line.from_id, line.to_id)}
@@ -159,7 +159,7 @@ function CanvasConnectionsImpl({
       {/* Delete connection badge on hover */}
       {hoveredConn && (
         <div
-          className="absolute z-20 pointer-events-auto"
+          className="conn-badge-wrap"
           style={{
             left: `${lines.find((l) => `${l.from_id}-${l.to_id}` === hoveredConn)?.midX ?? 0}px`,
             top: `${lines.find((l) => `${l.from_id}-${l.to_id}` === hoveredConn)?.midY ?? 0}px`,
@@ -173,7 +173,7 @@ function CanvasConnectionsImpl({
               onRemoveConnection(parts[0], parts[1]);
               setHoveredConn(null);
             }}
-            className="p-1 rounded-full bg-background-panel border border-accent-amber text-accent-amber hover:bg-accent-amber hover:text-background-base transition-colors shadow-sm"
+            className="conn-badge"
             title="Delete connection"
             aria-label="Delete connection"
           >
@@ -183,8 +183,8 @@ function CanvasConnectionsImpl({
       )}
 
       {connectingFromId && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 px-3 py-1 rounded-sm bg-background-panel border border-accent-neon text-[11px] font-mono uppercase tracking-wider text-accent-neon shadow-lg z-50 pointer-events-auto">
-          ◈ Select target node to connect (or click dot again to cancel)
+        <div className="conn-hint">
+          ◈ SELECT TARGET NODE TO CONNECT — OR CLICK THE PORT AGAIN TO CANCEL
         </div>
       )}
     </div>

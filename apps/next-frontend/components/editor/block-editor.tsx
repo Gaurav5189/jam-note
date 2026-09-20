@@ -674,8 +674,8 @@ export function BlockEditor({
   };
 
   return (
-    <div className="relative" ref={containerRef}>
-      <div className="mt-6 space-y-1 max-w-[75ch]">
+    <div className="editor-wrap" ref={containerRef}>
+      <div className="editor-list">
         {blocks.map((block, index) => (
           <div
             id={`block-${block.id}`}
@@ -688,12 +688,8 @@ export function BlockEditor({
               e.preventDefault();
               handleDropOnBlock(index);
             }}
-            className={`group/row relative scroll-mt-24 ${
-              dragIndex === index ? "opacity-40" : ""
-            } ${
-              dropIndex === index
-                ? "before:absolute before:inset-x-0 before:-top-1 before:h-0.5 before:bg-accent-neon before:content-['']"
-                : ""
+            className={`editor-row${dragIndex === index ? " is-dragged" : ""}${
+              dropIndex === index ? " editor-before" : ""
             }`}
           >
             <button
@@ -704,7 +700,7 @@ export function BlockEditor({
                 handleDragStart(index);
               }}
               onDragEnd={handleDragEnd}
-              className="absolute -left-7 top-1 p-1 text-text-muted/40 hover:text-text-muted opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100 cursor-grab"
+              className="editor-grip"
               aria-label="Drag to reorder block"
               title="Drag to reorder (or Alt+↑/↓)"
             >
@@ -716,7 +712,7 @@ export function BlockEditor({
 
         {/* Drop-below-the-last-block zone */}
         <div
-          className={`h-2 ${dropIndex === blocks.length ? "bg-accent-neon/70 rounded-sm" : ""}`}
+          className={`editor-drop${dropIndex === blocks.length ? "" : " is-off"}`}
           onDragOver={(e) => {
             e.preventDefault();
             handleDragOverBlock(blocks.length);
@@ -731,7 +727,7 @@ export function BlockEditor({
         <button
           type="button"
           onClick={handleClickBelow}
-          className="w-full h-32 text-left cursor-text"
+          className="editor-below"
           aria-label="Add a block at the end"
         />
       </div>

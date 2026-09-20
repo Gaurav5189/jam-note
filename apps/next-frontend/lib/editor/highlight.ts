@@ -71,10 +71,10 @@ export function tokenize(code: string, language: string | null = null): CodeToke
 }
 
 export const TOKEN_CLASS: Record<TokenKind, string> = {
-  plain: "text-text-primary",
-  keyword: "text-accent-neon",
-  string: "text-accent-amber",
-  comment: "text-text-muted",
-  number: "text-accent-amber/80",
-  fn: "text-text-primary underline decoration-accent-neon/30",
+  plain: "bv-tok-plain",
+  keyword: "bv-tok-keyword",
+  string: "bv-tok-string",
+  comment: "bv-tok-comment",
+  number: "bv-tok-number",
+  fn: "bv-tok-fn",
 };

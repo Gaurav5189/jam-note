@@ -28,8 +28,8 @@ export const ImageBlock = memo(function ImageBlock({
 
   if (editing) {
     return (
-      <div className="flex items-center gap-2 border border-dashed border-border-thin rounded-sm my-2 p-2">
-        <Link2 size={13} className="text-text-muted shrink-0" />
+      <div className="embed-edit">
+        <Link2 size={13} />
         <input
           autoFocus
           value={url}
@@ -40,24 +40,24 @@ export const ImageBlock = memo(function ImageBlock({
           }}
           placeholder="Paste image URL…"
           aria-label="Image URL"
-          className="flex-1 bg-transparent text-[13px] font-mono text-text-primary placeholder:text-text-muted/60 focus:outline-none"
+          className="embed-input"
         />
         <button
           type="button"
           onMouseDown={(e) => e.preventDefault()}
           onClick={commitUrl}
-          className="text-[10px] font-mono uppercase tracking-wider text-accent-neon border border-accent-neon/40 hover:border-accent-neon rounded-sm px-2 py-1 transition-colors"
+          className="embed-btn"
         >
-          Set
+          SET
         </button>
         {src && (
           <button
             type="button"
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => setEditing(false)}
-            className="text-[10px] font-mono uppercase tracking-wider text-text-muted hover:text-text-primary px-1"
+            className="embed-btn ghost"
           >
-            Cancel
+            CANCEL
           </button>
         )}
       </div>
@@ -65,19 +65,18 @@ export const ImageBlock = memo(function ImageBlock({
   }
 
   return (
-    <div className="group/img relative my-2">
+    <div className="embed-frame">
       {/* eslint-disable-next-line @next/next/no-img-element -- user asset URLs come from arbitrary hosts, not the Next image pipeline */}
       <img
         src={src ?? undefined}
         alt={block.properties.text || "Image block"}
-        className="max-w-full border border-border-thin rounded-sm block"
       />
-      <div className="absolute top-2 right-2 hidden group-hover/img:flex gap-1">
+      <div className="embed-actions">
         <button
           type="button"
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => setEditing(true)}
-          className="bg-background-panel/90 border border-border-thin rounded-sm p-1.5 text-text-muted hover:text-accent-neon transition-colors"
+          className="embed-act"
           title="Replace image"
           aria-label="Replace image"
         >
@@ -87,7 +86,7 @@ export const ImageBlock = memo(function ImageBlock({
           type="button"
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => onRemove(block.id)}
-          className="bg-background-panel/90 border border-border-thin rounded-sm p-1.5 text-text-muted hover:text-accent-amber transition-colors"
+          className="embed-act danger"
           title="Delete block"
           aria-label="Delete image block"
         >
@@ -112,15 +111,15 @@ export const DividerBlock = memo(function DividerBlock({
   onRemove: (blockId: string) => void;
 }) {
   return (
-    <div className="group/div relative my-3">
-      <div className="h-px w-full bg-border-thin" role="separator" />
+    <div className="embed-rule">
+      <i role="separator" aria-hidden="true" />
       <button
         type="button"
         // Keep the caret wherever it was — clicking a control must never
         // steal focus from the block the user is writing in.
         onMouseDown={(e) => e.preventDefault()}
         onClick={() => onRemove(block.id)}
-        className="absolute -top-2.5 right-0 hidden group-hover/div:flex bg-background-panel/90 border border-border-thin rounded-sm p-1.5 text-text-muted hover:text-accent-amber transition-colors"
+        className="embed-act danger"
         title="Delete divider"
         aria-label="Delete divider block"
       >
@@ -132,7 +131,9 @@ export const DividerBlock = memo(function DividerBlock({
 
 // ─── Drawing block (canvas sketch pad → PNG dataURL) ─────────────────────
 
-const STROKE_COLORS = ["#D1FF4D", "#FFB800", "#F3F4F6", "#8A94A6"] as const;
+// Print inks on the paper sketch pad: process black, Riso Red, Flat
+// Gold, and a graphite pencil tone.
+const STROKE_COLORS = ["#151310", "#ff3d1c", "#ffb511", "#8A94A6"] as const;
 
 export const DrawingBlock = memo(function DrawingBlock({
   block,
@@ -227,8 +228,8 @@ export const DrawingBlock = memo(function DrawingBlock({
   };
 
   return (
-    <div className="my-2 border border-border-thin rounded-sm overflow-hidden bg-background-panel">
-      <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border-thin">
+    <div className="draw-frame">
+      <div className="draw-toolbar">
         {STROKE_COLORS.map((c) => (
           <button
             key={c}
@@ -240,28 +241,26 @@ export const DrawingBlock = memo(function DrawingBlock({
             }}
             aria-label={`Stroke color ${c}`}
             aria-pressed={color === c}
-            className={`w-3.5 h-3.5 rounded-full border transition-colors ${
-              color === c ? "border-accent-neon" : "border-border-thin"
-            }`}
+            className={`draw-dot${color === c ? " on" : ""}`}
             style={{ backgroundColor: c }}
           />
         ))}
 
-        <span className="flex-1" />
+        <span style={{ flex: 1 }} />
 
         <button
           type="button"
           onMouseDown={(e) => e.preventDefault()}
           onClick={clearDrawing}
-          className="text-[10px] font-mono uppercase tracking-wider text-text-muted hover:text-text-primary transition-colors"
+          className="draw-btn"
         >
-          Clear
+          CLEAR
         </button>
         <button
           type="button"
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => onRemove(block.id)}
-          className="text-text-muted hover:text-accent-amber transition-colors"
+          className="draw-btn danger"
           title="Delete block"
           aria-label="Delete drawing block"
         >
@@ -276,7 +275,7 @@ export const DrawingBlock = memo(function DrawingBlock({
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerLeave={handlePointerUp}
-        className="block w-full h-[280px] cursor-crosshair touch-none bg-background-base"
+        className="draw-canvas"
         aria-label="Drawing canvas"
       />
     </div>

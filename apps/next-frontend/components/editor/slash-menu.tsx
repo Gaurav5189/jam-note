@@ -79,19 +79,17 @@ export function SlashMenu({
   if (items.length === 0) {
     return (
       <div
-        className="absolute z-30 w-56 bg-background-panel border border-border-thin rounded-md"
+        className="slash-menu"
         style={{ left: x, top: y }}
       >
-        <p className="px-3 py-2.5 text-[11px] font-mono text-text-muted">
-          No block matches
-        </p>
+        <p className="slash-empty">No block matches.</p>
       </div>
     );
   }
 
   return (
     <div
-      className="absolute z-30 w-56 bg-background-panel border border-border-thin rounded-md overflow-hidden"
+      className="slash-menu"
       style={{ left: x, top: y }}
       role="listbox"
       aria-label="Insert block"
@@ -109,37 +107,27 @@ export function SlashMenu({
             onMouseDown={(e) => e.preventDefault()}
             onMouseEnter={() => onHover(index)}
             onClick={() => onSelect(item)}
-            className={`w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors ${
-              active ? "bg-background-steel" : ""
-            }`}
+            className={`slash-item${active ? " is-active" : ""}`}
           >
-            <Icon size={13} className={active ? "text-accent-neon shrink-0" : "text-text-muted shrink-0"} />
-            <span className="flex-1 min-w-0">
-              <span
-                className={`block text-xs truncate ${
-                  active ? "text-accent-neon" : "text-text-primary"
-                }`}
-              >
-                {item.label}
-              </span>
-              <span className="block text-[10px] font-mono text-text-muted truncate">
-                {item.hint}
-              </span>
+            <span className="slash-item-icon"><Icon size={13} /></span>
+            <span style={{ minWidth: 0, flex: 1 }}>
+              <span className="slash-item-label">{item.label}</span>
+              <span className="slash-item-hint">{item.hint}</span>
             </span>
           </button>
         );
       })}
-      <div className="flex items-center justify-between px-3 py-1.5 border-t border-border-thin text-[9px] font-mono text-text-muted uppercase">
-        <span>↑↓ navigate</span>
-        <span>↵ insert</span>
-        <span
+      <div className="slash-foot">
+        <span>↑↓ NAVIGATE</span>
+        <span>↵ INSERT</span>
+        <button
+          type="button"
           // Click-away dismiss without stripping — the textarea keeps focus.
           onMouseDown={(e) => e.preventDefault()}
           onClick={() => onDismiss(false)}
-          className="cursor-pointer hover:text-text-primary"
         >
-          esc close
-        </span>
+          ESC CLOSE
+        </button>
       </div>
     </div>
   );

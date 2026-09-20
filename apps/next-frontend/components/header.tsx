@@ -1,64 +1,86 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { LogOut, Search } from "lucide-react";
-import { fetchApi } from "@/lib/api";
+import { useEffect, useRef } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { Search } from "lucide-react";
+import { useNotes } from "@/context/notes-context";
+import { flattenTree } from "@/lib/note-tree";
 import type { User } from "@/lib/types";
+import { DESK_SIGNOUT_EVENT } from "@/components/desk/desk-chrome";
 
 export const OPEN_SEARCH_EVENT = "jam:open-search";
 
-export function Header({ user }: { user: User }) {
-  const router = useRouter();
+const NOTE_URL_PREFIX = "/notes/";
 
-  const handleLogout = async () => {
-    try {
-      await fetchApi("/api/auth/logout", { method: "POST" });
-      router.push("/login");
-    } catch (err) {
-      console.error("Failed to logout:", err);
-    }
-  };
+export function Header({ user }: { user: User }) {
+  const { tree } = useNotes();
+  const pathname = usePathname();
+  const statusRef = useRef<HTMLSpanElement>(null);
+
+  const activeNoteId = pathname.startsWith(NOTE_URL_PREFIX)
+    ? pathname.slice(NOTE_URL_PREFIX.length)
+    : null;
+
+  const count = flattenTree(tree).length;
+  const openTitle = activeNoteId
+    ? flattenTree(tree).find((n) => n.id === activeNoteId)?.title ?? null
+    : null;
+
+  const statusLine = `CHANNEL — MAIN · ${String(count).padStart(2, "0")} NOTE${count === 1 ? "" : "S"} FILED${
+    openTitle ? ` · OPEN: ${openTitle.toUpperCase()}` : ""
+  }`;
+
+  // Replay the tick animation whenever the status text changes (new
+  // note filed, opened, renamed…). The class name string stays stable
+  // across these renders, so React never rewrites the attribute and
+  // the imperative re-add survives.
+  useEffect(() => {
+    const el = statusRef.current;
+    if (!el) return;
+    el.classList.remove("tick");
+    void el.offsetWidth;
+    el.classList.add("tick");
+  }, [statusLine]);
 
   const openSearch = () => {
     window.dispatchEvent(new CustomEvent(OPEN_SEARCH_EVENT));
   };
 
+  const requestSignout = () => {
+    window.dispatchEvent(new CustomEvent(DESK_SIGNOUT_EVENT));
+  };
+
+  const displayName = user.profile.display_name || user.username;
+
   return (
-    <header className="h-14 border-b border-border-thin bg-background-panel px-4 flex items-center justify-between shrink-0">
-      <div className="flex items-center gap-3">
-        <h1 className="text-lg font-bold font-mono text-text-primary tracking-tight">Jam Notes</h1>
-        <span className="text-[10px] font-mono text-accent-neon border border-accent-neon/30 px-2 py-0.5 rounded-sm bg-accent-neon/10 uppercase tracking-widest">
-          Phase 3
-        </span>
+    <header className="runhead chrome">
+      <div className="rh-l">
+        <Link href="/dashboard" className="rh-brand">Jam Notes</Link>
       </div>
 
-      <div className="flex items-center gap-4">
-        <button
-          onClick={openSearch}
-          className="flex items-center gap-2 text-xs font-mono text-text-muted border border-border-thin bg-background-steel rounded-sm px-3 py-2 hover:border-accent-neon hover:text-text-primary transition-colors"
-          aria-label="Search notes"
-        >
-          <Search size={13} />
-          <span className="uppercase tracking-wider hidden sm:inline">Search</span>
-          <kbd className="hidden sm:inline text-[10px] text-text-muted border border-border-thin rounded-sm px-1.5 py-0.5">
-            ⌘K
-          </kbd>
+      <span className="rh-c" ref={statusRef}>{statusLine}</span>
+
+      <div className="rh-r">
+        <button onClick={openSearch} className="srch" type="button" aria-label="Search notes">
+          <Search size={12} aria-hidden="true" />
+          <span className="srch-label">SEARCH</span>
+          <kbd>⌘K</kbd>
         </button>
 
-        <div className="text-right hidden md:block">
-          <p className="text-sm text-text-primary font-medium leading-tight">
-            {user.profile.display_name || user.username}
-          </p>
-          <p className="text-[11px] text-text-muted font-mono leading-tight">{user.email}</p>
+        <div className="u-block">
+          <span className="u-ava" aria-hidden="true">
+            {displayName.slice(0, 1).toUpperCase()}
+          </span>
+          <span>
+            <span className="u-name">{displayName}</span>
+            <br />
+            <span className="u-mail">{user.email}</span>
+          </span>
         </div>
 
-        <button
-          onClick={handleLogout}
-          className="flex items-center gap-1.5 text-xs font-mono uppercase tracking-wider text-text-muted hover:text-accent-amber border border-border-thin px-3 py-2 rounded-sm hover:border-accent-amber transition-colors"
-          aria-label="Log out"
-        >
-          <LogOut size={13} />
-          <span className="hidden sm:inline">Disconnect</span>
+        <button onClick={requestSignout} className="disconnect" type="button">
+          DISCONNECT
         </button>
       </div>
     </header>

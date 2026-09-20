@@ -308,8 +308,7 @@ function EditableBlockImpl(props: EditableBlockProps) {
     [block.id, block.type, onPaste]
   );
 
-  const textareaClass =
-    "w-full bg-transparent text-text-primary placeholder:text-text-muted/60 focus:outline-none resize-none overflow-hidden";
+  const textareaClass = "eb";
 
   switch (block.type) {
     case "header-1":
@@ -325,7 +324,7 @@ function EditableBlockImpl(props: EditableBlockProps) {
           onPaste={handlePaste}
           placeholder={PLACEHOLDER["header-1"]}
           aria-label="Heading 1"
-          className={`${textareaClass} text-2xl font-semibold leading-snug mt-6 mb-1 break-words`}
+          className={`${textareaClass} eb-h1`}
         />
       );
     case "header-2":
@@ -341,7 +340,7 @@ function EditableBlockImpl(props: EditableBlockProps) {
           onPaste={handlePaste}
           placeholder={PLACEHOLDER["header-2"]}
           aria-label="Heading 2"
-          className={`${textareaClass} text-xl font-semibold leading-snug mt-5 mb-1 break-words`}
+          className={`${textareaClass} eb-h2`}
         />
       );
     case "header-3":
@@ -357,12 +356,12 @@ function EditableBlockImpl(props: EditableBlockProps) {
           onPaste={handlePaste}
           placeholder={PLACEHOLDER["header-3"]}
           aria-label="Heading 3"
-          className={`${textareaClass} text-lg font-semibold leading-snug mt-4 mb-1 break-words`}
+          className={`${textareaClass} eb-h3`}
         />
       );
     case "todo":
       return (
-        <div className="flex items-start gap-2.5 py-1">
+        <div className="eb-row">
           <button
             type="button"
             // Keep the caret in the textarea — no blur/flush churn on toggle.
@@ -370,11 +369,7 @@ function EditableBlockImpl(props: EditableBlockProps) {
             onClick={() =>
               onProperties(block.id, { checked: !block.properties.checked })
             }
-            className={`shrink-0 w-4 h-4 mt-1.5 border rounded-sm flex items-center justify-center transition-colors ${
-              block.properties.checked
-                ? "border-accent-neon bg-accent-neon/10 text-accent-neon"
-                : "border-border-thin text-transparent hover:border-accent-neon/60"
-            }`}
+            className={`eb-check${block.properties.checked ? " on" : ""}`}
             aria-label={block.properties.checked ? "Mark as not done" : "Mark as done"}
           >
             {block.properties.checked ? <Check size={11} /> : null}
@@ -390,16 +385,14 @@ function EditableBlockImpl(props: EditableBlockProps) {
             onPaste={handlePaste}
             placeholder={PLACEHOLDER.todo}
             aria-label="To-do item"
-            className={`${textareaClass} text-[15px] leading-7 break-words ${
-              block.properties.checked ? "line-through text-text-muted" : ""
-            }`}
+            className={`${textareaClass}${block.properties.checked ? " eb-done" : ""}`}
           />
         </div>
       );
     case "list-item":
       return (
-        <div className="flex items-start gap-2.5 py-0.5">
-          <span className="text-accent-neon shrink-0 mt-0.5 leading-7" aria-hidden>
+        <div className="eb-row">
+          <span className="eb-marker" aria-hidden>
             ▸
           </span>
           <textarea
@@ -413,7 +406,7 @@ function EditableBlockImpl(props: EditableBlockProps) {
             onPaste={handlePaste}
             placeholder={PLACEHOLDER["list-item"]}
             aria-label="List item"
-            className={`${textareaClass} text-[15px] leading-7 break-words`}
+            className={textareaClass}
           />
         </div>
       );
@@ -444,7 +437,7 @@ function EditableBlockImpl(props: EditableBlockProps) {
           onPaste={handlePaste}
           placeholder={PLACEHOLDER.text}
           aria-label="Text block"
-          className={`${textareaClass} text-[15px] leading-7 break-words`}
+          className={textareaClass}
         />
       );
   }
@@ -476,26 +469,26 @@ function CodeBlock({
   onBlur: React.FocusEventHandler;
   onProperties: (blockId: string, patch: Partial<BlockProperties>) => void;
 }) {
-  const shared = "w-full px-3 py-3 text-[13px] font-mono leading-6 whitespace-pre-wrap break-words";
+  const shared = "eb-code-shared";
   const tokens = tokenize(draft, block.properties.language ?? null);
 
   return (
-    <div className="bg-background-panel border border-border-thin rounded-sm overflow-hidden my-2">
-      <div className="px-3 py-1.5 border-b border-border-thin flex items-center gap-2">
+    <div className="eb-code-frame">
+      <div className="eb-code-head">
         <input
           value={block.properties.language ?? ""}
           onChange={(e) => onProperties(block.id, { language: e.target.value })}
           placeholder="language"
           aria-label="Code language"
-          className="bg-transparent text-[10px] font-mono uppercase tracking-widest text-text-muted placeholder:text-text-muted/60 focus:outline-none w-24"
+          className="eb-code-lang"
         />
       </div>
-      <div className="relative">
+      <div className="eb-code-rel">
         {/* Highlighted read mode — pointer-events pass through to the
             textarea underneath, so clicking anywhere starts editing. */}
         <pre
           aria-hidden
-          className={`${shared} text-text-primary ${focused ? "invisible" : ""}`}
+          className={`${shared} eb-code-pre${focused ? " is-hidden" : ""}`}
         >
           {tokens.length === 0 ? "\n" : null}
           {tokens.map((token, index) => (
@@ -515,9 +508,7 @@ function CodeBlock({
           onBlur={onBlur}
           placeholder={PLACEHOLDER.code}
           aria-label="Code block"
-          className={`${shared} absolute inset-0 bg-transparent ${
-            focused ? "text-text-primary caret-accent-neon" : "text-transparent caret-accent-neon"
-          } placeholder:text-text-muted/60 focus:outline-none resize-none overflow-hidden`}
+          className={`${shared} eb-code-ta${focused ? " is-editing" : ""}`}
         />
       </div>
     </div>

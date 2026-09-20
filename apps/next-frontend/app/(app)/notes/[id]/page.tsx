@@ -49,19 +49,16 @@ export default async function NotePage({ params }: NotePageProps) {
 
   if (!note) {
     return (
-      <div className="p-8">
-        <div className="max-w-lg mx-auto mt-16 bg-background-panel border border-border-thin rounded-md p-10 text-center">
-          <p className="font-mono text-accent-amber text-sm uppercase tracking-widest">
-            404 // Note not found
-          </p>
-          <p className="mt-3 text-sm text-text-muted">
+      <div className="nf-wrap">
+        <div className="nf-panel">
+          <i className="fc tl" /><i className="fc tr" /><i className="fc bl" /><i className="fc br" />
+          <p className="fig-cap">FIG. 404 — NOT ON FILE</p>
+          <p className="nf-mark">NOTE NOT FOUND</p>
+          <p className="nf-copy">
             This note does not exist, or belongs to another workspace.
           </p>
-          <Link
-            href="/dashboard"
-            className="inline-block mt-6 text-xs font-mono uppercase tracking-wider text-text-muted hover:text-accent-neon border border-border-thin hover:border-accent-neon px-4 py-2 rounded-sm transition-colors"
-          >
-            Back to workspace
+          <Link href="/dashboard" className="nf-cta">
+            BACK TO WORKSPACE
           </Link>
         </div>
       </div>
@@ -77,23 +74,18 @@ export default async function NotePage({ params }: NotePageProps) {
   }
 
   return (
-    <div className="p-8">
-      <div className="max-w-6xl mx-auto">
+    <div className="note-view">
+      <div className="note-head">
         {parent && (
-          <Link
-            href={`/notes/${parent.id}`}
-            prefetch={true}
-            className="inline-flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-wider text-text-muted hover:text-accent-neon transition-colors mb-3"
-          >
-            <ArrowLeft size={12} />
+          <Link href={`/notes/${parent.id}`} prefetch={true} className="parent-link rv" style={{ ["--rd" as string]: "0s" }}>
+            <ArrowLeft size={11} />
             {parent.title}
           </Link>
         )}
-
         <NoteHeader noteId={note.id} title={note.title} />
-
-        <NoteLayoutView note={note} />
       </div>
+
+      <NoteLayoutView note={note} />
     </div>
   );
 }
