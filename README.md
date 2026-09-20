@@ -19,7 +19,7 @@ With dynamic canvas layout modes, recursive note hierarchies, and integrated sel
 Unlike templated cream-and-terracotta or basic dark-mode products, `jam-note` utilizes a custom visual identity:
 * **Backgrounds:** Matte off-black surfaces (`#0D0E11`, `#14161C`) combined with dark graphite steel panels (`#1D2027`).
 * **Accents:** Electric neon yellow/green (`#D1FF4D`) and high-impact cyber-amber (`#FFB800`) used with razor-sharp restraint.
-* **Landing Palette:** The marketing surface at `/` owns its own scoped palette — deep blue-dark ground `#161b24`, panels `#1d2330`, borders `#262e3c`, with the `#FFD369` amber accent — deliberately isolated from the in-app tokens above (a darkened derivative of the original colorhunt `#222831`/`#393E46` scheme; the 3D hero scene, dot-grid fallbacks, and OpenGraph card use the same values).
+* **Landing Palette:** The marketing surface at `/` is a scoped printed monograph: uncoated paper `#f3efe6`, sheet stock `#faf7ef`, process black `#151310`, and Riso Red `#ff3d1c`. Its spatial Module Rack is the one Flat Gold `#ffb511` ink plate. See `make/landing_page_DESIGN.md`.
 * **Typographic Limits:** Fixed line lengths (max 75-80 characters per line) to optimize readability.
 * **Structured UI:** Thin solid lines (`1px solid #2A2F3D`) and strict corner radii (`rounded-sm`/`rounded-md`) instead of heavy shadows or pill shapes.
 

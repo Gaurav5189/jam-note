@@ -10,9 +10,9 @@ import { PricingSection } from "@/components/landing/pricing-section";
 import { LandingFooter } from "@/components/landing/landing-footer";
 import { SITE_URL } from "@/lib/site";
 
-const archivo = Archivo({ variable: "--font-archivo", subsets: ["latin"], axes: ["wdth"] });
-const newsreader = Newsreader({ variable: "--font-newsreader", subsets: ["latin"], style: ["normal", "italic"], axes: ["opsz"] });
-const spaceMono = Space_Mono({ variable: "--font-space-mono", subsets: ["latin"], weight: ["400", "700"], style: ["normal", "italic"] });
+const archivo = Archivo({ variable: "--font-archivo", subsets: ["latin"], axes: ["wdth"], display: "block" });
+const newsreader = Newsreader({ variable: "--font-newsreader", subsets: ["latin"], style: ["normal", "italic"], axes: ["opsz"], display: "block" });
+const spaceMono = Space_Mono({ variable: "--font-space-mono", subsets: ["latin"], weight: ["400", "700"], style: ["normal", "italic"], display: "block" });
 const TITLE = "Jam Notes — write fast, think in space";
 const DESCRIPTION = "A tactile, keyboard-first note system: a block editor, spatial canvas, and one-click publishing for drafts that are ready.";
 

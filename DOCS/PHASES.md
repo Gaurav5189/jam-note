@@ -94,26 +94,26 @@ This document maps out a structured, 5-phase build order to take `jam-note` from
 
 ---
 
-## Phase 5: Landing Page & 3D Showcase (Sprint 5)
-**Goal:** A high-quality marketing landing page with background 3D designs, scoped to its own palette — a darkened variant of the colorhunt scheme (colorhunt.co/palette/222831393e46ffd369eeeeee): ground `#161b24`, panels `#1d2330`, borders `#262e3c`, accent `#FFD369`, text `#EEEEEE` — without disturbing the in-app neo-industrial theme.
+## Phase 5: Landing Monograph (Sprint 5)
+**Goal:** A high-quality public marketing monograph at `/`, built from paper stock, process black, Riso Red annotation ink, and one spatial Flat Gold Module Rack plate. The locked implementation record is `make/landing_page_DESIGN.md`.
 
 ### Milestones
 1. **Route Architecture (prerequisite):**
    - `/` currently renders the authenticated `(app)` shell. Split it: unauthenticated visitors get the landing at `/`; logged-in users are redirected straight into the app (no marketing flash). The dashboard moves to its own route (e.g. `/dashboard`) inside the existing `(app)` group; `proxy.ts` guards and all internal links (`/` references in note-header, recent-notes, logout) are updated.
 2. **Marketing Design System:**
-   - Scoped CSS variables for the landing palette: `#161b24` ground, `#1d2330` panels, `#262e3c` borders, `#FFD369` amber-yellow accent, `#EEEEEE` text (a deliberate darkening of the original `#222831`/`#393E46`/`#2E343D` scheme; the 3D scene ground/panel, the CSS dot-grid fallbacks, and the generated OpenGraph card use these same values). Palette audit: a deliberate cousin of the in-app neo-industrial scheme (dark ground + yellow accent) so the brand reads consistently, but the marketing surface owns its own tokens.
-   - Same typographic discipline as the app (mono labels, tight tracking, razor-thin borders) for brand continuity.
-3. **3D Background:**
-   - `react-three-fiber` (three.js) scene as the only new dependency, loaded via `next/dynamic` off the critical path so the text-first hero paints instantly; the 3D chunk streams in after LCP.
-   - `prefers-reduced-motion` and no-WebGL environments render a static (CSS/canvas-2D) fallback.
-4. **Page Sections:** hero (tagline + "Start free" CTA), feature grid (block editor, slash commands, Jam Canvas, publishing), product visuals (real screenshots — no fake mockups), pricing/free-tier statement, footer.
+   - Route-scoped paper monograph tokens: `#f3efe6` paper, `#faf7ef` sheet, `#151310` ink, `#ff3d1c` Riso Red, and `#ffb511` Flat Gold on the spatial rack only.
+   - Archivo, Newsreader, and Space Mono; 1.5px print rules; square corners; hard positive-offset shadows; crop marks, grain, registration cursor, running head, and progress rule.
+3. **Interaction and Motion:**
+   - Split-glyph hero intro followed by the cursor-proximity Archivo weight/width field; reduced motion stays fully readable without motion.
+   - Spread 03 title plate followed by the v1.2 spatial Module Rack; no film strip, draggable cards, 3D scene, or pointer color trail.
+4. **Page Sections:** hero with `YOUR CONSOLE` login CTA; accessible Modes specimens; six-row Terms and clip-out coupon; colophon navigation.
 5. **SEO & Metadata:** page metadata + OpenGraph/Twitter cards, `sitemap.ts` + `robots.ts` (shared with Phase 6 public publishing), SoftwareApplication structured data.
 
 ### Verification Checklist
 - [x] Unauthenticated `/` shows the landing; authenticated users land directly in the app with no marketing flash. — **Verified**: HTTP smoke test — `/` returns 200; `/dashboard` without a cookie redirects 307 → `/login`; `/` with a `jam_session` cookie redirects 307 → `/dashboard`.
-- [x] 3D loads lazily: static shell passes Lighthouse ≥ 90 / LCP < 2.5s; the three.js bundle never blocks first paint. — **Verified**: the initial landing HTML contains zero three.js code and zero `modulepreload` links; the dot-grid fallback is SSR'd. Lighthouse (real-browser runs): LCP 0.5s; A11y 100 after the Phase 5.2 fixes; Performance 93–100 depending on run (dev-mode audits carry the known unminified-chunk cost) — the ≥ 90 target is met. Final performance call: judged on the live production deployment (user decision; Phase 5 closed).
-- [x] `prefers-reduced-motion` and non-WebGL browsers get a static fallback. — **Verified**: `useSyncExternalStore` capability gates in `hero-canvas.tsx`, an always-SSR'd CSS dot-grid, and a global reduced-motion animation reset.
-- [x] Fully responsive (360px → desktop) and keyboard navigable. — **Verified**: mobile-first Tailwind layout, arrow-key tab navigation in the showcase, visible focus rings. Viewport rendering confirmed via headless Chromium screenshots (1440px + 360px).
+- [x] The final monograph replaces the retired 3D landing and legacy rack interactions. The current source of truth is `make/landing_page_DESIGN.md`.
+- [x] Reduced-motion users receive static, fully readable content; the hero cursor field, spatial parallax, and reveal timing are disabled.
+- [x] Fully responsive and keyboard navigable: visible focus rings, arrow-key Modes tabs, focusable panel, accessible spatial specimens, and a polite coupon redirect status.
 
 ---
 

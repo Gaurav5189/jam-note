@@ -14,10 +14,10 @@ const letters = (text: string, prefix: string, delay: number, isSerif = false) =
 export function HeroSection() {
   return (
     <section className="spread hero" id="overview" data-ind="SPREAD 01 / 04 — OVERVIEW">
-      <span className="rail rail-l chrome">JAM NOTES — A SPATIAL NOTEBOOK</span>
-      <span className="rail rail-r chrome">WRITE FAST · THINK IN SPACE · ED. β</span>
+      <span className="rail rail-l chrome io" style={{ "--d": "1.4s" } as React.CSSProperties}>JAM NOTES — A SPATIAL NOTEBOOK</span>
+      <span className="rail rail-r chrome io" style={{ "--d": "1.5s" } as React.CSSProperties}>WRITE FAST · THINK IN SPACE · ED. β</span>
       <div className="hero-core">
-        <p className="kicker intro">JAM NOTES — A SPATIAL NOTEBOOK · MONOGRAPH, ED. β</p>
+        <p className="kicker io" style={{ "--d": "0.15s" } as React.CSSProperties}>JAM NOTES — A SPATIAL NOTEBOOK · MONOGRAPH, ED. β</p>
         <h1 className="hero-title" id="heroTitle" aria-label="Write fast. Think in space.">
           <span className="hline h1">
             <span className="hmask">
@@ -36,12 +36,12 @@ export function HeroSection() {
             </span>
           </span>
         </h1>
-        <p className="hero-sub intro">A block editor that keeps up with your hands, an infinite canvas for the ideas that refuse to stay in line, and one-click publishing when the draft is ready.</p>
-        <Link className="hero-console" href="/login">
+        <p className="hero-sub io" style={{ "--d": "1.15s" } as React.CSSProperties}>A block editor that keeps up with your hands, an infinite canvas for the ideas that refuse to stay in line, and one-click publishing when the draft is ready.</p>
+        <Link className="hero-console io" href="/login" style={{ "--d": "1.25s" } as React.CSSProperties}>
           YOUR CONSOLE <span aria-hidden="true">↗</span>
         </Link>
       </div>
-      <div className="hero-meta intro">
+      <div className="hero-meta io" style={{ "--d": "1.35s" } as React.CSSProperties}>
         <span className="meta-tech">&lt;50 MS KEYSTROKE · 0 KEYSTROKES LOST · ⌘K INSTANT</span>
         <span className="meta-c">↓</span>
         <span>

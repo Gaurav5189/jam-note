@@ -72,18 +72,27 @@ export function LandingChrome() {
       }, reducedMotion ? 50 : 2300);
     };
 
-    if (document.fonts?.ready) {
-      Promise.race([
-        document.fonts.ready,
-        new Promise((resolve) => setTimeout(resolve, 1600)),
-      ]).then(() => {
-        requestAnimationFrame(startIntro);
-      });
-    } else {
-      startIntro();
-    }
+    // Explicitly wait for the exact font strings we rely on so the animated
+    // hero letters never rise in a fallback font and then re-lay-out mid-jump.
+    // This replaces the loose `document.fonts.ready` race that resolves as soon
+    // as *any* font loads — fast enough to fire before Archivo/Newsreader are
+    // actually applied, which was the root cause of the jumpy entry.
+    const ensureFonts = () => {
+      if (!document.fonts?.ready) return Promise.resolve();
+      const samples = ["900 72px Archivo", "400 72px Newsreader", "400 72px 'Space Mono'"];
+      return Promise.all(samples.map((s) => document.fonts.load(s))).then(() => document.fonts.ready);
+    };
 
-    const ptr = { x: -9999, y: -9999, in: false };
+    Promise.race([ensureFonts(), new Promise((resolve) => setTimeout(resolve, 1600))])
+      .then(() => {
+        // Double-rAF: first frame commits the initial transform state,
+        // second frame starts the CSS transition so letters rise smoothly.
+        requestAnimationFrame(() => {
+          requestAnimationFrame(startIntro);
+        });
+      });
+
+  const ptr = { x: -9999, y: -9999, in: false };
     let kineticFrame = 0;
     const trackHeroPointer = (event: PointerEvent) => {
       ptr.x = event.clientX;
