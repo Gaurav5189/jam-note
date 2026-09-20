@@ -198,8 +198,7 @@ export function AuthSlips({ initialForm }: { initialForm: "login" | "signup" }) 
   }, [clearError]);
 
   // Server errors map into the proofreading system: known 400/401 details
-  // become red field marks + shake, everything else (422, network, 503)
-  // toasts only.
+  // become red field marks + shake; other errors shake the whole form.
   const applyServerError = useCallback((form: FormKey, err: unknown) => {
     const message = err instanceof Error ? err.message : "";
     const network = NETWORK_HINTS.some((hint) => message.toLowerCase().includes(hint));
@@ -345,7 +344,8 @@ export function AuthSlips({ initialForm }: { initialForm: "login" | "signup" }) 
     return () => window.clearTimeout(timer);
   }, [out]);
 
-  // The toast stays visible across consecutive messages; the timer re-arms.
+  // The toast only exists while it carries a real message; this prevents an
+  // empty fixed box from appearing on initial page load.
   useEffect(() => {
     if (!toast) return;
     const timer = window.setTimeout(() => setToast(null), 3200);
@@ -570,7 +570,7 @@ export function AuthSlips({ initialForm }: { initialForm: "login" | "signup" }) 
       </footer>
       <div className="grain chrome" aria-hidden="true" />
       <div className="ink-bursts" aria-hidden="true" />
-      <div className={`toast${toast ? " show" : ""}`} role="status"><i /><span>{toast?.msg ?? ""}</span></div>
+      {toast ? <div className="toast show" role="status"><i /><span>{toast.msg}</span></div> : null}
 
       <main className="plate">
         {/* Ghost plate word: ACCESS / CREATE */}

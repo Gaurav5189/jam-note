@@ -46,7 +46,6 @@ body.go .auth .chrome{opacity:1}
 .auth .toast{position:fixed;left:20px;bottom:56px;z-index:500;display:flex;align-items:center;gap:10px;background:var(--paper);border:1.5px solid var(--ink);box-shadow:5px 5px 0 var(--gold);padding:11px 16px 11px 13px;font-family:var(--font-space-mono),monospace;font-size:10.5px;letter-spacing:.1em;color:var(--ink);transform:translateY(160%);transition:transform .38s cubic-bezier(.2,.9,.2,1);max-width:min(80vw,440px)}
 .auth .toast i{width:9px;height:9px;background:var(--gold);flex:0 0 auto}
 .auth .toast.show{transform:none}
-
 /* Success confirmation — single gold ink burst (never a trail). */
 .auth .ink-bursts{position:fixed;inset:0;z-index:510;pointer-events:none}
 .auth .ink-bursts i{position:absolute;width:var(--size);height:var(--size);background:var(--gold);border-radius:50%;animation:auth-ink-burst .62s var(--ease-pop) forwards}
