@@ -175,3 +175,6 @@ body.go .auth .slip.on .crosslink{opacity:1}
   .auth *,.auth *::before,.auth *::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;transition-delay:0s!important;animation-delay:0s!important}
   .auth,.auth *,.auth *::before,.auth *::after{cursor:auto}
 }
+
+/* Keep auth title metrics stable while the letters enter. */
+.auth .kinetic .k{font-variation-settings:'wght' 850,'wdth' 111;transition:transform .72s cubic-bezier(.16,1,.3,1) var(--d,0s)}

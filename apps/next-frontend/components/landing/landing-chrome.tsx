@@ -63,6 +63,7 @@ export function LandingChrome() {
       : [];
 
     let introDone = false;
+    let disposed = false;
     let introTimer = 0;
     const startIntro = () => {
       document.body.classList.add("go");
@@ -72,25 +73,29 @@ export function LandingChrome() {
       }, reducedMotion ? 50 : 2300);
     };
 
-    // Explicitly wait for the exact font strings we rely on so the animated
-    // hero letters never rise in a fallback font and then re-lay-out mid-jump.
-    // This replaces the loose `document.fonts.ready` race that resolves as soon
-    // as *any* font loads — fast enough to fire before Archivo/Newsreader are
-    // actually applied, which was the root cause of the jumpy entry.
+    // Wait for the actual font families applied to the hero. The names exposed
+    // by next/font are generated, so generic family names are not reliable.
     const ensureFonts = () => {
       if (!document.fonts?.ready) return Promise.resolve();
-      const samples = ["900 72px Archivo", "400 72px Newsreader", "400 72px 'Space Mono'"];
-      return Promise.all(samples.map((s) => document.fonts.load(s))).then(() => document.fonts.ready);
+      const samples = [hero, hero?.querySelector<HTMLElement>(".h2 .ht")]
+        .filter((element): element is HTMLElement => Boolean(element))
+        .map((element) => {
+          const style = getComputedStyle(element);
+          return `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+        });
+      return Promise.allSettled(samples.map((sample) => document.fonts.load(sample))).then(() => document.fonts.ready);
     };
 
-    Promise.race([ensureFonts(), new Promise((resolve) => setTimeout(resolve, 1600))])
-      .then(() => {
-        // Double-rAF: first frame commits the initial transform state,
-        // second frame starts the CSS transition so letters rise smoothly.
+    ensureFonts().then(() => {
+      if (disposed) return;
+      // Double-rAF: first frame commits the initial transform state,
+      // second frame starts the CSS transition so letters rise smoothly.
+      requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-          requestAnimationFrame(startIntro);
+          if (!disposed) startIntro();
         });
       });
+    });
 
   const ptr = { x: -9999, y: -9999, in: false };
     let kineticFrame = 0;
@@ -153,6 +158,7 @@ export function LandingChrome() {
     driftFrame = requestAnimationFrame(driftLoop);
 
     return () => {
+      disposed = true;
       reveal.disconnect();
       removeEventListener("scroll", progress);
       removeEventListener("jam:toast", onToast);

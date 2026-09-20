@@ -492,7 +492,7 @@ export function AuthSlips({ initialForm }: { initialForm: "login" | "signup" }) 
     const ensureFonts = () => {
       if (!document.fonts?.ready) return Promise.resolve();
       const samples = ["900 72px Archivo", "400 72px Newsreader", "400 72px 'Space Mono'"];
-      return Promise.all(samples.map((sample) => document.fonts.load(sample))).then(() => document.fonts.ready);
+      return Promise.allSettled(samples.map((sample) => document.fonts.load(sample))).then(() => document.fonts.ready);
     };
     let introTimer = 0;
     let cancelled = false;
