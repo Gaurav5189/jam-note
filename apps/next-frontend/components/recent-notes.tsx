@@ -4,9 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Plus } from "lucide-react";
-import { useNotes } from "@/context/notes-context";
-import { findNotePath, flattenTree } from "@/lib/note-tree";
-import type { NoteTreeItem } from "@/lib/types";
+import { useWorkspace } from "@/context/workspace-context";
+import { findNotePath, flattenNotes } from "@/lib/workspace-tree";
+import type { NoteListItem, WorkspaceTree } from "@/lib/types";
 import { deskBurst, deskToast } from "@/components/desk/desk-chrome";
 import { formatLocalDateTime } from "@/lib/time";
 
@@ -37,7 +37,7 @@ function KineticWord({ word, line }: { word: string; line: number }) {
 }
 
 export function RecentNotes() {
-  const { tree, createNote } = useNotes();
+  const { tree, createNote } = useWorkspace();
   const router = useRouter();
   const titleRef = useRef<HTMLHeadingElement>(null);
   // Swap UTC slices for local stamps after mount — scheduled callback,
@@ -48,7 +48,7 @@ export function RecentNotes() {
     return () => clearTimeout(id);
   }, []);
 
-  const notes = flattenTree(tree)
+  const notes = flattenNotes(tree)
     .slice()
     .sort((a, b) => (a.updated_at < b.updated_at ? 1 : -1))
     .slice(0, RECENT_LIMIT);
@@ -185,16 +185,16 @@ function RecentNoteRow({
   tree,
   local,
 }: {
-  note: NoteTreeItem;
+  note: NoteListItem;
   index: number;
-  tree: NoteTreeItem[];
+  tree: WorkspaceTree;
   /** false until mount — SSR renders the deterministic UTC slice. */
   local: boolean;
 }) {
   const path = findNotePath(tree, note.id);
   const parentPath =
-    path && path.length > 1
-      ? path.slice(0, -1).map((node) => node.title).join(" › ")
+    path && path.folders.length > 0
+      ? path.folders.map((folder) => folder.name).join(" › ")
       : null;
 
   return (

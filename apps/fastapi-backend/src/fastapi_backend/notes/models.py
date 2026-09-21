@@ -6,6 +6,29 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 # A note is either a standard scrolling document or a spatial canvas board.
 LayoutType = Literal["document", "canvas"]
 
+# Pastel accents available to folders and notes in the sidebar (Phase 6
+# color coding). Stored as a palette key, never a raw color string, so
+# the API can validate it and the frontend owns the actual hues. Shared
+# by the notes and folders models (folders import from here).
+PALETTE_COLORS = frozenset(
+    {"amber", "rose", "mint", "sky", "violet", "lime", "peach", "steel"}
+)
+
+
+def normalize_color(value: object) -> object:
+    """Palette validator body: strip + lowercase, reject unknown keys.
+
+    `None` passes through untouched (no accent). Raising ValueError here
+    surfaces as the usual 422 validation error.
+    """
+    if value is None or isinstance(value, str) and value.strip() == "":
+        return None
+    if isinstance(value, str):
+        key = value.strip().lower()
+        if key in PALETTE_COLORS:
+            return key
+    raise ValueError(f"color must be one of {sorted(PALETTE_COLORS)}")
+
 
 class BlockProperties(BaseModel):
     """Known properties for built-in block types.
@@ -45,9 +68,10 @@ class BlockConnection(BaseModel):
 
 class NoteCreate(BaseModel):
     title: str = Field(min_length=1, max_length=200)
-    parent_id: str | None = None
+    folder_id: str | None = None
     layout_type: LayoutType = "document"
     emoji_icon: str | None = None
+    color: str | None = None
     blocks: list[Block] = Field(default_factory=list)
     block_connections: list[BlockConnection] = Field(default_factory=list)
 
@@ -60,17 +84,24 @@ class NoteCreate(BaseModel):
             return value.strip()
         return value
 
+    @field_validator("color", mode="before")
+    @classmethod
+    def check_color(cls, value: object) -> object:
+        return normalize_color(value)
+
 
 class NoteUpdate(BaseModel):
     """Partial update — only provided fields are replaced.
 
-    Delta/JSON-patch syncing arrives with the Phase 3 editor autosave
-    state machine; Phase 2 replaces provided fields wholesale.
+    `folder_id` and `color` use `model_fields_set` semantics: omitted
+    means "don't touch", explicit null means "clear the accent".
     """
 
     title: str | None = Field(default=None, min_length=1, max_length=200)
+    folder_id: str | None = None
     layout_type: LayoutType | None = None
     emoji_icon: str | None = None
+    color: str | None = None
     blocks: list[Block] | None = None
     block_connections: list[BlockConnection] | None = None
 
@@ -81,15 +112,21 @@ class NoteUpdate(BaseModel):
             return value.strip()
         return value
 
+    @field_validator("color", mode="before")
+    @classmethod
+    def check_color(cls, value: object) -> object:
+        return normalize_color(value)
+
 
 class NoteListItem(BaseModel):
     """Lightweight note shape for sidebar/tree/search reads (no blocks)."""
 
     id: str
-    parent_id: str | None
+    folder_id: str | None
     title: str
     layout_type: LayoutType
     emoji_icon: str | None
+    color: str | None = None
     is_published: bool
     created_at: datetime
     updated_at: datetime
@@ -98,10 +135,13 @@ class NoteListItem(BaseModel):
     def from_mongo(cls, data: dict[str, Any]) -> "NoteListItem":
         return cls(
             id=str(data["_id"]),
-            parent_id=str(data["parent_id"]) if data.get("parent_id") is not None else None,
+            # get(): documents created before folders existed (or wiped
+            # without one) simply read as root notes.
+            folder_id=str(data["folder_id"]) if data.get("folder_id") is not None else None,
             title=data["title"],
             layout_type=data.get("layout_type", "document"),
             emoji_icon=data.get("emoji_icon"),
+            color=data.get("color"),
             is_published=data.get("is_published", False),
             created_at=data["created_at"],
             updated_at=data["updated_at"],
@@ -118,10 +158,11 @@ class NoteOut(NoteListItem):
     def from_mongo(cls, data: dict[str, Any]) -> "NoteOut":
         return cls(
             id=str(data["_id"]),
-            parent_id=str(data["parent_id"]) if data.get("parent_id") is not None else None,
+            folder_id=str(data["folder_id"]) if data.get("folder_id") is not None else None,
             title=data["title"],
             layout_type=data.get("layout_type", "document"),
             emoji_icon=data.get("emoji_icon"),
+            color=data.get("color"),
             is_published=data.get("is_published", False),
             created_at=data["created_at"],
             updated_at=data["updated_at"],
@@ -131,9 +172,3 @@ class NoteOut(NoteListItem):
                 for conn in data.get("block_connections", [])
             ],
         )
-
-
-class NoteTreeItem(NoteListItem):
-    """A note plus its nested children, ordered by creation time."""
-
-    children: list["NoteTreeItem"] = Field(default_factory=list)

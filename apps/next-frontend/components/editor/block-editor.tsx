@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { GripVertical } from "lucide-react";
-import { useNotes } from "@/context/notes-context";
+import { useWorkspace } from "@/context/workspace-context";
 import type { Block, BlockProperties } from "@/lib/types";
 import {
   blockText,
@@ -87,7 +87,7 @@ export function BlockEditor({
   onBlocksChange?: (blocks: Block[]) => void;
   onUndoStateChange?: (state: EditorUndoState) => void;
 }) {
-  const { saveBlocks } = useNotes();
+  const { saveBlocks } = useWorkspace();
 
   const onBlocksChangeRef = useRef(onBlocksChange);
   useEffect(() => {

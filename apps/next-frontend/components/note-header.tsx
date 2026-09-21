@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Pencil, Trash2 } from "lucide-react";
-import { useNotes } from "@/context/notes-context";
-import { findNotePath } from "@/lib/note-tree";
+import { useWorkspace } from "@/context/workspace-context";
+import { findNotePath } from "@/lib/workspace-tree";
 import { deskBurst, deskToast } from "@/components/desk/desk-chrome";
 
 /**
@@ -12,10 +12,10 @@ import { deskBurst, deskToast } from "@/components/desk/desk-chrome";
  * sidebar, palette, or header), falling back to the SSR initial title.
  */
 function useLiveTitle(noteId: string, initialTitle: string): string {
-  const { tree } = useNotes();
+  const { tree } = useWorkspace();
   const activeNode = useMemo(() => {
     const path = findNotePath(tree, noteId);
-    return path ? path[path.length - 1] : null;
+    return path ? path.note : null;
   }, [tree, noteId]);
   return activeNode?.title ?? initialTitle;
 }
@@ -25,7 +25,7 @@ function useLiveTitle(noteId: string, initialTitle: string): string {
  * edit-pencil affordance. Click the title (or the pencil) to rename.
  */
 export function NoteTitleEditor({ noteId, title: initialTitle }: { noteId: string; title: string }) {
-  const { renameNote } = useNotes();
+    const renameNote = useWorkspace().renameNote;
   const [editing, setEditing] = useState(false);
   const title = useLiveTitle(noteId, initialTitle);
 
@@ -67,7 +67,7 @@ export function NoteTitleEditor({ noteId, title: initialTitle }: { noteId: strin
  * red confirm chip (auto-resets after 2.5s), second click deletes.
  */
 export function NoteDeleteButton({ noteId }: { noteId: string }) {
-  const { deleteNote } = useNotes();
+  const { deleteNote } = useWorkspace();
   const router = useRouter();
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const deleteResetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);

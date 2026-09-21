@@ -11,6 +11,7 @@ import {
 import { Check } from "lucide-react";
 import type { Block, BlockProperties } from "@/lib/types";
 import { blockText, type EditorBlockType } from "@/lib/editor/blocks";
+import { slashQueryAfter } from "@/lib/editor/slash";
 import { matchCodeFence, matchMarkdownTrigger } from "@/lib/editor/markdown";
 import { TOKEN_CLASS, tokenize } from "@/lib/editor/highlight";
 
@@ -159,9 +160,12 @@ function EditableBlockImpl(props: EditableBlockProps) {
         onSlashDismiss(false);
         return;
       }
-      const query = value.slice(offset + 1);
-      // A space closes the menu and leaves the text as typed.
-      if (/\s/.test(query)) {
+      // The query is only the WORD right after the slash (prose beyond
+      // it is not the query, so mid-sentence triggers keep filtering);
+      // a space directly after the slash closes the menu and leaves the
+      // text as typed.
+      const { query, dismissed } = slashQueryAfter(value, offset);
+      if (dismissed) {
         onSlashDismiss(false);
         return;
       }
@@ -272,12 +276,23 @@ function EditableBlockImpl(props: EditableBlockProps) {
           return;
         }
         case "/": {
-          // Open the command menu on the slash about to be inserted.
-          // Code blocks opt out — division and URLs stay untouched.
-          if (block.type !== "code" && !slashActiveRef.current) {
-            slashOffsetRef.current = caret;
-            onSlashOpen(block.id, caret);
-          }
+          // Global trigger (Phase 6 fix): the menu opens at the caret of
+          // ANY focused textual block — empty or not, any placeholder.
+          // Code blocks take the natural trigger only when the slash
+          // lands as the block's first character (`//`, paths, URLs stay
+          // untouched mid-code); the explicit Ctrl/Cmd+/ combo forces it
+          // open anywhere, code included. The slash still types in
+          // either way, so strip-on-select keeps working uniformly.
+          if (slashActiveRef.current) return;
+          const forced = event.ctrlKey || event.metaKey;
+          const firstChar = caret === 0 || draftRef.current === "";
+          if (!forced && block.type === "code" && !firstChar) return;
+          // Set synchronously (not via the prop effect): the input event
+          // that inserts this slash fires before a passive effect would,
+          // and it must observe the active menu to seed the query.
+          slashActiveRef.current = true;
+          slashOffsetRef.current = caret;
+          onSlashOpen(block.id, caret);
           return;
         }
       }

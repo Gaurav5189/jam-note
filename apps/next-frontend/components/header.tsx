@@ -3,9 +3,10 @@
 import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Search } from "lucide-react";
-import { useNotes } from "@/context/notes-context";
-import { flattenTree } from "@/lib/note-tree";
+import { PanelLeftClose, PanelLeftOpen, Search } from "lucide-react";
+import { useWorkspace } from "@/context/workspace-context";
+import { useShell } from "@/context/shell-context";
+import { flattenNotes } from "@/lib/workspace-tree";
 import type { User } from "@/lib/types";
 import { DESK_SIGNOUT_EVENT } from "@/components/desk/desk-chrome";
 
@@ -14,7 +15,8 @@ export const OPEN_SEARCH_EVENT = "jam:open-search";
 const NOTE_URL_PREFIX = "/notes/";
 
 export function Header({ user }: { user: User }) {
-  const { tree } = useNotes();
+  const { tree } = useWorkspace();
+  const { sidebarOpen, toggleSidebar } = useShell();
   const pathname = usePathname();
   const statusRef = useRef<HTMLSpanElement>(null);
 
@@ -22,9 +24,10 @@ export function Header({ user }: { user: User }) {
     ? pathname.slice(NOTE_URL_PREFIX.length)
     : null;
 
-  const count = flattenTree(tree).length;
+  const allNotes = flattenNotes(tree);
+  const count = allNotes.length;
   const openTitle = activeNoteId
-    ? flattenTree(tree).find((n) => n.id === activeNoteId)?.title ?? null
+    ? allNotes.find((n) => n.id === activeNoteId)?.title ?? null
     : null;
 
   const statusLine = `CHANNEL — MAIN · ${String(count).padStart(2, "0")} NOTE${count === 1 ? "" : "S"} FILED${
@@ -56,6 +59,16 @@ export function Header({ user }: { user: User }) {
   return (
     <header className="runhead chrome">
       <div className="rh-l">
+        <button
+          onClick={toggleSidebar}
+          className="rh-toggle"
+          type="button"
+          aria-label={sidebarOpen ? "Close workspace panel" : "Open workspace panel"}
+          aria-expanded={sidebarOpen}
+          title={sidebarOpen ? "Hide workspace panel" : "Show workspace panel"}
+        >
+          {sidebarOpen ? <PanelLeftClose size={13} /> : <PanelLeftOpen size={13} />}
+        </button>
         <Link href="/dashboard" className="rh-brand">Jam Notes</Link>
       </div>
 

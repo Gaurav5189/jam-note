@@ -8,6 +8,8 @@ from fastapi_backend.config import settings
 from fastapi_backend.database import Database
 from fastapi_backend.auth.router import router as auth_router
 from fastapi_backend.notes.router import router as notes_router
+from fastapi_backend.folders.router import router as folders_router
+from fastapi_backend.folders.router import workspace_router
 
 
 @asynccontextmanager
@@ -47,3 +49,5 @@ async def liveness_check() -> HealthResponse:
 
 app.include_router(auth_router, prefix="/api")
 app.include_router(notes_router, prefix="/api")
+app.include_router(folders_router, prefix="/api")
+app.include_router(workspace_router, prefix="/api")

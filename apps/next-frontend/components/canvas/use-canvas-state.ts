@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNotes } from "@/context/notes-context";
+import { useWorkspace } from "@/context/workspace-context";
 import type { Block, BlockConnection } from "@/lib/types";
 import {
   CANVAS_COLORS,
@@ -69,7 +69,7 @@ export function useCanvasState({
   initialConnections?: BlockConnection[];
   onChange?: (blocks: Block[], connections: BlockConnection[]) => void;
 }) {
-  const { saveCanvas } = useNotes();
+  const { saveCanvas } = useWorkspace();
 
   const [blocks, setBlocks] = useState<Block[]>(() => ensureCanvasMetadata(initialBlocks));
   // Legacy connections may point at blocks that are now non-anchor

@@ -22,11 +22,20 @@ async def signup_and_authenticate(client: AsyncClient, username: str) -> None:
     client.cookies.set(settings.cookie_name, cookie_value)
 
 
-async def create_note(client: AsyncClient, title: str, parent_id: str | None = None) -> dict:
+async def create_note(client: AsyncClient, title: str, folder_id: str | None = None) -> dict:
     payload: dict = {"title": title}
-    if parent_id is not None:
-        payload["parent_id"] = parent_id
+    if folder_id is not None:
+        payload["folder_id"] = folder_id
     response = await client.post("/api/notes", json=payload)
+    assert response.status_code == 201
+    return response.json()
+
+
+async def create_folder(client: AsyncClient, name: str, parent_folder_id: str | None = None) -> dict:
+    payload: dict = {"name": name}
+    if parent_folder_id is not None:
+        payload["parent_folder_id"] = parent_folder_id
+    response = await client.post("/api/folders", json=payload)
     assert response.status_code == 201
     return response.json()
 
@@ -41,7 +50,7 @@ async def test_create_note_success(client: AsyncClient, mock_db: AsyncIOMotorDat
     note = await create_note(client, "Synth Patches")
 
     assert note["title"] == "Synth Patches"
-    assert note["parent_id"] is None
+    assert note["folder_id"] is None
     assert note["layout_type"] == "document"
     assert note["blocks"] == []
     assert note["is_published"] is False
@@ -82,46 +91,46 @@ async def test_create_note_with_blocks(client: AsyncClient):
 
 
 @pytest.mark.asyncio
-async def test_create_nested_note(client: AsyncClient, mock_db: AsyncIOMotorDatabase):
+async def test_create_note_inside_folder(client: AsyncClient, mock_db: AsyncIOMotorDatabase):
     await signup_and_authenticate(client, "nested_creator")
 
-    parent = await create_note(client, "Parent Note")
-    child = await create_note(client, "Child Note", parent_id=parent["id"])
+    folder = await create_folder(client, "Rack One")
+    note = await create_note(client, "Filed Note", folder_id=folder["id"])
 
-    assert child["parent_id"] == parent["id"]
+    assert note["folder_id"] == folder["id"]
 
-    stored_child = await mock_db.notes.find_one({"_id": ObjectId(child["id"])})
-    assert stored_child["parent_id"] == ObjectId(parent["id"])
+    stored = await mock_db.notes.find_one({"_id": ObjectId(note["id"])})
+    assert stored["folder_id"] == ObjectId(folder["id"])
 
 
 @pytest.mark.asyncio
-async def test_create_note_parent_not_found(client: AsyncClient):
+async def test_create_note_folder_not_found(client: AsyncClient):
     await signup_and_authenticate(client, "orphan_parent_user")
 
     ghost_id = str(ObjectId())
-    response = await client.post("/api/notes", json={"title": "Note", "parent_id": ghost_id})
+    response = await client.post("/api/notes", json={"title": "Note", "folder_id": ghost_id})
     assert response.status_code == 404
-    assert "Parent note not found" in response.json()["detail"]
+    assert "Folder not found" in response.json()["detail"]
 
 
 @pytest.mark.asyncio
-async def test_create_note_malformed_parent_id(client: AsyncClient):
+async def test_create_note_malformed_folder_id(client: AsyncClient):
     await signup_and_authenticate(client, "malformed_parent_user")
 
-    response = await client.post("/api/notes", json={"title": "Note", "parent_id": "not-an-objectid"})
+    response = await client.post("/api/notes", json={"title": "Note", "folder_id": "not-an-objectid"})
     assert response.status_code == 400
-    assert "Invalid parent_id" in response.json()["detail"]
+    assert "Invalid folder_id" in response.json()["detail"]
 
 
 @pytest.mark.asyncio
-async def test_create_note_with_foreign_parent_is_rejected(client: AsyncClient):
+async def test_create_note_with_foreign_folder_is_rejected(client: AsyncClient):
     await signup_and_authenticate(client, "owner_a")
-    foreign_parent = await create_note(client, "A's Private Note")
+    foreign_folder = await create_folder(client, "A's Private Folder")
     client.cookies.clear()
 
     await signup_and_authenticate(client, "intruder_b")
     response = await client.post(
-        "/api/notes", json={"title": "Stolen Child", "parent_id": foreign_parent["id"]}
+        "/api/notes", json={"title": "Stolen Child", "folder_id": foreign_folder["id"]}
     )
     assert response.status_code == 404
 
@@ -165,29 +174,17 @@ async def test_list_notes_returns_only_owned_notes(client: AsyncClient):
     assert "blocks" not in notes[0]
 
 
-# --- Trees ---
+# --- Trees (removed: notes are leaves) ---
 
 
 @pytest.mark.asyncio
-async def test_note_trees_endpoint_returns_hierarchy(client: AsyncClient):
+async def test_note_trees_endpoint_is_gone(client: AsyncClient):
     await signup_and_authenticate(client, "tree_user")
 
-    root_a = await create_note(client, "Root A")
-    root_b = await create_note(client, "Root B")
-    child_a1 = await create_note(client, "Child A1", parent_id=root_a["id"])
-    await create_note(client, "Grandchild A1", parent_id=child_a1["id"])
-
+    # /trees was removed with the Phase 6 folder split — the path now
+    # falls through to /{note_id} and 404s on the invalid ObjectId.
     response = await client.get("/api/notes/trees")
-    assert response.status_code == 200
-    tree = response.json()
-
-    root_titles = [item["title"] for item in tree]
-    assert root_titles == ["Root A", "Root B"]
-
-    root_a_item = next(item for item in tree if item["title"] == "Root A")
-    assert len(root_a_item["children"]) == 1
-    assert root_a_item["children"][0]["title"] == "Child A1"
-    assert root_a_item["children"][0]["children"][0]["title"] == "Grandchild A1"
+    assert response.status_code == 404
 
 
 # --- Search ---
@@ -378,39 +375,72 @@ async def test_delete_note_success(client: AsyncClient, mock_db: AsyncIOMotorDat
 
 
 @pytest.mark.asyncio
-async def test_delete_note_reparents_children_to_grandparent(
+async def test_delete_note_does_not_touch_its_folder(
     client: AsyncClient, mock_db: AsyncIOMotorDatabase
 ):
     await signup_and_authenticate(client, "cascade_user")
 
-    root = await create_note(client, "Root")
-    middle = await create_note(client, "Middle", parent_id=root["id"])
-    leaf = await create_note(client, "Leaf", parent_id=middle["id"])
+    folder = await create_folder(client, "Surviving Folder")
+    note = await create_note(client, "Doomed Note", folder_id=folder["id"])
 
-    response = await client.delete(f"/api/notes/{middle['id']}")
+    response = await client.delete(f"/api/notes/{note['id']}")
     assert response.status_code == 204
 
-    # Leaf must survive and now point at the deleted note's parent.
-    stored_leaf = await mock_db.notes.find_one({"_id": ObjectId(leaf["id"])})
-    assert stored_leaf is not None
-    assert stored_leaf["parent_id"] == ObjectId(root["id"])
+    stored = await mock_db.notes.find_one({"_id": ObjectId(note["id"])})
+    assert stored is None
+    # Notes are leaves — deleting one must never touch the folder.
+    stored_folder = await mock_db.folders.find_one({"_id": ObjectId(folder["id"])})
+    assert stored_folder is not None
 
 
 @pytest.mark.asyncio
-async def test_delete_root_note_lifts_children_to_root(
+async def test_move_note_between_folders(
     client: AsyncClient, mock_db: AsyncIOMotorDatabase
 ):
-    await signup_and_authenticate(client, "cascade_root_user")
+    await signup_and_authenticate(client, "move_note_user")
 
-    root = await create_note(client, "Old Root")
-    child = await create_note(client, "Promoted Child", parent_id=root["id"])
+    folder_a = await create_folder(client, "Folder A")
+    folder_b = await create_folder(client, "Folder B")
+    note = await create_note(client, "Movable Note", folder_id=folder_a["id"])
 
-    response = await client.delete(f"/api/notes/{root['id']}")
-    assert response.status_code == 204
+    response = await client.put(f"/api/notes/{note['id']}", json={"folder_id": folder_b["id"]})
+    assert response.status_code == 200
+    assert response.json()["folder_id"] == folder_b["id"]
 
-    stored_child = await mock_db.notes.find_one({"_id": ObjectId(child["id"])})
-    assert stored_child is not None
-    assert stored_child["parent_id"] is None
+    stored = await mock_db.notes.find_one({"_id": ObjectId(note["id"])})
+    assert stored["folder_id"] == ObjectId(folder_b["id"])
+
+
+@pytest.mark.asyncio
+async def test_move_note_to_root_via_explicit_null(
+    client: AsyncClient, mock_db: AsyncIOMotorDatabase
+):
+    await signup_and_authenticate(client, "move_root_user")
+
+    folder = await create_folder(client, "Folder")
+    note = await create_note(client, "Rootbound Note", folder_id=folder["id"])
+
+    # Explicit null = move to root (model_fields_set semantics); an
+    # omitted folder_id must NOT move the note.
+    response = await client.put(f"/api/notes/{note['id']}", json={"folder_id": None})
+    assert response.status_code == 200
+    assert response.json()["folder_id"] is None
+
+    stored = await mock_db.notes.find_one({"_id": ObjectId(note["id"])})
+    assert stored["folder_id"] is None
+
+
+@pytest.mark.asyncio
+async def test_update_note_omitted_folder_id_keeps_folder(client: AsyncClient):
+    await signup_and_authenticate(client, "omit_folder_user")
+
+    folder = await create_folder(client, "Folder")
+    note = await create_note(client, "Stationary Note", folder_id=folder["id"])
+
+    response = await client.put(f"/api/notes/{note['id']}", json={"title": "Renamed"})
+    assert response.status_code == 200
+    assert response.json()["folder_id"] == folder["id"]
+    assert response.json()["title"] == "Renamed"
 
 
 @pytest.mark.asyncio
@@ -501,7 +531,6 @@ async def test_create_and_update_note_with_block_connections(client: AsyncClient
     [
         ("POST", "/api/notes"),
         ("GET", "/api/notes"),
-        ("GET", "/api/notes/trees"),
         ("GET", "/api/notes/search?q=test"),
         ("GET", f"/api/notes/{ObjectId()}"),
         ("PUT", f"/api/notes/{ObjectId()}"),
@@ -511,3 +540,48 @@ async def test_create_and_update_note_with_block_connections(client: AsyncClient
 async def test_notes_routes_require_authentication(client: AsyncClient, method: str, path: str):
     response = await client.request(method, path)
     assert response.status_code == 401
+
+
+# --- color (Phase 6 accent) ---
+
+
+@pytest.mark.asyncio
+async def test_note_color_over_http(client: AsyncClient):
+    await signup_and_authenticate(client, "note_color_user")
+
+    response = await client.post(
+        "/api/notes", json={"title": "Tinted Note", "color": "amber"}
+    )
+    assert response.status_code == 201
+    note = response.json()
+    assert note["color"] == "amber"
+
+    # Change the accent.
+    response = await client.put(
+        f"/api/notes/{note['id']}", json={"color": "violet"}
+    )
+    assert response.status_code == 200
+    assert response.json()["color"] == "violet"
+
+    # Omitted color keeps it (title-only update).
+    response = await client.put(
+        f"/api/notes/{note['id']}", json={"title": "Still Tinted"}
+    )
+    assert response.status_code == 200
+    assert response.json()["color"] == "violet"
+
+    # Explicit null clears it.
+    response = await client.put(
+        f"/api/notes/{note['id']}", json={"color": None}
+    )
+    assert response.status_code == 200
+    assert response.json()["color"] is None
+
+
+@pytest.mark.asyncio
+async def test_note_color_rejects_unknown_key(client: AsyncClient):
+    await signup_and_authenticate(client, "note_color_invalid_user")
+    response = await client.post(
+        "/api/notes", json={"title": "Bad Tint", "color": "neon-pink"}
+    )
+    assert response.status_code == 422

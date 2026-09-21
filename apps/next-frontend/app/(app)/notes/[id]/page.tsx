@@ -63,20 +63,9 @@ export default async function NotePage({ params }: NotePageProps) {
     );
   }
 
-  // Parent back-link (one level up). Reparenting keeps parents alive, so a
-  // 404 here only happens if the parent was removed outside the API —
-  // tolerate it gracefully.
-  let parent: Note | null = null;
-  if (note.parent_id !== null) {
-    parent = await fetchNote(note.parent_id);
-  }
-
   return (
     <div className="note-view">
-      <NoteLayoutView
-        note={note}
-        parent={parent ? { id: parent.id, title: parent.title } : null}
-      />
+      <NoteLayoutView note={note} />
     </div>
   );
 }

@@ -8,7 +8,6 @@ from fastapi_backend.notes.models import (
     NoteCreate,
     NoteListItem,
     NoteOut,
-    NoteTreeItem,
     NoteUpdate,
 )
 from fastapi_backend.notes import service
@@ -18,8 +17,8 @@ router = APIRouter(
     tags=["notes"],
 )
 
-# NOTE: "/trees" and "/search" are declared before "/{note_id}" so they are
-# not captured by the dynamic path parameter.
+# NOTE: "/search" is declared before "/{note_id}" so it is not captured
+# by the dynamic path parameter.
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
@@ -39,15 +38,6 @@ async def list_notes(
 ) -> list[NoteListItem]:
     note_docs = await service.list_notes(db, current_user.id)
     return [NoteListItem.from_mongo(doc) for doc in note_docs]
-
-
-@router.get("/trees")
-async def list_note_trees(
-    current_user: CurrentUserDep,
-    db: DbDep,
-) -> list[NoteTreeItem]:
-    note_docs = await service.list_notes(db, current_user.id)
-    return service.build_tree(note_docs)
 
 
 @router.get("/search")

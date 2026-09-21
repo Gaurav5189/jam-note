@@ -54,10 +54,12 @@ export interface BlockConnection {
 
 export interface NoteListItem {
   id: string;
-  parent_id: string | null;
+  folder_id: string | null;
   title: string;
   layout_type: LayoutType;
   emoji_icon: string | null;
+  /** Sidebar accent (Phase 6 color coding) — palette key or null. */
+  color: string | null;
   is_published: boolean;
   created_at: string;
   updated_at: string;
@@ -68,23 +70,58 @@ export interface Note extends NoteListItem {
   block_connections?: BlockConnection[];
 }
 
-export interface NoteTreeItem extends NoteListItem {
-  children: NoteTreeItem[];
+/** Folder shape mirroring the backend's FolderOut — pure containers. */
+export interface Folder {
+  id: string;
+  parent_folder_id: string | null;
+  name: string;
+  order: number;
+  /** Sidebar accent (Phase 6 color coding) — palette key or null. */
+  color: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** A folder plus its nested folders and notes (folders before notes). */
+export interface FolderTreeItem extends Folder {
+  folders: FolderTreeItem[];
+  notes: NoteListItem[];
+}
+
+/** Root-level tree returned by GET /api/workspace. */
+export interface WorkspaceTree {
+  folders: FolderTreeItem[];
+  notes: NoteListItem[];
 }
 
 export interface NoteCreateInput {
   title: string;
-  parent_id?: string | null;
+  folder_id?: string | null;
   layout_type?: LayoutType;
   emoji_icon?: string | null;
+  color?: string | null;
   blocks?: Block[];
   block_connections?: BlockConnection[];
 }
 
 export interface NoteUpdateInput {
   title?: string;
+  folder_id?: string | null;
   layout_type?: LayoutType;
   emoji_icon?: string | null;
+  color?: string | null;
   blocks?: Block[];
   block_connections?: BlockConnection[];
+}
+
+export interface FolderCreateInput {
+  name: string;
+  parent_folder_id?: string | null;
+  color?: string | null;
+}
+
+export interface FolderUpdateInput {
+  name?: string;
+  parent_folder_id?: string | null;
+  color?: string | null;
 }

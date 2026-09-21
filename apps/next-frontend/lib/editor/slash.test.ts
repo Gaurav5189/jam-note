@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { stripSlashCommand } from "./slash";
+import { slashQueryAfter, stripSlashCommand } from "./slash";
 
 describe("stripSlashCommand", () => {
   it("removes a bare slash from an empty block", () => {
@@ -29,5 +29,47 @@ describe("stripSlashCommand", () => {
     // The user deleted characters the query state has not seen — slicing
     // past the end is a harmless no-op.
     expect(stripSlashCommand("/", 0, "extra")).toBe("");
+  });
+});
+
+describe("slashQueryAfter", () => {
+  it("reads an empty query from a bare slash", () => {
+    expect(slashQueryAfter("/", 0)).toEqual({ query: "", dismissed: false });
+  });
+
+  it("reads the word typed after the slash", () => {
+    expect(slashQueryAfter("/head", 0)).toEqual({
+      query: "head",
+      dismissed: false,
+    });
+  });
+
+  it("ignores prose following the query word (mid-text slash)", () => {
+    // The user dropped the slash into an existing sentence — the rest of
+    // the line is NOT part of the query; the menu keeps filtering on the
+    // word alone and stays open.
+    expect(slashQueryAfter("hello /world and more", 6)).toEqual({
+      query: "world",
+      dismissed: false,
+    });
+  });
+
+  it("dismisses when a whitespace lands directly after the slash", () => {
+    expect(slashQueryAfter("/ ", 0)).toEqual({ query: "", dismissed: true });
+    expect(slashQueryAfter("a / b", 2)).toEqual({ query: "", dismissed: true });
+  });
+
+  it("keeps the query when the word ends the text", () => {
+    expect(slashQueryAfter("x /head", 2)).toEqual({
+      query: "head",
+      dismissed: false,
+    });
+  });
+
+  it("treats a newline like any other whitespace bound", () => {
+    expect(slashQueryAfter("/h1\nrest", 0)).toEqual({
+      query: "h1",
+      dismissed: false,
+    });
   });
 });

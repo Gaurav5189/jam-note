@@ -122,24 +122,23 @@ This document maps out a structured, eight-phase build order to take `jam-note` 
 
 ### Milestones
 1. **Backend — Folders Module** (`src/fastapi_backend/folders/`, mirroring the notes module conventions):
-   - New `folders` MongoDB collection: `{ _id, user_id, parent_folder_id (nullable), name, order (reserved), migrated_from_note_id (traceability), created_at, updated_at }`.
-   - Notes swap `parent_id` → `folder_id`; the legacy `parent_id` is frozen in Mongo (kept verbatim, ignored by the API) so the migration stays reversible.
+   - New `folders` MongoDB collection: `{ _id, user_id, parent_folder_id (nullable), name, order (reserved), created_at, updated_at }`.
+   - Notes swap `parent_id` → `folder_id`; the legacy `parent_id` is frozen in Mongo (kept verbatim, ignored by the API).
    - `POST/GET/PUT/DELETE /api/folders` + `GET /api/workspace` (combined folder+note tree); folder delete lifts contents to its parent (never cascades); moves reject cycles.
-2. **Migration** (`apps/fastapi-backend/scripts/migrate_folders.py`):
-   - Dry-run by default; non-destructive by construction (only ADDS folders + `folder_id` — rollback = delete folders + unset `folder_id`).
-   - Parent notes become folders; a parent that also has its own content stays as a real note inside its new folder (user decision — no content loss, stable note URLs); terminal notes stay notes.
+2. **Migration** — **DESCOPED (user decision, September 2026):** dev data is disposable; the user wiped it themselves (`db.notes.deleteMany({})`) at cutover. `scripts/migrate_folders.py`, its tests, and the `migrated_from_note_id` traceability field were never built — new workspaces start on the clean folder model. The plan document's migration sections are annotated as descoped.
 3. **Frontend — Workspace UI:**
    - Workspace context + pure tree helpers (replacing `lib/note-tree.ts`); sidebar folder rows (chevron + folder icon) vs note leaf rows; explicit "New Note" / "New Folder" actions at the WORKSPACE root and inside every folder.
    - Full HTML5 drag-and-drop: notes → folders and folders → folders are lawful; note → note and folder → note drops are rejected with a toast.
    - Ordering stays `created_at` everywhere (user decision); the `order` field ships reserved but unused.
+   - Sidebar open/close toggle at the top-left of the runhead (persisted in localStorage), affecting desktop + mobile.
 4. **Docs & Tests:** `DOCS/ARCHITECTURE.md` data model + endpoint list updated together with the code; backend `test_folders_*` suites mirroring `test_notes_*`; frontend workspace-tree helper tests; all existing suites stay green.
 
 ### Verification Checklist
-- [ ] Backend suite green (`uv run pytest`): folders service + routes, workspace tree shape/order, notes-with-`folder_id`, migration tests (dry-run writes nothing; apply maps the tree incl. content-bearing parents).
-- [ ] `pnpm lint && pnpm test && pnpm build` green in `apps/next-frontend`.
-- [ ] Dry-run migration prints an accurate plan; `--apply` reproduces it; the documented rollback (delete folders + unset `folder_id`) restores the legacy state.
-- [ ] Sidebar renders folder/note rows per the rules; DnD enforces drop targets; illegal drops toast.
-- [ ] No note content or ids are lost — content-bearing parents survive as child notes with stable URLs.
+- [x] Backend suite green (`uv run pytest`): folders service + routes, workspace tree shape/order, notes-with-`folder_id`. — **Verified: 95 passed.** Migration tests descoped with the migration (dev data wiped).
+- [x] `pnpm lint && pnpm test && pnpm build` green in `apps/next-frontend`. — **Verified: lint clean, 135 tests passed, build clean.**
+- [x] ~~Dry-run migration prints an accurate plan~~ — descoped with the migration (dev data wiped by the user; nothing to migrate).
+- [x] Sidebar renders folder/note rows per the rules; DnD enforces drop targets; illegal drops toast. — Verified via lint/test/build + code review; visual checks are user-run.
+- [x] No note content or ids are lost — ~~content-bearing parents survive as child notes~~ satisfied vacuously: dev data was wiped deliberately before the cutover, so no content ever needed to survive a migration.
 
 ---
 

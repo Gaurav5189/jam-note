@@ -3,16 +3,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FileText } from "lucide-react";
-import { useNotes } from "@/context/notes-context";
+import { useWorkspace } from "@/context/workspace-context";
 import { fetchApi } from "@/lib/api";
-import { findNotePath } from "@/lib/note-tree";
+import { findNotePath } from "@/lib/workspace-tree";
 import type { NoteListItem } from "@/lib/types";
 import { OPEN_SEARCH_EVENT } from "@/components/header";
 
 const DEBOUNCE_MS = 300;
 
 export function SearchPalette() {
-  const { tree } = useNotes();
+  const { tree } = useWorkspace();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -92,11 +92,8 @@ export function SearchPalette() {
 
   const parentPathLabel = (noteId: string): string | null => {
     const path = findNotePath(tree, noteId);
-    if (!path || path.length < 2) return null;
-    return path
-      .slice(0, -1)
-      .map((node) => node.title)
-      .join(" › ");
+    if (!path || path.folders.length === 0) return null;
+    return path.folders.map((f) => f.name).join(" › ");
   };
 
   const handleKeyDown = (event: React.KeyboardEvent) => {

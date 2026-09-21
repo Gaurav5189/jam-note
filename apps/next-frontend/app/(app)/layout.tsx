@@ -2,12 +2,13 @@ import type { Metadata, Viewport } from "next";
 import { redirect } from "next/navigation";
 import { Archivo, Newsreader, Space_Mono } from "next/font/google";
 import { ApiError, serverFetchApi } from "@/lib/server-api";
-import { NotesProvider } from "@/context/notes-context";
+import { WorkspaceProvider } from "@/context/workspace-context";
+import { ShellProvider } from "@/context/shell-context";
 import { Header } from "@/components/header";
-import { Sidebar } from "@/components/sidebar";
+import { ShellFrame } from "@/components/shell-frame";
 import { SearchPalette } from "@/components/search-palette";
 import { DeskChrome } from "@/components/desk/desk-chrome";
-import type { NoteTreeItem, User } from "@/lib/types";
+import type { User, WorkspaceTree } from "@/lib/types";
 import "./desk.css";
 
 export const metadata: Metadata = {
@@ -35,11 +36,11 @@ export default async function AppLayout({
   children: React.ReactNode;
 }) {
   let user: User;
-  let tree: NoteTreeItem[];
+  let tree: WorkspaceTree;
   try {
     [user, tree] = await Promise.all([
       serverFetchApi<User>("/api/auth/me"),
-      serverFetchApi<NoteTreeItem[]>("/api/notes/trees"),
+      serverFetchApi<WorkspaceTree>("/api/workspace"),
     ]);
   } catch (err) {
     if (err instanceof ApiError && err.status === 401) {
@@ -52,16 +53,17 @@ export default async function AppLayout({
   return (
     <div className={`desk ${archivo.variable} ${newsreader.variable} ${spaceMono.variable}`}>
       <DeskChrome />
-      {/* The runhead lives inside NotesProvider so its live status
+      {/* The runhead lives inside WorkspaceProvider so its live status
           line ("NN NOTES FILED · OPEN: …") reads the context tree. */}
-      <NotesProvider initialTree={tree}>
-        <Header user={user} />
-        <div className="desk-shell">
-          <Sidebar />
-          <main className="desk-main">{children}</main>
-        </div>
-        <SearchPalette />
-      </NotesProvider>
+      <WorkspaceProvider initialTree={tree}>
+        <ShellProvider>
+          <Header user={user} />
+          <ShellFrame>
+            {children}
+          </ShellFrame>
+          <SearchPalette />
+        </ShellProvider>
+      </WorkspaceProvider>
     </div>
   );
 }

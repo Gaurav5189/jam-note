@@ -84,6 +84,8 @@ body.go .desk .chrome{opacity:1}
 .desk .rh-l{display:flex;align-items:center;gap:12px;white-space:nowrap}
 .desk .rh-brand{display:flex;align-items:center;gap:10px;font-family:var(--font-archivo),'Helvetica Neue',Helvetica,Arial,sans-serif;font-weight:850;font-size:15px;letter-spacing:.05em}
 .desk .rh-brand::before{content:"";width:9px;height:9px;background:var(--gold)}
+.desk .rh-toggle{display:inline-flex;align-items:center;padding:4px 6px;border:1.5px solid var(--hair);color:rgba(243,239,230,.7);transition:border-color .18s,color .18s}
+.desk .rh-toggle:hover{border-color:var(--gold);color:var(--gold)}
 .desk .rh-c{flex:1;text-align:center;font-size:9.5px;letter-spacing:.18em;color:rgba(243,239,230,.8);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .desk .rh-r{display:flex;align-items:center;gap:16px;white-space:nowrap}
 .desk .srch{display:flex;align-items:center;gap:10px;border:1.5px solid var(--hair);padding:7px 10px;font-family:var(--font-space-mono),monospace;font-size:9.5px;letter-spacing:.18em;color:rgba(243,239,230,.85);transition:border-color .18s,color .18s}
@@ -98,16 +100,37 @@ body.go .desk .chrome{opacity:1}
 /* ============================================================
    SHELL — sidebar + stage
    ============================================================ */
-.desk .desk-shell{flex:1;display:grid;grid-template-columns:250px 1fr;min-height:0}
+.desk .desk-shell{flex:1;display:grid;grid-template-columns:250px 1fr;min-height:0;transition:grid-template-columns .22s ease}
+.desk .desk-shell.is-side-closed{grid-template-columns:0px 1fr}
+.desk .desk-shell.is-side-closed .side{border-color:transparent}
 .desk .side{border-right:1.5px solid var(--hair);overflow-y:auto;display:flex;flex-direction:column;min-height:0}
 .desk .side-sec{padding:18px 16px 10px}
 .desk .side-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
-.desk .side-add{padding:3px 7px;font-family:var(--font-space-mono),monospace;font-size:13px;line-height:1;color:rgba(243,239,230,.6);border:1.5px solid var(--hair);transition:border-color .18s,color .18s}
+.desk .side-adds{display:flex;align-items:center;gap:6px}
+.desk .side-add{padding:3px 7px;font-family:var(--font-space-mono),monospace;font-size:11px;line-height:1;color:rgba(243,239,230,.6);border:1.5px solid var(--hair);transition:border-color .18s,color .18s;display:inline-flex;align-items:center;gap:4px}
 .desk .side-add:hover{border-color:var(--gold);color:var(--gold)}
+.desk .ns-icon{width:12px;height:12px;flex:0 0 auto}
+.desk .ns-spacer{width:13px;flex:0 0 auto}
+.desk .ns-item .ns-title{display:block;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* Notes render as links by default — disable the browser's native link
+   drag so the parent folder/note row (draggable) owns HTML5 DnD. */
+.desk .ns-item .ns-title{-webkit-user-drag:none;user-select:none}
+/* Drop states: gold outline only on lawful (folder / root) targets. */
+.desk .ns-item.is-drop{border-color:var(--gold)}
+.desk .ns-item.is-drop .ns-caret{color:var(--red)}
+.desk .ns-item.is-dragged{opacity:.4}
+.desk .ns-folder .ns-caret{color:rgba(243,239,230,.5)}
+.desk .ns-note .ns-caret,.desk .ns-spacer{display:none}
+
+
 .desk .side-empty{margin-top:12px;font-style:italic;font-size:13px;line-height:1.55;color:rgba(243,239,230,.6)}
 .desk .ns-list{margin-top:12px;border-top:1.5px solid var(--hair2);list-style:none}
-.desk .ns-item{display:flex;align-items:baseline;gap:10px;width:100%;text-align:left;padding:9px 10px;border-bottom:1.5px solid var(--hair2);font-family:var(--font-archivo),'Helvetica Neue',Helvetica,Arial,sans-serif;font-weight:700;font-size:12px;letter-spacing:.04em;text-transform:uppercase;transition:background .15s,color .15s;color:var(--paper)}
-.desk .ns-item i{font-family:var(--font-space-mono),monospace;font-style:normal;font-size:8.5px;color:var(--gold);flex:0 0 auto}
+.desk .ns-item{position:relative;z-index:0;display:flex;align-items:baseline;gap:10px;width:100%;text-align:left;padding:9px 10px;border-bottom:1.5px solid var(--hair2);font-family:var(--font-archivo),'Helvetica Neue',Helvetica,Arial,sans-serif;font-weight:700;font-size:12px;letter-spacing:.04em;text-transform:uppercase;transition:background .15s,color .15s;color:var(--paper)}
+/* z-index:0 makes each row its own stacking context, so the indent
+   cells' negative-z guide lines paint BEHIND the row's content but
+   above its own background — they can never cover text. */
+/* Fixed root-number slot keeps root rows' icon columns even. */
+.desk .ns-item i{font-family:var(--font-space-mono),monospace;font-style:normal;font-size:8.5px;color:var(--gold);flex:0 0 14px}
 .desk .ns-item:hover{background:var(--paper);color:var(--ink)}
 .desk .ns-item:hover i{color:var(--red)}
 .desk .ns-item.is-active{background:var(--paper);color:var(--ink)}
@@ -122,6 +145,58 @@ body.go .desk .chrome{opacity:1}
 .desk .ns-item:hover .row-actions,.desk .ns-item.is-active .row-actions{display:flex}
 .desk .row-btn{padding:3px;line-height:1;color:inherit;opacity:.75}
 .desk .row-btn:hover{opacity:1}
+/* ── Phase 6 tree reading aids ──────────────────────────────────────
+   Guide lines: every row renders one 20px indent cell per ancestor
+   level (before the caret). The cell's ::before is that level's 1px
+   rule — left 9px inside the cell (= depth×20 + 9 from the row's
+   content edge), top 0 to bottom 0 of the row height, painted BEHIND
+   the label (z-index:-1 inside the row's stacking context). Confined
+   to the indent gutter it can never overlap the title column — at any
+   depth, however long the names (titles truncate; cells don't move).
+   Stacked rows connect into one continuous line per folder, colored
+   by that ancestor's effective accent (`--ns-line`, pastel key from
+   lib/ns-colors.ts) or a neutral paper tone; each sibling subtree
+   carries its own cells, never shared. */
+.desk .ns-cell{position:relative;flex:0 0 20px;width:20px;align-self:stretch}
+.desk .ns-cell::before{content:"";position:absolute;top:0;bottom:-1.5px;left:9px;width:1px;background:var(--ns-line,rgba(243,239,230,.55));opacity:.28;z-index:-1;pointer-events:none}
+/* Color coding: `data-c` carries the row's effective palette key (own
+   accent, else the nearest ancestor's). Applied as icon tint + a row
+   left-accent — never a full background. Child overrides stay local
+   and never propagate back up. */
+.desk .ns-item[data-c]{--ns-c:var(--paper);box-shadow:inset 3px 0 0 var(--ns-c)}
+.desk .ns-item[data-c="amber"]{--ns-c:#f5c97b}
+.desk .ns-item[data-c="rose"]{--ns-c:#f2a2b0}
+.desk .ns-item[data-c="mint"]{--ns-c:#9fd8b4}
+.desk .ns-item[data-c="sky"]{--ns-c:#9ec9f0}
+.desk .ns-item[data-c="violet"]{--ns-c:#c3aef2}
+.desk .ns-item[data-c="lime"]{--ns-c:#cfe59a}
+.desk .ns-item[data-c="peach"]{--ns-c:#f5c8a0}
+.desk .ns-item[data-c="steel"]{--ns-c:#a8b3bd}
+.desk .ns-item[data-c] .ns-icon{color:var(--ns-c)}
+/* Active-location chain: every ancestor folder between the root and
+   the open note carries a gold bar (visible even while collapsed), so
+   the path to the current file is always traceable. Wins over the
+   color accent — location outranks category. */
+.desk .ns-item.is-chain{box-shadow:inset 3px 0 0 var(--gold)}
+.desk .ns-item.is-chain .ns-title{color:var(--gold)}
+.desk .ns-item.is-chain:hover .ns-title{color:inherit}
+/* Folder rows toggle their subtree on any row click — the whole row
+   reads as a control, not just the caret. */
+.desk .ns-folder{cursor:pointer}
+/* Swatch popover (accent picker) — Floating-UI anchored, portaled to
+   document.body. Deliberately NOT under .desk: the desk scope's tokens
+   can't reach a body-level portal, hence the literal colors here
+   (ink #151310 / paper #f3efe6 / hair .28 / gold #ffb511 / red #ff3d1c).
+   Positioning comes from floatingStyles (flip + shift keep it on
+   screen near sidebar edges and deeply nested rows); the width always
+   fits its content. */
+.sw-pop{z-index:90;display:flex;flex-direction:column;gap:8px;padding:10px;background:#151310;border:1.5px solid rgba(243,239,230,.28);box-shadow:4px 5px 0 rgba(0,0,0,.35);width:max-content;max-width:280px}
+.sw-cap{font-family:var(--font-space-mono,ui-monospace,SFMono-Regular,monospace);font-size:8px;letter-spacing:.2em;color:rgba(243,239,230,.55);margin:0}
+.sw-row{display:flex;align-items:center;gap:6px}
+.sw-dot{width:14px;height:14px;border:1.5px solid rgba(21,19,16,.45);padding:0;cursor:pointer}
+.sw-dot.is-on{outline:1.5px solid #ffb511;outline-offset:2px}
+.sw-clear{font-family:var(--font-space-mono,ui-monospace,SFMono-Regular,monospace);font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:rgba(243,239,230,.6);padding:4px 6px;border:1.5px solid rgba(243,239,230,.16);line-height:1;background:none;cursor:pointer}
+.sw-clear:hover{color:#ff3d1c;border-color:#ff3d1c}
 .desk .del-chip{font-family:var(--font-space-mono),monospace;font-size:8.5px;letter-spacing:.12em;padding:4px 7px;background:var(--red);color:var(--ink);line-height:1}
 .desk .rename-input{width:100%;background:var(--ink);border:1.5px solid var(--gold);color:var(--paper);font-family:var(--font-archivo),'Helvetica Neue',Helvetica,Arial,sans-serif;font-weight:700;font-size:12px;letter-spacing:.04em;text-transform:uppercase;padding:7px 9px;margin:2px 0}
 .desk .rename-input:focus{outline:none}
@@ -129,6 +204,17 @@ body.go .desk .chrome{opacity:1}
 .desk .side-foot{margin-top:auto;padding:14px 16px;border-top:1.5px solid var(--hair);display:flex;align-items:center;gap:10px;font-family:var(--font-space-mono),monospace;font-size:8.5px;letter-spacing:.14em;color:rgba(243,239,230,.55)}
 .desk .side-foot svg{width:14px;height:14px;opacity:.7;flex:0 0 auto}
 .desk .desk-main{position:relative;min-width:0;min-height:0}
+.desk .fdp-backdrop{position:fixed;inset:0;z-index:480;background:rgba(21,19,16,.82);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:2vw}
+.desk .fdp-card{max-width:420px;width:100%;background:var(--ink);border:1.5px solid var(--hair);padding:28px;text-align:center}
+.desk .fdp-cap{font-family:var(--font-space-mono),monospace;font-size:9px;letter-spacing:.22em;text-transform:uppercase;color:rgba(243,239,230,.55)}
+.desk .fdp-name{font-family:var(--font-archivo),'Helvetica Neue',Helvetica,Arial,sans-serif;font-weight:850;font-size:16px;letter-spacing:.03em;margin:10px 0}
+.desk .fdp-copy{font-style:italic;font-size:13px;line-height:1.55;color:rgba(243,239,230,.8);margin-bottom:22px}
+.desk .fdp-actions{display:flex;gap:12px;justify-content:center}
+.desk .fdp-cancel,.desk .fdp-confirm{font-family:var(--font-space-mono),monospace;font-size:9px;letter-spacing:.14em;text-transform:uppercase;padding:10px 22px;border:1.5px solid;transition:border-color .15s,color .15s;line-height:1}
+.desk .fdp-cancel{border-color:var(--hair);color:rgba(243,239,230,.6)}
+.desk .fdp-cancel:hover{border-color:var(--gold);color:var(--gold)}
+.desk .fdp-confirm{background:var(--red);color:var(--ink);border-color:var(--red);box-shadow:3px 4px 0 rgba(255,61,28,.35)}
+.desk .fdp-confirm:hover{box-shadow:5px 6px 0 rgba(255,61,28,.35)}
 
 /* ============================================================
    EMPTY WORKSPACE — the FIG. 00 plate (dashboard, no notes yet)
@@ -200,8 +286,7 @@ body.go .desk .note-bar{opacity:1;transform:none}
 @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){.desk .note-bar,.desk .runhead,.desk .nb-time-pop{background:var(--ink)}}
 /* left cluster — parent back-link + inline title */
 .desk .nb-left{display:flex;align-items:center;gap:12px;flex:1 1 auto;min-width:0}
-.desk .note-bar .parent-link{flex:0 1 auto;min-width:0;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.desk .note-bar .parent-link span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.desk .folder-path{flex:0 1 auto;min-width:0;max-width:420px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--font-space-mono),monospace;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:rgba(243,239,230,.55)}
 .desk .nb-title{display:flex;align-items:center;gap:7px;flex:0 1 auto;min-width:0;background:transparent;border:0;padding:0;font-family:var(--font-archivo),'Helvetica Neue',Helvetica,Arial,sans-serif;font-weight:700;font-size:15px;letter-spacing:.01em;line-height:1;color:var(--paper);cursor:text;overflow:hidden}
 .desk .nb-title span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .desk .nb-title svg{flex:0 0 auto;opacity:.45;transition:opacity .15s}
@@ -260,13 +345,17 @@ body.go .desk .note-bar{opacity:1;transform:none}
 .desk .pane.exit-r{opacity:0;transform:translateX(22px)}
 .desk .pane-doc{overflow-y:auto;padding-top:48px}
 .desk .pane-can{overflow:hidden}
-.desk .doc-wrap{padding:3vh 6vw 12vh;max-width:75ch;margin:0 auto;width:100%}
+/* Wide-screen document view (user decision, Phase 6 follow-up): the
+   75ch column cap is gone and the gutters shrink to a near-edge band,
+   so text spans the available width. The left band still clears the
+   editor's out-of-flow drag grips (34px + breathing room). */
+.desk .doc-wrap{padding:2.5vh clamp(56px,4vw,120px) 12vh;width:100%}
 
 /* ============================================================
    EDITOR — the real block editor on the dark plate
    ============================================================ */
 .desk .editor-wrap{position:relative}
-.desk .editor-list{margin-top:26px;max-width:75ch;display:flex;flex-direction:column;gap:4px}
+.desk .editor-list{margin-top:26px;display:flex;flex-direction:column;gap:4px}
 /* jumped-to blocks must clear the 48px glass bar overhead */
 .desk .editor-row{position:relative;scroll-margin-top:64px}
 .desk .editor-row.is-dragged{opacity:.4}
@@ -337,7 +426,7 @@ body.go .desk .note-bar{opacity:1;transform:none}
 .desk .bv-tag-dot{width:8px;height:8px;background:var(--gold);flex:0 0 auto}
 .desk .bv-div{height:1.5px;width:100%;background:var(--bv-muted,rgba(243,239,230,.6));margin:12px 0}
 .desk .bv-empty{margin-top:32px;border:1.5px dashed var(--hair);padding:32px;text-align:center}
-.desk .bv-list-wrap{margin-top:24px;max-width:75ch}
+.desk .bv-list-wrap{margin-top:24px}
 
 /* slash menu — paper command card */
 .desk .slash-menu{position:absolute;z-index:30;width:230px;background:var(--paper);color:var(--ink);border:1.5px solid var(--ink);box-shadow:8px 10px 0 rgba(255,181,17,.3);overflow:hidden}
@@ -375,14 +464,19 @@ body.go .desk .note-bar{opacity:1;transform:none}
 .desk .embed-rule i{display:block;height:1.5px;width:100%;background:var(--hair)}
 .desk .embed-rule .embed-act{position:absolute;top:-12px;right:0;display:none}
 .desk .embed-rule:hover .embed-act{display:flex}
-.desk .draw-frame{margin:8px 0;border:1.5px solid var(--hair);overflow:hidden}
+/* Drawing board — FIXED size: the sketch pad renders at its intrinsic
+   720×320 resolution (1:1 pixel mapping, no stroke distortion) and
+   scales down UNIFORMLY when the column is narrower, so browser
+   resizes and mobile view keep the drawing's proportions instead of
+   stretching it. */
+.desk .draw-frame{margin:8px 0;border:1.5px solid var(--hair);overflow:hidden;max-width:720px}
 .desk .draw-toolbar{display:flex;align-items:center;gap:8px;padding:6px 12px;border-bottom:1.5px solid var(--hair2)}
 .desk .draw-dot{width:14px;height:14px;border:1.5px solid var(--hair);padding:0;transition:transform .15s}
 .desk .draw-dot.on{border-color:var(--gold);transform:scale(1.12)}
 .desk .draw-btn{font-family:var(--font-space-mono),monospace;font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:rgba(243,239,230,.6)}
 .desk .draw-btn:hover{color:var(--paper)}
 .desk .draw-btn.danger:hover{color:var(--red)}
-.desk .draw-canvas{display:block;width:100%;height:280px;cursor:crosshair;touch-action:none;background:var(--paper)}
+.desk .draw-canvas{display:block;width:100%;height:auto;cursor:crosshair;touch-action:none;background:var(--paper)}
 
 /* save chip — quiet autosave status */
 .desk .save-chip{position:fixed;bottom:16px;right:16px;z-index:40;font-family:var(--font-space-mono),monospace;font-size:9px;letter-spacing:.18em;text-transform:uppercase;background:var(--paper);color:var(--ink);border:1.5px solid var(--ink);box-shadow:4px 5px 0 rgba(255,181,17,.35);padding:8px 12px}
@@ -503,8 +597,6 @@ body.go .desk .note-bar{opacity:1;transform:none}
 .desk .nf-copy{margin-top:14px;font-style:italic;font-size:14px;color:rgba(243,239,230,.75)}
 .desk .nf-cta{display:inline-block;margin-top:26px;padding:12px 22px;border:1.5px solid var(--hair);font-family:var(--font-space-mono),monospace;font-size:9.5px;letter-spacing:.18em;transition:border-color .18s,color .18s}
 .desk .nf-cta:hover{border-color:var(--gold);color:var(--gold)}
-.desk .parent-link{display:inline-flex;align-items:center;gap:8px;font-family:var(--font-space-mono),monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:rgba(243,239,230,.6);transition:color .18s}
-.desk .parent-link:hover{color:var(--gold)}
 
 /* ============================================================
    RESPONSIVE
@@ -515,20 +607,25 @@ body.go .desk .note-bar{opacity:1;transform:none}
 @media (max-width:820px){
   .desk .desk-shell{grid-template-columns:1fr;grid-template-rows:auto 1fr}
   .desk .side{flex-direction:row;align-items:stretch;border-right:0;border-bottom:1.5px solid var(--hair);overflow-x:auto;overflow-y:hidden}
+  .desk .desk-shell.is-side-closed{grid-template-columns:1fr;grid-template-rows:0px 1fr;transition:grid-template-rows .22s ease}
   .desk .side-sec{padding:12px 14px;border-right:1.5px solid var(--hair2);min-width:190px;flex:0 0 auto}
   .desk .ns-list{display:flex;gap:8px;border-top:0;margin-top:8px}
   .desk .ns-item{width:auto;border:1.5px solid var(--hair2);white-space:nowrap}
+  /* The horizontal strip replaces tree depth with grouping — the
+     indent cells collapse away entirely. */
+  .desk .ns-cell{display:none}
   .desk .side-foot{margin-top:0;margin-left:auto;border-top:0;border-left:1.5px solid var(--hair);padding:12px 14px;flex:0 0 auto}
 }
 @media (max-width:640px){
   .desk .plate-frame{padding:6vh 18px 5vh}
+  /* Phone gutters — the desktop clamp's 56px floor is far too wide here. */
+  .desk .doc-wrap{padding-left:20px;padding-right:20px}
   .desk .rh-c{display:none}
   .desk .runhead{padding:0 14px;gap:12px}
   .desk .srch .srch-label{display:none}
   .desk .u-name{display:none}
   .desk .note-bar{padding:0 12px;gap:10px}
   .desk .nb-time{display:none}
-  .desk .note-bar .parent-link{max-width:96px}
   .desk .nb-seg .fig-tab{padding:6px 9px;gap:6px;letter-spacing:.1em}
   .desk .nb-seg .fig-tab i{display:none}
   .desk .editor-grip{display:none}

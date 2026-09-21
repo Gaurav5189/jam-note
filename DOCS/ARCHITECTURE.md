@@ -74,19 +74,14 @@ Stores credential hashes, profile configurations, and custom visual settings.
 ```
 
 ### B. Notes & Canvas Documents Collection (`notes`)
-Using a parent-child adjacency list representation. This allows infinite nesting without deep document overhead.
+Notes are content leaves (Phase 6, "Folders in Denial"): each note lives in zero or one folder via `folder_id`; nesting is owned by the `folders` collection below. Dev data was wiped at cutover (user decision — disposable), so no legacy `parent_id` migration ran; any stale `parent_id` still stored in Mongo is ignored by the API and never returned.
 
-> **PLANNED CHANGE — Phase 6 ("Folders in Denial"), not yet implemented.**
-> This adjacency-list model is being split: a new `folders` collection takes
-> over nesting, notes swap `parent_id` → `folder_id` and become leaves, and
-> `parent_id` is frozen in Mongo for rollback. The schema below describes the
-> **current** implementation and must be updated together with the Phase 6
-> code. Full plan: `make/phase6_folders_plan.md`.
 ```json
 {
   "_id": "ObjectId",
   "user_id": "ObjectId (indexed)",
-  "parent_id": "ObjectId | null (indexed)",
+  "folder_id": "ObjectId | null (indexed)",
+  "color": "str | null — sidebar accent, palette key from fastapi_backend/notes/models.py#PALETTE_COLORS (validated; Phase 6 color coding)",
   "title": "string",
   "layout_type": "document | canvas",
   "emoji_icon": "string | null",
@@ -123,6 +118,24 @@ Using a parent-child adjacency list representation. This allows infinite nesting
   "updated_at": "ISODate"
 }
 ```
+
+### B2. Folders Collection (`folders`)
+Pure containers (Phase 6): folders nest folders and hold notes; they carry no content of their own and have no route or page. Deleting a folder lifts its contents to its parent — never cascades; moves reject cycles.
+
+```json
+{
+  "_id": "ObjectId",
+  "user_id": "ObjectId (indexed)",
+  "parent_folder_id": "ObjectId | null (indexed)",
+  "name": "string (1..200, stripped)",
+  "order": 0,
+  "color": "str | null — sidebar accent, palette key from PALETTE_COLORS (validated; Phase 6 color coding)",
+  "created_at": "ISODate",
+  "updated_at": "ISODate"
+}
+```
+
+`order` ships reserved but unused — ordering is `created_at` everywhere (user decision).
 
 ---
 
@@ -182,6 +195,10 @@ fastapi-backend/
 │       │   ├── router.py
 │       │   ├── models.py      # Pydantic schemas
 │       │   └── service.py
+│       ├── folders/
+│       │   ├── router.py
+│       │   ├── models.py      # Folder schemas + WorkspaceOut
+│       │   └── service.py
 │       ├── events/
 │       │   ├── schemas.py       # Versioned domain-event payloads
 │       │   ├── outbox.py        # Transactional outbox writes and claiming
@@ -199,11 +216,20 @@ fastapi-backend/
   * `POST /logout` - Clears the session.
   * `GET /me` - Returns logged-in user profile.
 * **Notes Engine (`/api/notes`)**:
-  * `GET /` - Fetches the directory tree/index of notes.
-  * `POST /` - Creates a new note (as document or canvas).
+  * `GET /` - Fetches the flat index of the user's notes (leaves; nesting lives in folders).
+  * `POST /` - Creates a new note (as document or canvas, optionally inside a folder via `folder_id`).
   * `GET /{note_id}` - Retrieves a single note's full block contents.
-  * `PUT /{note_id}` - Updates a note's blocks/meta. **Shipped:** sends the full ordered `blocks` array (delta/JSON-patch syncing deliberately deferred until documents grow — see MEMORY.md Phase 3).
-  * `DELETE /{note_id}` - Deletes a note and cleanly detaches parent/child pointers.
+  * `GET /search?q=` - Title search used by the ⌘K palette.
+  * `PUT /{note_id}` - Updates a note's blocks/meta (including `folder_id` moves and the `color` sidebar accent — omitted vs explicit-null distinguishes "keep" from "clear"). **Shipped:** sends the full ordered `blocks` array (delta/JSON-patch syncing deliberately deferred until documents grow — see MEMORY.md Phase 3).
+  * `DELETE /{note_id}` - Deletes a note (leaves — no children to lift).
+* **Folders Engine (`/api/folders`)**:
+  * `POST /` - Creates a folder (optionally inside another via `parent_folder_id`).
+  * `GET /` - Lists the user's folders (flat, `created_at` asc).
+  * `GET /{folder_id}` - Retrieves a single folder.
+  * `PUT /{folder_id}` - Renames and/or moves a folder (distinguishes omitted vs explicit `null`; rejects cycles) and/or sets its `color` accent.
+  * `DELETE /{folder_id}` - Deletes the folder, lifting contents to its parent (never cascades).
+* **Workspace (`/api`)**:
+  * `GET /workspace` - Combined folder + note tree for the sidebar: `{folders: [FolderTreeItem], notes: [NoteListItem]}`, folders-before-notes at every level, each list `created_at` asc. (Replaces the removed `GET /api/notes/trees`.)
 * **Publishing Engine (`/api/pub`)**:
   * `GET /posts` - Returns list of public posts for a given username.
   * `GET /posts/{slug}` - Public-facing unauthenticated route to fetch single post content.

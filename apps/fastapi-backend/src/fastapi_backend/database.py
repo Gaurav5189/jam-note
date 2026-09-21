@@ -56,10 +56,14 @@ class Database:
         users = cls.db.users
         await users.create_index("email", unique=True)
         await users.create_index("username", unique=True)
-        
+
+        folders = cls.db.folders
+        await folders.create_index("user_id")
+        await folders.create_index("parent_folder_id")
+
         notes = cls.db.notes
         await notes.create_index("user_id")
-        await notes.create_index("parent_id")
+        await notes.create_index("folder_id")
         await notes.create_index("published_metadata.slug", unique=True, sparse=True)
         
         logger.info("Database indexes verified.")

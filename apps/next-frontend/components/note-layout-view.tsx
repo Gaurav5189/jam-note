@@ -1,11 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
-import { ArrowLeft, Redo2, Undo2 } from "lucide-react";
-import { useNotes } from "@/context/notes-context";
+import { Redo2, Undo2 } from "lucide-react";
+import { useWorkspace } from "@/context/workspace-context";
 import type { Block, BlockConnection, LayoutType, Note } from "@/lib/types";
-import { findNotePath } from "@/lib/note-tree";
+import { findNotePath, findFolderPath } from "@/lib/workspace-tree";
 import { BlockEditor, type EditorUndoState } from "@/components/editor/block-editor";
 import { CanvasView } from "@/components/canvas/canvas-view";
 import { NoteDeleteButton, NoteTitleEditor } from "@/components/note-header";
@@ -55,14 +54,21 @@ function ConstructIcon({ variant, active }: { variant: "document" | "canvas"; ac
 /** How long the outgoing pane stays mounted for its exit transition. */
 const PANE_EXIT_MS = 500;
 
-export function NoteLayoutView({
-  note,
-  parent = null,
-}: {
-  note: Note;
-  parent?: { id: string; title: string } | null;
-}) {
-  const { updateNote, tree } = useNotes();
+/** Monospace breadcrumb showing the note's ancestor folders, rooted at
+ *  WORKSPACE. Empty/absent when the note lives at the workspace root.
+ */
+function FolderPath({ path }: { path: ReturnType<typeof findFolderPath> }) {
+  if (!path || path.length === 0) return null;
+  const label = ["WORKSPACE", ...path.map((f) => f.name)].join(" / ");
+  return (
+    <span className="folder-path" title={label} aria-label="Folder path">
+      {label}
+    </span>
+  );
+}
+
+export function NoteLayoutView({ note }: { note: Note }) {
+  const { updateNote, tree } = useWorkspace();
   const [layout, setLayout] = useState<LayoutType>(note.layout_type);
   const [blocks, setBlocks] = useState<Block[]>(note.blocks);
   const [connections, setConnections] = useState<BlockConnection[]>(note.block_connections ?? []);
@@ -93,8 +99,13 @@ export function NoteLayoutView({
   // parse as UTC and render in the browser's timezone (lib/time.ts).
   const liveNode = useMemo(() => {
     const path = findNotePath(tree, note.id);
-    return path ? path[path.length - 1] : null;
+    return path ? path.note : null;
   }, [tree, note.id]);
+  // Ancestor chain for the monospace folder-path label in the command bar.
+  const folderPath = useMemo(() => {
+    if (!note.folder_id) return null;
+    return findFolderPath(tree, note.folder_id);
+  }, [tree, note.folder_id]);
   const updatedAt = liveNode?.updated_at ?? note.updated_at;
   const createdAt = note.created_at;
   const timeLabel = now === null ? updatedAt.slice(0, 10) : formatRelativeStamp(updatedAt, now);
@@ -174,17 +185,7 @@ export function NoteLayoutView({
           scrolling/panning content passes beneath the blur. */}
       <header className="note-bar">
         <div className="nb-left">
-          {parent && (
-            <Link
-              href={`/notes/${parent.id}`}
-              prefetch={true}
-              className="parent-link"
-              title={parent.title}
-            >
-              <ArrowLeft size={11} />
-              <span>{parent.title}</span>
-            </Link>
-          )}
+          <FolderPath path={folderPath} />
           <NoteTitleEditor noteId={note.id} title={note.title} />
         </div>
 
