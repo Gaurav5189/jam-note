@@ -272,7 +272,16 @@ def build_workspace_tree(
         stack.extend(child.id for child in items[folder_id].folders)
     for item in items.values():
         if item.id not in reachable:
-            # Detach from the cycle's parent list and surface as a root.
+            # Trapped in a parent cycle — detach it from its parent's
+            # list (a cyclic graph would recurse forever on
+            # serialization), clear the stale parent pointer, and
+            # surface it as a root so content never disappears.
+            if item.parent_folder_id is not None and item.parent_folder_id in items:
+                parent = items[item.parent_folder_id]
+                parent.folders = [
+                    child for child in parent.folders if child.id != item.id
+                ]
+            item.parent_folder_id = None
             root_folders.append(item)
 
     # Notes may have been appended out of creation order when cycle

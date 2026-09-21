@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useCallback } from "react";
+import React, { createContext, useContext, useRef, useState, useCallback } from "react";
 import { fetchApi } from "@/lib/api";
 import {
   insertFolder,
@@ -87,10 +87,25 @@ export function WorkspaceProvider({
   const [mutating, setMutating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Authoritative mirror of `tree` for mutation callbacks. Change
+  // detection happens against the latest committed tree OUTSIDE the
+  // state updater: updaters must stay pure (StrictMode double-invokes
+  // them, so side effects like `changed` flags or setError inside an
+  // updater are unreliable), and computing from the ref means rapid
+  // sequential mutations compose on the freshest tree instead of a
+  // stale closure. Every tree write goes through applyTree, keeping
+  // ref and state in lockstep.
+  const treeRef = useRef<WorkspaceTree>(initialTree);
+
+  const applyTree = useCallback((next: WorkspaceTree) => {
+    treeRef.current = next;
+    setTree(next);
+  }, []);
+
   const refreshWorkspace = useCallback(async () => {
     const fresh = await fetchApi<WorkspaceTree>("/api/workspace");
-    setTree(fresh);
-  }, []);
+    applyTree(fresh);
+  }, [applyTree]);
 
   // --- notes ---
 
@@ -102,7 +117,7 @@ export function WorkspaceProvider({
         method: "POST",
         body: JSON.stringify(input),
       });
-      setTree((current) => insertNote(current, note));
+      applyTree(insertNote(treeRef.current, note));
       return note;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create note");
@@ -110,7 +125,7 @@ export function WorkspaceProvider({
     } finally {
       setMutating(false);
     }
-  }, []);
+  }, [applyTree]);
 
   const updateNote = useCallback(async (id: string, input: NoteUpdateInput) => {
     setMutating(true);
@@ -120,8 +135,8 @@ export function WorkspaceProvider({
         method: "PUT",
         body: JSON.stringify(input),
       });
-      setTree((current) =>
-        updateNoteItem(current, id, {
+      applyTree(
+        updateNoteItem(treeRef.current, id, {
           ...(input.title !== undefined ? { title: input.title } : {}),
           ...(input.layout_type !== undefined
             ? { layout_type: input.layout_type }
@@ -137,7 +152,7 @@ export function WorkspaceProvider({
     } finally {
       setMutating(false);
     }
-  }, []);
+  }, [applyTree]);
 
   const renameNote = useCallback(
     async (id: string, title: string) => {
@@ -148,14 +163,12 @@ export function WorkspaceProvider({
 
   const moveNote = useCallback(
     async (id: string, folderId: string | null) => {
-      // Optimistic move; on failure refetch the authoritative tree.
-      let changed = false;
-      setTree((current) => {
-        const next = moveNoteInTree(current, id, folderId);
-        changed = next !== current;
-        return next;
-      });
-      if (!changed) return;
+      // Optimistic move computed from the latest committed tree; on
+      // failure refetch the authoritative tree.
+      const current = treeRef.current;
+      const next = moveNoteInTree(current, id, folderId);
+      if (next === current) return;
+      applyTree(next);
       setMutating(true);
       setError(null);
       try {
@@ -174,7 +187,7 @@ export function WorkspaceProvider({
         setMutating(false);
       }
     },
-    [refreshWorkspace]
+    [applyTree, refreshWorkspace]
   );
 
   const deleteNote = useCallback(
@@ -183,7 +196,7 @@ export function WorkspaceProvider({
       setError(null);
       // Optimistic: notes are leaves — nothing lifts. On failure,
       // refetch the authoritative tree.
-      setTree((current) => removeNote(current, id));
+      applyTree(removeNote(treeRef.current, id));
       try {
         await fetchApi(`/api/notes/${id}`, { method: "DELETE" });
       } catch (err) {
@@ -197,7 +210,7 @@ export function WorkspaceProvider({
         setMutating(false);
       }
     },
-    [refreshWorkspace]
+    [applyTree, refreshWorkspace]
   );
 
   const saveBlocks = useCallback(
@@ -209,11 +222,11 @@ export function WorkspaceProvider({
         ...(options?.keepalive ? { keepalive: true } : {}),
       });
       // Keep the tree's updated_at fresh for the dashboard's recent list.
-      setTree((current) =>
-        updateNoteItem(current, id, { updated_at: note.updated_at })
+      applyTree(
+        updateNoteItem(treeRef.current, id, { updated_at: note.updated_at })
       );
     },
-    []
+    [applyTree]
   );
 
   const saveCanvas = useCallback(
@@ -231,14 +244,14 @@ export function WorkspaceProvider({
         body: JSON.stringify(payload),
         ...(options?.keepalive ? { keepalive: true } : {}),
       });
-      setTree((current) =>
-        updateNoteItem(current, id, {
+      applyTree(
+        updateNoteItem(treeRef.current, id, {
           updated_at: note.updated_at,
           ...(payload.layout_type ? { layout_type: payload.layout_type } : {}),
         })
       );
     },
-    []
+    [applyTree]
   );
 
   // --- folders ---
@@ -251,7 +264,7 @@ export function WorkspaceProvider({
         method: "POST",
         body: JSON.stringify(input),
       });
-      setTree((current) => insertFolder(current, folder));
+      applyTree(insertFolder(treeRef.current, folder));
       return folder;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create folder");
@@ -259,7 +272,7 @@ export function WorkspaceProvider({
     } finally {
       setMutating(false);
     }
-  }, []);
+  }, [applyTree]);
 
   const renameFolder = useCallback(async (id: string, name: string) => {
     setMutating(true);
@@ -269,8 +282,11 @@ export function WorkspaceProvider({
         method: "PUT",
         body: JSON.stringify({ name }),
       });
-      setTree((current) =>
-        updateFolderItem(current, id, { name: folder.name, updated_at: folder.updated_at })
+      applyTree(
+        updateFolderItem(treeRef.current, id, {
+          name: folder.name,
+          updated_at: folder.updated_at,
+        })
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to rename folder");
@@ -278,24 +294,22 @@ export function WorkspaceProvider({
     } finally {
       setMutating(false);
     }
-  }, []);
+  }, [applyTree]);
 
   const moveFolder = useCallback(
     async (id: string, parentFolderId: string | null) => {
-      // Optimistic move. The helper rejects unlawful moves (into itself
-      // or a descendant) before any request fires — surfaced as the
-      // error banner, mirroring the backend's cycle rejection.
-      let changed = false;
-      setTree((current) => {
-        const next = moveFolderTree(current, id, parentFolderId);
-        if (next === null) {
-          setError("Folder cycle — a folder can't move into its own contents.");
-          return current;
-        }
-        changed = next !== current;
-        return next;
-      });
-      if (!changed) return;
+      // The helper rejects unlawful moves (into itself or a descendant)
+      // before any request fires — surfaced as the error banner,
+      // mirroring the backend's cycle rejection. Change detection runs
+      // against the tree mirror so the state updater stays pure.
+      const current = treeRef.current;
+      const next = moveFolderTree(current, id, parentFolderId);
+      if (next === null) {
+        setError("Folder cycle — a folder can't move into its own contents.");
+        return;
+      }
+      if (next === current) return;
+      applyTree(next);
       setMutating(true);
       setError(null);
       try {
@@ -314,7 +328,7 @@ export function WorkspaceProvider({
         setMutating(false);
       }
     },
-    [refreshWorkspace]
+    [applyTree, refreshWorkspace]
   );
 
   const deleteFolder = useCallback(
@@ -323,7 +337,7 @@ export function WorkspaceProvider({
       setError(null);
       // Optimistic: mirror the backend lift locally (contents rise to
       // the deleted folder's parent). On failure, refetch.
-      setTree((current) => removeFolder(current, id));
+      applyTree(removeFolder(treeRef.current, id));
       try {
         await fetchApi(`/api/folders/${id}`, { method: "DELETE" });
       } catch (err) {
@@ -337,19 +351,16 @@ export function WorkspaceProvider({
         setMutating(false);
       }
     },
-    [refreshWorkspace]
+    [applyTree, refreshWorkspace]
   );
 
   const setFolderColor = useCallback(
     async (id: string, color: string | null) => {
       // Optimistic tint; on failure refetch the authoritative tree.
-      let changed = false;
-      setTree((current) => {
-        const next = updateFolderItem(current, id, { color });
-        changed = next !== current;
-        return next;
-      });
-      if (!changed) return;
+      const current = treeRef.current;
+      const next = updateFolderItem(current, id, { color });
+      if (next === current) return;
+      applyTree(next);
       setMutating(true);
       setError(null);
       try {
@@ -368,18 +379,15 @@ export function WorkspaceProvider({
         setMutating(false);
       }
     },
-    [refreshWorkspace]
+    [applyTree, refreshWorkspace]
   );
 
   const setNoteColor = useCallback(
     async (id: string, color: string | null) => {
-      let changed = false;
-      setTree((current) => {
-        const next = updateNoteItem(current, id, { color });
-        changed = next !== current;
-        return next;
-      });
-      if (!changed) return;
+      const current = treeRef.current;
+      const next = updateNoteItem(current, id, { color });
+      if (next === current) return;
+      applyTree(next);
       setMutating(true);
       setError(null);
       try {
@@ -398,7 +406,7 @@ export function WorkspaceProvider({
         setMutating(false);
       }
     },
-    [refreshWorkspace]
+    [applyTree, refreshWorkspace]
   );
 
   return (

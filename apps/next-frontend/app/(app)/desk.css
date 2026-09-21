@@ -120,7 +120,9 @@ body.go .desk .chrome{opacity:1}
 .desk .ns-item.is-drop .ns-caret{color:var(--red)}
 .desk .ns-item.is-dragged{opacity:.4}
 .desk .ns-folder .ns-caret{color:rgba(243,239,230,.5)}
-.desk .ns-note .ns-caret,.desk .ns-spacer{display:none}
+/* Note rows render no caret; their 13px .ns-spacer (line ~113) replaces
+   it so icons align with folder rows — keep the spacer VISIBLE. */
+.desk .ns-note .ns-caret{display:none}
 
 
 .desk .side-empty{margin-top:12px;font-style:italic;font-size:13px;line-height:1.55;color:rgba(243,239,230,.6)}

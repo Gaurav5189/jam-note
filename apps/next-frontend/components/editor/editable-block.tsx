@@ -160,11 +160,16 @@ function EditableBlockImpl(props: EditableBlockProps) {
         onSlashDismiss(false);
         return;
       }
-      // The query is only the WORD right after the slash (prose beyond
-      // it is not the query, so mid-sentence triggers keep filtering);
-      // a space directly after the slash closes the menu and leaves the
-      // text as typed.
-      const { query, dismissed } = slashQueryAfter(value, offset);
+      // The query is only the WORD between the slash and the caret —
+      // the text is truncated at the caret before parsing, so prose to
+      // the RIGHT of it is never the query and never stripped on
+      // select. A space directly after the slash closes the menu and
+      // leaves the text as typed.
+      const caret = event.currentTarget.selectionStart ?? value.length;
+      const { query, dismissed } = slashQueryAfter(
+        value.slice(0, caret),
+        offset
+      );
       if (dismissed) {
         onSlashDismiss(false);
         return;

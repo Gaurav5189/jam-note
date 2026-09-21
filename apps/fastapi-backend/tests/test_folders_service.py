@@ -327,6 +327,16 @@ def test_build_workspace_tree_cycle_surfaces_as_root():
     tree = service.build_workspace_tree([folder_x, folder_y], [])
 
     assert sorted(f.name for f in tree.folders) == ["X", "Y"]
+    # Cycle victims detach cleanly: no folder stays nested inside its
+    # cycle partner (a cyclic graph would recurse forever when the
+    # workspace endpoint serializes it) and the stale parent pointer
+    # reads as a root.
+    for item in tree.folders:
+        assert item.parent_folder_id is None
+        assert item.folders == []
+    # Serialization completes — the guard exists precisely so this
+    # endpoint can serve corrupted data instead of crashing on it.
+    assert "X" in tree.model_dump_json()
 
 
 def test_build_workspace_tree_empty_input():

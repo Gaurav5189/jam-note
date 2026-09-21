@@ -54,6 +54,17 @@ describe("slashQueryAfter", () => {
     });
   });
 
+  it("reads the query from the caret-truncated prefix", () => {
+    // The change handler passes only text up to the CARET: the user
+    // typed "world" after a mid-sentence slash and "and more" sits to
+    // the right of the caret. That trailing prose is not the query —
+    // it must neither filter the menu nor be stripped on select.
+    expect(slashQueryAfter("hello /world", 6)).toEqual({
+      query: "world",
+      dismissed: false,
+    });
+  });
+
   it("dismisses when a whitespace lands directly after the slash", () => {
     expect(slashQueryAfter("/ ", 0)).toEqual({ query: "", dismissed: true });
     expect(slashQueryAfter("a / b", 2)).toEqual({ query: "", dismissed: true });

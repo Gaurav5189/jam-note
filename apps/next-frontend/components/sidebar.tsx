@@ -386,8 +386,10 @@ export function Sidebar() {
       (e.currentTarget as HTMLElement).classList.add("is-dragged");
     },
     onNoteDragOver: (e) => {
+      // preventDefault permits the drop event to fire so onNoteDrop can
+      // reject it with the toast — a "none" dropEffect here makes the
+      // browser skip the drop entirely and the toast unreachable.
       e.preventDefault();
-      e.dataTransfer.dropEffect = "none";
     },
     onFolderDragOver: (e, folderId) => {
       e.preventDefault();
