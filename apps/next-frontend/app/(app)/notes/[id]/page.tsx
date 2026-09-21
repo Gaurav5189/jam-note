@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
 import { ApiError, serverFetchApi } from "@/lib/server-api";
-import { NoteHeader } from "@/components/note-header";
 import { NoteLayoutView } from "@/components/note-layout-view";
 import type { Note } from "@/lib/types";
 
@@ -75,17 +73,10 @@ export default async function NotePage({ params }: NotePageProps) {
 
   return (
     <div className="note-view">
-      <div className="note-head">
-        {parent && (
-          <Link href={`/notes/${parent.id}`} prefetch={true} className="parent-link rv" style={{ ["--rd" as string]: "0s" }}>
-            <ArrowLeft size={11} />
-            {parent.title}
-          </Link>
-        )}
-        <NoteHeader noteId={note.id} title={note.title} />
-      </div>
-
-      <NoteLayoutView note={note} />
+      <NoteLayoutView
+        note={note}
+        parent={parent ? { id: parent.id, title: parent.title } : null}
+      />
     </div>
   );
 }

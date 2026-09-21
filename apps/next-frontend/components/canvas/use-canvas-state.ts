@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNotes } from "@/context/notes-context";
 import type { Block, BlockConnection } from "@/lib/types";
 import {
@@ -11,8 +11,10 @@ import {
   MAX_NODE_WIDTH,
   MIN_NODE_HEIGHT,
   MIN_NODE_WIDTH,
-  isCanvasCard,
+  anchorConnections,
+  groupCanvasBlocks,
   snapToGrid,
+  type CanvasCardData,
   type CanvasTool,
   type CanvasTransform,
 } from "./types";
@@ -70,7 +72,12 @@ export function useCanvasState({
   const { saveCanvas } = useNotes();
 
   const [blocks, setBlocks] = useState<Block[]>(() => ensureCanvasMetadata(initialBlocks));
-  const [connections, setConnections] = useState<BlockConnection[]>(initialConnections);
+  // Legacy connections may point at blocks that are now non-anchor
+  // members of a merged run — re-anchor them once at mount so every
+  // endpoint resolves to a visible card.
+  const [connections, setConnections] = useState<BlockConnection[]>(() =>
+    anchorConnections(initialConnections, initialBlocks)
+  );
   const [transform, setTransform] = useState<CanvasTransform>({ x: 0, y: 0, scale: 1 });
   const [tool, setTool] = useState<CanvasTool>("pointer");
   const [connectingFromId, setConnectingFromId] = useState<string | null>(null);
@@ -78,7 +85,10 @@ export function useCanvasState({
 
   // Undo / Redo history
   const [history, setHistory] = useState<HistorySnapshot[]>([
-    { blocks: ensureCanvasMetadata(initialBlocks), connections: initialConnections },
+    {
+      blocks: ensureCanvasMetadata(initialBlocks),
+      connections: anchorConnections(initialConnections, initialBlocks),
+    },
   ]);
   const [historyIndex, setHistoryIndex] = useState(0);
 
@@ -389,6 +399,11 @@ export function useCanvasState({
     setTool((prev) => (prev === "pointer" ? "hand" : "pointer"));
   }, []);
 
+  // Spatial cards — consecutive todo/list-item runs merged into single
+  // cards. Derived from the authoritative blocks state, so drags and
+  // document edits both re-fold it; persistence stays block-shaped.
+  const cards = useMemo<CanvasCardData[]>(() => groupCanvasBlocks(blocks), [blocks]);
+
   // ─── Zoom & Pan ─────────────────────────────────────────────────────────
 
   const zoomIn = useCallback(() => {
@@ -404,7 +419,10 @@ export function useCanvasState({
   }, []);
 
   const fitAll = useCallback(() => {
-    if (blocksRef.current.length === 0) {
+    // Frame the CARDS, not the raw blocks — non-anchor members of a
+    // merged run would pollute the bounds with stale coordinates.
+    const cards = groupCanvasBlocks(blocksRef.current);
+    if (cards.length === 0) {
       setTransform({ x: 0, y: 0, scale: 1 });
       return;
     }
@@ -413,10 +431,9 @@ export function useCanvasState({
     let maxX = -Infinity;
     let maxY = -Infinity;
 
-    for (const b of blocksRef.current) {
-      // Dividers never render as cards — fit only real card geometry.
-      if (!isCanvasCard(b)) continue;
-      const m = b.canvas_metadata ?? {
+    for (const card of cards) {
+      const anchor = card.blocks[0];
+      const m = anchor.canvas_metadata ?? {
         x: 0,
         y: 0,
         width: DEFAULT_NODE_WIDTH,
@@ -447,6 +464,7 @@ export function useCanvasState({
 
   return {
     blocks,
+    cards,
     connections,
     transform,
     setTransform,

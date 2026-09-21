@@ -16,7 +16,7 @@
 /* Tokens & scope. Fonts are supplied by next/font on the wrapper
    (--font-archivo / --font-newsreader / --font-space-mono). */
 .desk{--paper:#f3efe6;--ink:#151310;--red:#ff3d1c;--gold:#ffb511;--hair:rgba(243,239,230,.28);--hair2:rgba(243,239,230,.16);--ease-settle:cubic-bezier(.16,1,.3,1);--ease-slide:cubic-bezier(.2,.8,.2,1);--ease-pop:cubic-bezier(.2,1.5,.4,1);position:relative;background:var(--ink);color:var(--paper);font-family:var(--font-newsreader),Georgia,serif;line-height:1.4;height:100svh;display:flex;flex-direction:column;overflow:hidden;-webkit-tap-highlight-color:transparent}
-html:has(.desk){scrollbar-color:var(--paper) var(--ink)}
+/* Scrollbars are styled globally in app/globals.css — no route override. */
 body:has(.desk){background:var(--ink)}
 .desk *,.desk *::before,.desk *::after{box-sizing:border-box}
 .desk ::selection{background:var(--gold);color:var(--ink)}
@@ -78,7 +78,9 @@ body.go .desk .chrome{opacity:1}
 /* ============================================================
    RUNHEAD — the running head of the desk
    ============================================================ */
-.desk .runhead{flex:0 0 46px;display:flex;align-items:center;gap:18px;padding:0 22px;border-bottom:1.5px solid var(--hair);background:color-mix(in srgb,var(--ink) 94%,transparent);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);font-family:var(--font-space-mono),monospace;position:relative;z-index:300}
+/* Runhead rides over the workspace on the shared glass treatment
+   (see .note-bar below) — 55% ink, blur(14px), saturate(140%). */
+.desk .runhead{flex:0 0 46px;display:flex;align-items:center;gap:18px;padding:0 22px;border-bottom:1.5px solid var(--hair);background:color-mix(in srgb,var(--ink) 55%,transparent);-webkit-backdrop-filter:blur(14px) saturate(140%);backdrop-filter:blur(14px) saturate(140%);font-family:var(--font-space-mono),monospace;position:relative;z-index:300}
 .desk .rh-l{display:flex;align-items:center;gap:12px;white-space:nowrap}
 .desk .rh-brand{display:flex;align-items:center;gap:10px;font-family:var(--font-archivo),'Helvetica Neue',Helvetica,Arial,sans-serif;font-weight:850;font-size:15px;letter-spacing:.05em}
 .desk .rh-brand::before{content:"";width:9px;height:9px;background:var(--gold)}
@@ -181,33 +183,58 @@ body.intro-done .desk .ev-title .k{transition:none}
 .desk .dash-row:hover .dash-canvas{color:var(--red)}
 
 /* ============================================================
-   NOTE VIEW — head, sticky tabs bar, panes
+   NOTE VIEW — single-row glass command bar + panes.
+   The bar is ONE 48px glass row: title inline, segmented
+   Document/Canvas control, undo/redo, relative stamp, shred —
+   no stacked label/meta rows. The pane stage is pulled up under
+   the bar (margin-top:-48px) so the scrolling document AND the
+   panning canvas both pass beneath the glass, like a sticky
+   header, in both modes with a single bar instance.
    ============================================================ */
 .desk .note-view{position:absolute;inset:0;display:flex;flex-direction:column;min-height:0}
-.desk .note-head{padding:3.5vh 6vw 14px;flex:0 0 auto}
-.desk .note-head .rv{opacity:0;transform:translateY(16px);transition:opacity .6s ease var(--rd,0s),transform .6s cubic-bezier(.16,1,.3,1) var(--rd,0s)}
-body.go .desk .note-head .rv{opacity:1;transform:none}
-.desk .note-top-row{display:flex;align-items:flex-start;justify-content:space-between;gap:18px}
-.desk .note-title{margin-top:1.6vh;font-family:var(--font-archivo),'Helvetica Neue',Helvetica,Arial,sans-serif;font-weight:850;letter-spacing:-.015em;font-variation-settings:'wght' 850,'wdth' 108;font-size:clamp(1.9rem,4.2vw,3.2rem);line-height:.95;min-width:120px;width:100%;background:transparent;border:0;border-bottom:2px solid transparent;color:var(--paper);caret-color:var(--gold);outline-offset:6px;padding:0 0 4px}
-.desk .note-title:focus{outline:none;border-bottom-color:var(--hair2)}
-.desk .title-rule{height:1.5px;background:var(--paper);margin-top:1.6vh;transform:scaleX(0);transform-origin:left;transition:transform .9s cubic-bezier(.7,0,.2,1) .25s}
-body.go .desk .title-rule{transform:scaleX(1)}
-.desk .del-btn{flex:0 0 auto;padding:8px 10px;border:1.5px solid var(--hair);color:rgba(243,239,230,.6);transition:border-color .18s,color .18s}
+.desk .note-body{flex:1;display:flex;flex-direction:column;min-height:0}
+.desk .note-bar{position:relative;z-index:20;flex:0 0 48px;height:48px;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:0 16px;background:color-mix(in srgb,var(--ink) 55%,transparent);-webkit-backdrop-filter:blur(14px) saturate(140%);backdrop-filter:blur(14px) saturate(140%);border-bottom:1.5px solid var(--hair2);box-shadow:0 1.5px 0 rgba(0,0,0,.3);opacity:0;transform:translateY(-8px);transition:opacity .6s ease .1s,transform .6s cubic-bezier(.16,1,.3,1) .1s}
+body.go .desk .note-bar{opacity:1;transform:none}
+/* Older WebViews / Firefox builds ignore backdrop-filter silently —
+   the bar must stay legible over scrolled content either way. */
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){.desk .note-bar,.desk .runhead,.desk .nb-time-pop{background:var(--ink)}}
+/* left cluster — parent back-link + inline title */
+.desk .nb-left{display:flex;align-items:center;gap:12px;flex:1 1 auto;min-width:0}
+.desk .note-bar .parent-link{flex:0 1 auto;min-width:0;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.desk .note-bar .parent-link span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.desk .nb-title{display:flex;align-items:center;gap:7px;flex:0 1 auto;min-width:0;background:transparent;border:0;padding:0;font-family:var(--font-archivo),'Helvetica Neue',Helvetica,Arial,sans-serif;font-weight:700;font-size:15px;letter-spacing:.01em;line-height:1;color:var(--paper);cursor:text;overflow:hidden}
+.desk .nb-title span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.desk .nb-title svg{flex:0 0 auto;opacity:.45;transition:opacity .15s}
+.desk .nb-title:hover svg{opacity:.9}
+.desk .nb-title-input{flex:1 1 auto;min-width:60px;max-width:420px;background:transparent;border:0;border-bottom:1.5px solid var(--hair2);color:var(--paper);caret-color:var(--gold);font-family:var(--font-archivo),'Helvetica Neue',Helvetica,Arial,sans-serif;font-weight:700;font-size:15px;letter-spacing:.01em;line-height:1;padding:0 0 2px;outline:none}
+.desk .nb-title-input:focus{outline:none;border-bottom-color:var(--gold)}
+/* right cluster — undo/redo, relative stamp, shred */
+.desk .nb-right{display:flex;align-items:center;gap:12px;flex:0 0 auto}
+.desk .nb-time-wrap{position:relative;flex:0 0 auto}
+.desk .nb-time{font-family:var(--font-space-mono),monospace;font-size:8.5px;letter-spacing:.14em;color:rgba(243,239,230,.6);white-space:nowrap;padding:4px 0;transition:color .15s}
+.desk .nb-time:hover{color:var(--paper)}
+/* Glass stamp popup — the bar's own treatment, revealed on hover/focus. */
+.desk .nb-time-pop{position:absolute;top:calc(100% + 10px);right:0;z-index:40;display:flex;flex-direction:column;gap:6px;padding:10px 12px;background:color-mix(in srgb,var(--ink) 55%,transparent);-webkit-backdrop-filter:blur(14px) saturate(140%);backdrop-filter:blur(14px) saturate(140%);border:1.5px solid var(--hair2);border-radius:3px;box-shadow:0 1.5px 0 rgba(0,0,0,.3);font-family:var(--font-space-mono),monospace;font-size:8.5px;letter-spacing:.14em;color:rgba(243,239,230,.75);white-space:nowrap;opacity:0;visibility:hidden;transform:translateY(-4px);transition:opacity .18s ease,transform .18s cubic-bezier(.16,1,.3,1),visibility .18s;pointer-events:none}
+.desk .nb-time-wrap:hover .nb-time-pop,.desk .nb-time-wrap:focus-within .nb-time-pop{opacity:1;visibility:visible;transform:none}
+.desk .nb-time-pop span{display:flex;align-items:center;gap:8px}
+.desk .nb-time-pop span i{width:5px;height:5px;background:var(--gold);flex:0 0 auto}
+.desk .nb-time-pop span.upd i{background:var(--red)}
+.desk .del-btn{flex:0 0 auto;padding:8px 10px;border:1.5px solid var(--hair);color:rgba(243,239,230,.6);transition:border-color .18s,color .18s;line-height:1}
 .desk .del-btn:hover{border-color:var(--red);color:var(--red)}
 .desk .del-chip-head{flex:0 0 auto;font-family:var(--font-space-mono),monospace;font-size:9px;letter-spacing:.12em;padding:9px 12px;background:var(--red);color:var(--ink);line-height:1}
 
-/* Tabs bar — pinned below the runhead (the pane scrolls beneath it,
-   so the Phase 4 quick-switch stays reachable on long documents). */
-.desk .tabs-bar{flex:0 0 auto;display:flex;justify-content:space-between;align-items:center;gap:18px;flex-wrap:wrap;padding:10px 6vw;border-top:1.5px solid var(--hair2);background:color-mix(in srgb,var(--ink) 94%,transparent)}
-.desk .fig-tabs{display:flex;gap:8px}
-.desk .fig-tab{display:flex;align-items:center;gap:9px;padding:10px 16px;border:1.5px solid var(--paper);font-family:var(--font-space-mono),monospace;font-size:10px;letter-spacing:.16em;font-weight:700;transition:background .18s,color .18s,border-color .18s;color:var(--paper)}
-.desk .fig-tab i{font-style:normal;color:var(--gold);font-size:9px}
-.desk .fig-tab:not(.is-active):hover{border-color:var(--gold);color:var(--gold)}
-.desk .fig-tab.is-active{background:var(--paper);color:var(--ink)}
-.desk .fig-tab.is-active i{color:var(--red)}
-.desk .tabs-right{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+/* Segmented Document/Canvas control — sits on the glass; the active
+   tab carries a slightly more opaque chip so it doesn't disappear
+   into the blur. */
+.desk .nb-seg{display:flex;flex:0 0 auto;border:1.5px solid var(--hair2);border-radius:3px;overflow:hidden;background:color-mix(in srgb,var(--paper) 3%,transparent)}
+.desk .nb-seg .fig-tab{display:flex;align-items:center;gap:8px;padding:6px 12px;border:0;font-family:var(--font-space-mono),monospace;font-size:9px;letter-spacing:.16em;font-weight:700;color:rgba(243,239,230,.55);transition:background .18s,color .18s}
+.desk .nb-seg .fig-tab + .fig-tab{border-left:1.5px solid var(--hair2)}
+.desk .nb-seg .fig-tab i{font-style:normal;font-size:8.5px;color:inherit;opacity:.75}
+.desk .nb-seg .fig-tab:not(.is-active):hover{color:var(--gold)}
+.desk .nb-seg .fig-tab.is-active{background:rgba(243,239,230,.08);color:var(--paper)}
+.desk .nb-seg .fig-tab.is-active i{color:var(--gold);opacity:1}
 /* icon construct system — strokes draw themselves on activation */
-.desk .ti svg{width:16px;height:16px;stroke-width:2}
+.desk .ti svg{width:13px;height:13px;stroke-width:2}
 .desk .p{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:1;stroke-dashoffset:1;transition:stroke-dashoffset .65s cubic-bezier(.3,.6,.2,1) var(--pd,0s)}
 .desk .p1{--pd:.02s}.desk .p2{--pd:.2s}.desk .p3{--pd:.38s}
 .desk .built .p{stroke-dashoffset:0}
@@ -216,25 +243,23 @@ body.go .desk .title-rule{transform:scaleX(1)}
 .desk .pdots circle:nth-child(4){--pd:.19s}.desk .pdots circle:nth-child(5){--pd:.24s}.desk .pdots circle:nth-child(6){--pd:.29s}
 .desk .pdots circle:nth-child(7){--pd:.34s}.desk .pdots circle:nth-child(8){--pd:.39s}
 .desk .built .pdots circle{transform:scale(1)}
-.desk .undo-pill{display:flex;align-items:center;border:1.5px solid var(--hair)}
+.desk .undo-pill{display:flex;align-items:center;border:1.5px solid var(--hair);flex:0 0 auto}
 .desk .undo-btn{padding:6px;color:rgba(243,239,230,.55);transition:color .15s;line-height:1}
 .desk .undo-btn:hover:not(:disabled){color:var(--paper)}
 .desk .undo-btn:disabled{opacity:.3;cursor:not-allowed}
-.desk .note-meta{display:flex;flex-direction:column;gap:5px;align-items:flex-end;font-family:var(--font-space-mono),monospace;font-size:8.5px;letter-spacing:.14em;color:rgba(243,239,230,.6)}
-.desk .note-meta span{display:flex;align-items:center;gap:8px}
-.desk .note-meta span::before{content:"";width:5px;height:5px;background:var(--gold);flex:0 0 auto}
-.desk .note-meta .meta-updated::before{background:var(--red)}
 
-/* Panes — cross-fade + slide between Document and Canvas surfaces */
-.desk .pane-stage{flex:1;position:relative;min-height:0}
+/* Panes — cross-fade + slide between Document and Canvas surfaces.
+   The stage rides 48px up under the glass bar; the document pane
+   pads its content back down so text starts below the bar and then
+   scrolls beneath it. */
+.desk .pane-stage{flex:1;position:relative;min-height:0;margin-top:-48px}
 .desk .pane{position:absolute;inset:0;opacity:0;pointer-events:none;transform:translateX(22px);transition:opacity .38s ease,transform .44s cubic-bezier(.2,.8,.2,1);min-height:0}
 .desk .pane.on{opacity:1;transform:none;pointer-events:auto;animation:desk-pane-in .44s cubic-bezier(.2,.8,.2,1)}
 @keyframes desk-pane-in{from{opacity:0;transform:translateX(22px)}to{opacity:1;transform:none}}
 .desk .pane.exit-l{opacity:0;transform:translateX(-22px)}
 .desk .pane.exit-r{opacity:0;transform:translateX(22px)}
-.desk .pane-doc{overflow-y:auto}
+.desk .pane-doc{overflow-y:auto;padding-top:48px}
 .desk .pane-can{overflow:hidden}
-.desk .note-body{flex:1;display:flex;flex-direction:column;min-height:0}
 .desk .doc-wrap{padding:3vh 6vw 12vh;max-width:75ch;margin:0 auto;width:100%}
 
 /* ============================================================
@@ -242,7 +267,8 @@ body.go .desk .title-rule{transform:scaleX(1)}
    ============================================================ */
 .desk .editor-wrap{position:relative}
 .desk .editor-list{margin-top:26px;max-width:75ch;display:flex;flex-direction:column;gap:4px}
-.desk .editor-row{position:relative;scroll-margin-top:24px}
+/* jumped-to blocks must clear the 48px glass bar overhead */
+.desk .editor-row{position:relative;scroll-margin-top:64px}
 .desk .editor-row.is-dragged{opacity:.4}
 .desk .editor-grip{position:absolute;left:-34px;top:4px;padding:4px;color:rgba(243,239,230,.35);opacity:0;cursor:grab;line-height:1;transition:color .15s}
 .desk .editor-row:hover .editor-grip,.desk .editor-grip:focus-visible{opacity:1}
@@ -436,11 +462,13 @@ body.go .desk .title-rule{transform:scaleX(1)}
 .desk .ct-btn:disabled{opacity:.3;cursor:not-allowed}
 .desk .ct-scale{min-width:52px;padding:7px;text-align:center;font-family:var(--font-space-mono),monospace;font-size:10px;color:inherit;display:flex;align-items:center;justify-content:center}
 .desk .tool-pal{position:absolute;right:16px;top:50%;transform:translateY(-50%);z-index:30;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:auto;user-select:none}
-.desk .tool-group{display:flex;flex-direction:column;gap:2px;padding:3px;border:1.5px solid var(--hair);background:color-mix(in srgb,var(--ink) 92%,transparent)}
+/* Floating right-side tool palette — floats over the panning board,
+   so it rides the same glass treatment as the header bar. */
+.desk .tool-group{display:flex;flex-direction:column;gap:2px;padding:3px;border:1.5px solid var(--hair);background:color-mix(in srgb,var(--ink) 55%,transparent);-webkit-backdrop-filter:blur(14px) saturate(140%);backdrop-filter:blur(14px) saturate(140%)}
 .desk .tool-btn{width:34px;height:34px;display:flex;align-items:center;justify-content:center;color:rgba(243,239,230,.55);transition:background .15s,color .15s;padding:0}
 .desk .tool-btn:hover{color:var(--paper)}
 .desk .tool-btn.on{background:var(--paper);color:var(--ink)}
-.desk .tool-hint{padding:4px 8px;font-family:var(--font-space-mono),monospace;font-size:8px;letter-spacing:.18em;text-transform:uppercase;color:rgba(243,239,230,.45);background:color-mix(in srgb,var(--ink) 88%,transparent);border:1.5px solid var(--hair2);white-space:nowrap}
+.desk .tool-hint{padding:4px 8px;font-family:var(--font-space-mono),monospace;font-size:8px;letter-spacing:.18em;text-transform:uppercase;color:rgba(243,239,230,.45);background:color-mix(in srgb,var(--ink) 55%,transparent);-webkit-backdrop-filter:blur(14px) saturate(140%);backdrop-filter:blur(14px) saturate(140%);border:1.5px solid var(--hair2);white-space:nowrap}
 
 /* ============================================================
    ⌘K INDEX PALETTE — paper card on the dark plate
@@ -498,9 +526,11 @@ body.go .desk .title-rule{transform:scaleX(1)}
   .desk .runhead{padding:0 14px;gap:12px}
   .desk .srch .srch-label{display:none}
   .desk .u-name{display:none}
-  .desk .note-head{padding:2.5vh 6vw 10px}
-  .desk .tabs-bar{padding:8px 6vw}
-  .desk .note-meta{align-items:flex-start}
+  .desk .note-bar{padding:0 12px;gap:10px}
+  .desk .nb-time{display:none}
+  .desk .note-bar .parent-link{max-width:96px}
+  .desk .nb-seg .fig-tab{padding:6px 9px;gap:6px;letter-spacing:.1em}
+  .desk .nb-seg .fig-tab i{display:none}
   .desk .editor-grip{display:none}
   .desk .dash-stamp{display:none}
 }

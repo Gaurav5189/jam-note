@@ -2,32 +2,32 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Trash2 } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 import { useNotes } from "@/context/notes-context";
 import { findNotePath } from "@/lib/note-tree";
 import { deskBurst, deskToast } from "@/components/desk/desk-chrome";
 
-export function NoteHeader({ noteId, title: initialTitle }: { noteId: string; title: string }) {
-  const { tree, renameNote, deleteNote } = useNotes();
-  const router = useRouter();
-  const [editing, setEditing] = useState(false);
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
-  const deleteResetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Derive the live title from the context tree (updates optimistically on rename
-  // from sidebar, palette, or header), falling back to SSR initialTitle.
+/**
+ * Live title from the context tree (updates optimistically on rename from
+ * sidebar, palette, or header), falling back to the SSR initial title.
+ */
+function useLiveTitle(noteId: string, initialTitle: string): string {
+  const { tree } = useNotes();
   const activeNode = useMemo(() => {
     const path = findNotePath(tree, noteId);
     return path ? path[path.length - 1] : null;
   }, [tree, noteId]);
+  return activeNode?.title ?? initialTitle;
+}
 
-  const title = activeNode?.title ?? initialTitle;
-
-  useEffect(() => {
-    return () => {
-      if (deleteResetTimer.current) clearTimeout(deleteResetTimer.current);
-    };
-  }, []);
+/**
+ * Inline note title for the glass command bar — 15px, single line, with an
+ * edit-pencil affordance. Click the title (or the pencil) to rename.
+ */
+export function NoteTitleEditor({ noteId, title: initialTitle }: { noteId: string; title: string }) {
+  const { renameNote } = useNotes();
+  const [editing, setEditing] = useState(false);
+  const title = useLiveTitle(noteId, initialTitle);
 
   const submitRename = (value: string) => {
     const trimmed = value.trim();
@@ -37,6 +37,46 @@ export function NoteHeader({ noteId, title: initialTitle }: { noteId: string; ti
       console.error("Rename failed:", err);
     });
   };
+
+  if (editing) {
+    return (
+      <input
+        autoFocus
+        defaultValue={title}
+        onBlur={(e) => submitRename(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") submitRename(e.currentTarget.value);
+          if (e.key === "Escape") setEditing(false);
+        }}
+        className="nb-title-input"
+        aria-label="Note title"
+      />
+    );
+  }
+
+  return (
+    <h1 className="nb-title" onClick={() => setEditing(true)} title="Click to rename">
+      <span>{title}</span>
+      <Pencil size={11} aria-hidden="true" />
+    </h1>
+  );
+}
+
+/**
+ * Two-step shred button for the glass command bar — first click arms the
+ * red confirm chip (auto-resets after 2.5s), second click deletes.
+ */
+export function NoteDeleteButton({ noteId }: { noteId: string }) {
+  const { deleteNote } = useNotes();
+  const router = useRouter();
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const deleteResetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (deleteResetTimer.current) clearTimeout(deleteResetTimer.current);
+    };
+  }, []);
 
   const startDeleteConfirm = () => {
     setConfirmingDelete(true);
@@ -52,51 +92,23 @@ export function NoteHeader({ noteId, title: initialTitle }: { noteId: string; ti
     router.push("/dashboard");
   };
 
+  if (confirmingDelete) {
+    return (
+      <button onClick={confirmDelete} className="del-chip-head" type="button">
+        CONFIRM SHRED?
+      </button>
+    );
+  }
+
   return (
-    <>
-      <p className="kicker rv" style={{ ["--rd" as string]: ".05s" }}>NOTE — OPEN</p>
-
-      <div className="note-top-row rv" style={{ ["--rd" as string]: ".14s" }}>
-        {editing ? (
-          <input
-            autoFocus
-            defaultValue={title}
-            onBlur={(e) => submitRename(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") submitRename(e.currentTarget.value);
-              if (e.key === "Escape") setEditing(false);
-            }}
-            className="note-title"
-            aria-label="Note title"
-          />
-        ) : (
-          <h1
-            onClick={() => setEditing(true)}
-            title="Click to rename"
-            className="note-title"
-          >
-            {title}
-          </h1>
-        )}
-
-        {confirmingDelete ? (
-          <button onClick={confirmDelete} className="del-chip-head" type="button">
-            CONFIRM SHRED?
-          </button>
-        ) : (
-          <button
-            onClick={startDeleteConfirm}
-            className="del-btn"
-            title="Delete note"
-            aria-label="Delete note"
-            type="button"
-          >
-            <Trash2 size={13} />
-          </button>
-        )}
-      </div>
-
-      <div className="title-rule" aria-hidden="true" />
-    </>
+    <button
+      onClick={startDeleteConfirm}
+      className="del-btn"
+      title="Delete note"
+      aria-label="Delete note"
+      type="button"
+    >
+      <Trash2 size={13} />
+    </button>
   );
 }

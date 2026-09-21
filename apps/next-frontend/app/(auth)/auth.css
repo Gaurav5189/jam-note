@@ -11,7 +11,7 @@
 /* Tokens & scope. Fonts are supplied by next/font on the wrapper
    (--font-archivo / --font-newsreader / --font-space-mono). */
 .auth{--paper:#f3efe6;--sheet:#faf7ef;--ink:#151310;--red:#ff3d1c;--gold:#ffb511;--acc:var(--gold);--slipw:min(480px,94vw);--ease-settle:cubic-bezier(.16,1,.3,1);--ease-slide:cubic-bezier(.2,.8,.2,1);--ease-pop:cubic-bezier(.2,1.5,.4,1);position:relative;background:var(--ink);color:var(--paper);font-family:var(--font-newsreader),Georgia,serif;overflow-x:hidden;line-height:1.4;-webkit-tap-highlight-color:transparent;min-height:100svh}
-html:has(.auth){scrollbar-color:var(--paper) var(--ink)}
+/* Scrollbars are styled globally in app/globals.css — no route override. */
 body:has(.auth){background:var(--ink)}
 .auth *,.auth *::before,.auth *::after{box-sizing:border-box;cursor:inherit}
 .auth ::selection{background:var(--gold);color:var(--ink)}

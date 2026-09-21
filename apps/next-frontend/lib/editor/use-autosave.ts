@@ -22,7 +22,7 @@ export interface UseAutosaveOptions<T> {
   save: (payload: T, options?: { keepalive?: boolean }) => Promise<void>;
 }
 
-const DEFAULT_DELAY_MS = 10_000;
+const DEFAULT_DELAY_MS = 5_000;
 const DEFAULT_MAX_WAIT_MS = 30_000;
 const DEFAULT_SAVED_HOLD_MS = 1500;
 /** Re-flush delay when changes landed while a save was already in flight. */
@@ -35,9 +35,9 @@ interface FlushOptions {
 /**
  * Debounced autosave state machine: idle → dirty → saving → saved → idle.
  *
- * Two timers bound data loss. The idle debounce (10s) resets on every
- * keystroke and flushes once the user pauses — a short window would
- * write-amplify MongoDB badly once many users type concurrently. The
+ * Two timers bound data loss. The idle debounce (5s — reduced from the
+ * original 10s, user decision September 2026) resets on every
+ * keystroke and flushes once the user pauses. The
  * max-wait cap (30s) does NOT reset while typing: it fires once per dirty
  * period, so a browser crash mid-writing costs at most the cap, never
  * everything since the last save. Safety flushes still fire on tab hide,

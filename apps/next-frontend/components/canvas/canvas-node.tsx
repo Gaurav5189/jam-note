@@ -2,12 +2,11 @@
 
 import { memo, useCallback, useRef } from "react";
 import { Edit3, GripHorizontal, Palette } from "lucide-react";
-import type { Block } from "@/lib/types";
 import { BlockContent } from "@/components/block-view";
-import { CANVAS_INK_COLOR, DEFAULT_NODE_HEIGHT, DEFAULT_NODE_WIDTH } from "./types";
+import { CANVAS_INK_COLOR, DEFAULT_NODE_HEIGHT, DEFAULT_NODE_WIDTH, type CanvasCardData } from "./types";
 
 interface CanvasNodeProps {
-  block: Block;
+  node: CanvasCardData;
   scale: number;
   isConnecting: boolean;
   isHandMode?: boolean;
@@ -21,7 +20,7 @@ interface CanvasNodeProps {
 }
 
 function CanvasNodeImpl({
-  block,
+  node,
   scale,
   isConnecting,
   isHandMode = false,
@@ -33,7 +32,11 @@ function CanvasNodeImpl({
   onPortClick,
   onOpenInDocument,
 }: CanvasNodeProps) {
-  const meta = block.canvas_metadata ?? {
+  // Anchor = first member. For a merged run (consecutive To-Dos /
+  // list items) the anchor carries the card's geometry, color, ports
+  // and identity; every interaction keys on node.id (the anchor id).
+  const anchor = node.blocks[0];
+  const meta = anchor.canvas_metadata ?? {
     x: 0,
     y: 0,
     width: DEFAULT_NODE_WIDTH,
@@ -68,10 +71,10 @@ function CanvasNodeImpl({
       const dy = (e.clientY - dragStartRef.current.y) / scale;
       if (Math.abs(dx) > 0 || Math.abs(dy) > 0) {
         dragStartRef.current = { x: e.clientX, y: e.clientY };
-        onPositionChange(block.id, dx, dy);
+        onPositionChange(node.id, dx, dy);
       }
     },
-    [block.id, onPositionChange, scale]
+    [node.id, onPositionChange, scale]
   );
 
   const handleDragPointerUp = useCallback(
@@ -83,10 +86,10 @@ function CanvasNodeImpl({
         } catch {
           // pointer capture might already be released
         }
-        onDragEnd?.(block.id);
+        onDragEnd?.(node.id);
       }
     },
-    [block.id, onDragEnd]
+    [node.id, onDragEnd]
   );
 
   // ─── Resize handling ────────────────────────────────────────────────────
@@ -112,9 +115,9 @@ function CanvasNodeImpl({
       if (!isResizingRef.current) return;
       const dx = (e.clientX - resizeStartRef.current.x) / scale;
       const dy = (e.clientY - resizeStartRef.current.y) / scale;
-      onSizeChange(block.id, resizeStartRef.current.width + dx, resizeStartRef.current.height + dy);
+      onSizeChange(node.id, resizeStartRef.current.width + dx, resizeStartRef.current.height + dy);
     },
-    [block.id, onSizeChange, scale]
+    [node.id, onSizeChange, scale]
   );
 
   const handleResizePointerUp = useCallback(
@@ -126,10 +129,10 @@ function CanvasNodeImpl({
         } catch {
           // pointer capture might already be released
         }
-        onResizeEnd?.(block.id);
+        onResizeEnd?.(node.id);
       }
     },
-    [block.id, onResizeEnd]
+    [node.id, onResizeEnd]
   );
 
   // The chosen ink tints the card's HEADER strip (the drag handle) — far
@@ -145,14 +148,15 @@ function CanvasNodeImpl({
 
   // Blank blocks (no text/src) render a muted placeholder instead of a
   // dead empty card — cards are read-only; editing happens in Document
-  // view via double-click.
-  const hasContent = Boolean(
-    block.properties.text?.trim() || block.properties.src
+  // view via double-click. A merged run shows content if ANY member
+  // has some.
+  const hasContent = node.blocks.some(
+    (b) => Boolean(b.properties.text?.trim() || b.properties.src)
   );
 
   return (
     <div
-      data-block-id={block.id}
+      data-block-id={node.id}
       className={`cn-card${isConnecting ? " is-connecting" : ""}`}
       style={{
         left: `${meta.x}px`,
@@ -170,11 +174,11 @@ function CanvasNodeImpl({
         className="cn-head"
         style={{ cursor: isHandMode ? "default" : "grab", ...headerStyle }}
         title={isHandMode ? undefined : "Drag to move card (or double-click to edit content in Document view)"}
-        onDoubleClick={() => onOpenInDocument?.(block.id)}
+        onDoubleClick={() => onOpenInDocument?.(node.id)}
       >
         <div className="cn-badge">
           <GripHorizontal size={12} style={{ opacity: isHandMode ? 0.3 : 0.6 }} />
-          <span>{block.type}</span>
+          <span>{node.blocks.length > 1 ? `${anchor.type} ×${node.blocks.length}` : anchor.type}</span>
         </div>
 
         <div className="cn-btns">
@@ -184,7 +188,7 @@ function CanvasNodeImpl({
             onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => {
               e.stopPropagation();
-              onCycleColor(block.id);
+              onCycleColor(node.id);
             }}
             className="cn-btn"
             title="Change card color (cycles 4 inks)"
@@ -204,7 +208,7 @@ function CanvasNodeImpl({
               onPointerDown={(e) => e.stopPropagation()}
               onClick={(e) => {
                 e.stopPropagation();
-                onOpenInDocument(block.id);
+                onOpenInDocument(node.id);
               }}
               className="cn-btn edit"
               title="Edit text in Document view"
@@ -219,15 +223,18 @@ function CanvasNodeImpl({
       {/* Card Content Area */}
       <div
         data-canvas-scrollable="true"
-        onDoubleClick={() => onOpenInDocument?.(block.id)}
+        onDoubleClick={() => onOpenInDocument?.(node.id)}
         className="cn-body-el"
         title="Double-click to edit content in Document view"
       >
-        {hasContent ? (
-          <BlockContent block={block} />
+        {node.blocks.length > 1 ? (
+          // Merged run: every member renders, stacked as one list.
+          node.blocks.map((member) => <BlockContent key={member.id} block={member} />)
+        ) : hasContent ? (
+          <BlockContent block={anchor} />
         ) : (
           <p className="cn-empty">
-            EMPTY {block.type.replace("header-", "HEADING ").toUpperCase()} — DOUBLE-CLICK TO EDIT IN DOCUMENT VIEW
+            EMPTY {anchor.type.replace("header-", "HEADING ").toUpperCase()} — DOUBLE-CLICK TO EDIT IN DOCUMENT VIEW
           </p>
         )}
       </div>
@@ -240,7 +247,7 @@ function CanvasNodeImpl({
             onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => {
               e.stopPropagation();
-              onPortClick(block.id);
+              onPortClick(node.id);
             }}
             className={`cn-port cn-port-l${isConnecting ? " is-connecting" : ""}`}
             title={isConnecting ? "Cancel connection" : "Connect node"}
@@ -254,7 +261,7 @@ function CanvasNodeImpl({
             onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => {
               e.stopPropagation();
-              onPortClick(block.id);
+              onPortClick(node.id);
             }}
             className={`cn-port cn-port-r${isConnecting ? " is-connecting" : ""}`}
             title={isConnecting ? "Cancel connection" : "Connect node"}

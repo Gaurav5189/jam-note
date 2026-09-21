@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Plus } from "lucide-react";
@@ -8,13 +8,15 @@ import { useNotes } from "@/context/notes-context";
 import { findNotePath, flattenTree } from "@/lib/note-tree";
 import type { NoteTreeItem } from "@/lib/types";
 import { deskBurst, deskToast } from "@/components/desk/desk-chrome";
+import { formatLocalDateTime } from "@/lib/time";
 
 const RECENT_LIMIT = 8;
 
-// Deterministic UTC stamp (avoids server/client hydration drift of
-// relative-time formatters) — the mono voice of the desk.
-function formatStamp(iso: string): string {
-  return `${iso.slice(0, 10)} ${iso.slice(11, 16)} UTC`;
+// UTC slice on the server (deterministic — no hydration drift), then
+// the browser's locale/timezone once mounted. The API emits naive UTC
+// ISO; lib/time.ts normalizes the parse (see the note header bar).
+function formatStamp(iso: string, local: boolean): string {
+  return local ? formatLocalDateTime(iso) : `${iso.slice(0, 10)} ${iso.slice(11, 16)} UTC`;
 }
 
 /** Split a word into per-glyph kinetic spans (the letterpress intro). */
@@ -38,6 +40,13 @@ export function RecentNotes() {
   const { tree, createNote } = useNotes();
   const router = useRouter();
   const titleRef = useRef<HTMLHeadingElement>(null);
+  // Swap UTC slices for local stamps after mount — scheduled callback,
+  // never a synchronous setState in the effect body.
+  const [local, setLocal] = useState(false);
+  useEffect(() => {
+    const id = setTimeout(() => setLocal(true), 0);
+    return () => clearTimeout(id);
+  }, []);
 
   const notes = flattenTree(tree)
     .slice()
@@ -162,7 +171,7 @@ export function RecentNotes() {
 
         <ul className="dash-list">
           {notes.map((note, index) => (
-            <RecentNoteRow key={note.id} note={note} index={index} tree={tree} />
+            <RecentNoteRow key={note.id} note={note} index={index} tree={tree} local={local} />
           ))}
         </ul>
       </div>
@@ -174,10 +183,13 @@ function RecentNoteRow({
   note,
   index,
   tree,
+  local,
 }: {
   note: NoteTreeItem;
   index: number;
   tree: NoteTreeItem[];
+  /** false until mount — SSR renders the deterministic UTC slice. */
+  local: boolean;
 }) {
   const path = findNotePath(tree, note.id);
   const parentPath =
@@ -198,7 +210,7 @@ function RecentNoteRow({
           {parentPath && <span className="dash-sub">{parentPath}</span>}
         </span>
         {note.layout_type === "canvas" && <span className="dash-canvas">CANVAS</span>}
-        <span className="dash-stamp">{formatStamp(note.updated_at)}</span>
+        <span className="dash-stamp">{formatStamp(note.updated_at, local)}</span>
       </Link>
     </li>
   );

@@ -7,7 +7,7 @@ import { useCanvasState } from "./use-canvas-state";
 import { CanvasNode } from "./canvas-node";
 import { CanvasConnections } from "./canvas-connections";
 import { CanvasToolbar } from "./canvas-toolbar";
-import { CANVAS_GRID, isCanvasCard } from "./types";
+import { CANVAS_GRID } from "./types";
 
 interface CanvasViewProps {
   noteId: string;
@@ -30,6 +30,7 @@ export function CanvasView({
 
   const {
     blocks,
+    cards,
     connections,
     transform,
     setTransform,
@@ -177,9 +178,9 @@ export function CanvasView({
     [setTransform, transform]
   );
 
-  // Dividers stay in `blocks` (they're saved with the note) but are not
-  // cards — counts and the empty notice reflect real card geometry only.
-  const cardCount = blocks.filter(isCanvasCard).length;
+  // Cards come pre-folded from the canvas state — consecutive To-Do /
+  // list-item runs are ONE card. Counts reflect cards, not raw blocks.
+  const cardCount = cards.length;
   const linkCount = connections.length;
 
   return (
@@ -218,17 +219,17 @@ export function CanvasView({
           onRemoveConnection={removeConnection}
         />
 
-        {/* Node Cards — dividers are document-only furniture and never
-            become spatial cards */}
-        {blocks.filter(isCanvasCard).map((block) => (
+        {/* Node Cards — dividers are document-only furniture and merged
+            list runs fold into single cards */}
+        {cards.map((card) => (
           <div
-            key={block.id}
+            key={card.id}
             className="world-node"
           >
             <CanvasNode
-              block={block}
+              node={card}
               scale={transform.scale}
-              isConnecting={connectingFromId === block.id}
+              isConnecting={connectingFromId === card.id}
               isHandMode={isHandMode}
               onPositionChange={updateNodePosition}
               onSizeChange={updateNodeSize}
