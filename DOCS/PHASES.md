@@ -1,6 +1,6 @@
 # Implementation Phases — jam-note
 
-This document maps out a structured, 5-phase build order to take `jam-note` from zero to a polished, ready-to-deploy product. Each phase defines target features, technical milestones, and completion checklists.
+This document maps out a structured, eight-phase build order to take `jam-note` from zero to a polished, ready-to-deploy product. Each phase defines target features, technical milestones, and completion checklists.
 
 ---
 
@@ -107,7 +107,7 @@ This document maps out a structured, 5-phase build order to take `jam-note` from
    - Split-glyph hero intro followed by the cursor-proximity Archivo weight/width field; reduced motion stays fully readable without motion.
    - Spread 03 title plate followed by the v1.2 spatial Module Rack; no film strip, draggable cards, 3D scene, or pointer color trail.
 4. **Page Sections:** hero with `YOUR CONSOLE` login CTA; accessible Modes specimens; six-row Terms and clip-out coupon; colophon navigation.
-5. **SEO & Metadata:** page metadata + OpenGraph/Twitter cards, `sitemap.ts` + `robots.ts` (shared with Phase 6 public publishing), SoftwareApplication structured data.
+5. **SEO & Metadata:** page metadata + OpenGraph/Twitter cards, `sitemap.ts` + `robots.ts` (shared with Phase 7 public publishing), SoftwareApplication structured data.
 
 ### Verification Checklist
 - [x] Unauthenticated `/` shows the landing; authenticated users land directly in the app with no marketing flash. — **Verified**: HTTP smoke test — `/` returns 200; `/dashboard` without a cookie redirects 307 → `/login`; `/` with a `jam_session` cookie redirects 307 → `/dashboard`.
@@ -117,7 +117,33 @@ This document maps out a structured, 5-phase build order to take `jam-note` from
 
 ---
 
-## Phase 6: Publishing Hub (CRM) & Aesthetics Polish (Sprint 6)
+## Phase 6: "Folders in Denial" — The Last-Minute Emergency Data-Model Shift (Sprint 6)
+**Goal:** We shipped notes-in-notes, and the reviews came back with the punchline: *a note with children is just a folder in denial.* So the plan is being emergency-reshuffled mid-print — STOP THE PRESSES — and the publishing hub and magic search have been politely asked to move one seat down (they're taking it well). This phase splits pure containers (**Folders**) from content (**Notes**): notes become leaves that live in zero or one folder, folders nest in folders, and the legacy notes-in-notes tree is migrated non-destructively. Ships with the reworked sidebar (explicit "New Note" / "New Folder" actions, chevrons on folders only) and full drag-and-drop where folders are the only lawful drop targets. The authority for every decision, schema, API, migration step, and file-by-file checklist is **`make/phase6_folders_plan.md`** — read it before writing a line of code.
+
+### Milestones
+1. **Backend — Folders Module** (`src/fastapi_backend/folders/`, mirroring the notes module conventions):
+   - New `folders` MongoDB collection: `{ _id, user_id, parent_folder_id (nullable), name, order (reserved), migrated_from_note_id (traceability), created_at, updated_at }`.
+   - Notes swap `parent_id` → `folder_id`; the legacy `parent_id` is frozen in Mongo (kept verbatim, ignored by the API) so the migration stays reversible.
+   - `POST/GET/PUT/DELETE /api/folders` + `GET /api/workspace` (combined folder+note tree); folder delete lifts contents to its parent (never cascades); moves reject cycles.
+2. **Migration** (`apps/fastapi-backend/scripts/migrate_folders.py`):
+   - Dry-run by default; non-destructive by construction (only ADDS folders + `folder_id` — rollback = delete folders + unset `folder_id`).
+   - Parent notes become folders; a parent that also has its own content stays as a real note inside its new folder (user decision — no content loss, stable note URLs); terminal notes stay notes.
+3. **Frontend — Workspace UI:**
+   - Workspace context + pure tree helpers (replacing `lib/note-tree.ts`); sidebar folder rows (chevron + folder icon) vs note leaf rows; explicit "New Note" / "New Folder" actions at the WORKSPACE root and inside every folder.
+   - Full HTML5 drag-and-drop: notes → folders and folders → folders are lawful; note → note and folder → note drops are rejected with a toast.
+   - Ordering stays `created_at` everywhere (user decision); the `order` field ships reserved but unused.
+4. **Docs & Tests:** `DOCS/ARCHITECTURE.md` data model + endpoint list updated together with the code; backend `test_folders_*` suites mirroring `test_notes_*`; frontend workspace-tree helper tests; all existing suites stay green.
+
+### Verification Checklist
+- [ ] Backend suite green (`uv run pytest`): folders service + routes, workspace tree shape/order, notes-with-`folder_id`, migration tests (dry-run writes nothing; apply maps the tree incl. content-bearing parents).
+- [ ] `pnpm lint && pnpm test && pnpm build` green in `apps/next-frontend`.
+- [ ] Dry-run migration prints an accurate plan; `--apply` reproduces it; the documented rollback (delete folders + unset `folder_id`) restores the legacy state.
+- [ ] Sidebar renders folder/note rows per the rules; DnD enforces drop targets; illegal drops toast.
+- [ ] No note content or ids are lost — content-bearing parents survive as child notes with stable URLs.
+
+---
+
+## Phase 7: Publishing Hub (CRM) & Aesthetics Polish (Sprint 7)
 **Goal:** Build the news blog/CRM publishing layer, apply the custom neo-industrial aesthetics across all modules, add note export, and perform integration testing.
 
 ### Milestones
@@ -144,10 +170,10 @@ This document maps out a structured, 5-phase build order to take `jam-note` from
 
 ---
 
-## Phase 7: Magic Search — Full-Text Across Note Contents (Sprint 7)
+## Phase 8: Magic Search — Full-Text Across Note Contents (Sprint 8)
 **Goal:** Search every word inside all of a user's notes ("magic search") and jump directly to the matching block, powered by the Aiven free-tier OpenSearch cluster (2 vCPU / 4GB RAM / 20GB storage).
 
-### Phase 7.1: Durable Event Pipeline — MongoDB Outbox to Aiven Kafka
+### Phase 8.1: Durable Event Pipeline — MongoDB Outbox to Aiven Kafka
 **Goal:** Make search indexing and future asynchronous features reliable without
 making Kafka the source of truth or allowing Kafka downtime to break note saves.
 

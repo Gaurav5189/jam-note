@@ -11,6 +11,8 @@ import {
   MAX_NODE_WIDTH,
   MIN_NODE_HEIGHT,
   MIN_NODE_WIDTH,
+  isCanvasCard,
+  snapToGrid,
   type CanvasTool,
   type CanvasTransform,
 } from "./types";
@@ -42,8 +44,9 @@ function ensureCanvasMetadata(blocks: Block[]): Block[] {
     return {
       ...b,
       canvas_metadata: {
-        x: 80 + col * (DEFAULT_NODE_WIDTH + 40),
-        y: 60 + row * (DEFAULT_NODE_HEIGHT + 40),
+        // Seeds land on the snap lattice so freshly placed cards align.
+        x: snapToGrid(80 + col * (DEFAULT_NODE_WIDTH + 40)),
+        y: snapToGrid(60 + row * (DEFAULT_NODE_HEIGHT + 40)),
         width: DEFAULT_NODE_WIDTH,
         height: DEFAULT_NODE_HEIGHT,
         color: meta?.color ?? null,
@@ -238,8 +241,10 @@ export function useCanvasState({
             ...b,
             canvas_metadata: {
               ...meta,
-              x: Math.round(meta.x + dx),
-              y: Math.round(meta.y + dy),
+              // Snap the resulting position (not the delta) so cards
+              // always settle on the 16px lattice as they are dragged.
+              x: snapToGrid(meta.x + dx),
+              y: snapToGrid(meta.y + dy),
             },
           };
         });
@@ -253,8 +258,10 @@ export function useCanvasState({
 
   const updateNodeSize = useCallback(
     (blockId: string, width: number, height: number) => {
-      const clampedW = Math.max(MIN_NODE_WIDTH, Math.min(MAX_NODE_WIDTH, Math.round(width)));
-      const clampedH = Math.max(MIN_NODE_HEIGHT, Math.min(MAX_NODE_HEIGHT, Math.round(height)));
+      // Snap to the lattice, then clamp — clamping first could snap a
+      // minimum size back below its floor.
+      const clampedW = Math.max(MIN_NODE_WIDTH, Math.min(MAX_NODE_WIDTH, snapToGrid(width)));
+      const clampedH = Math.max(MIN_NODE_HEIGHT, Math.min(MAX_NODE_HEIGHT, snapToGrid(height)));
 
       setBlocks((prev) => {
         const next = prev.map((b) => {
@@ -407,6 +414,8 @@ export function useCanvasState({
     let maxY = -Infinity;
 
     for (const b of blocksRef.current) {
+      // Dividers never render as cards — fit only real card geometry.
+      if (!isCanvasCard(b)) continue;
       const m = b.canvas_metadata ?? {
         x: 0,
         y: 0,

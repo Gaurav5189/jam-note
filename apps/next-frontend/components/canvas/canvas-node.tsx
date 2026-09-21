@@ -4,7 +4,7 @@ import { memo, useCallback, useRef } from "react";
 import { Edit3, GripHorizontal, Palette } from "lucide-react";
 import type { Block } from "@/lib/types";
 import { BlockContent } from "@/components/block-view";
-import { DEFAULT_NODE_HEIGHT, DEFAULT_NODE_WIDTH } from "./types";
+import { CANVAS_INK_COLOR, DEFAULT_NODE_HEIGHT, DEFAULT_NODE_WIDTH } from "./types";
 
 interface CanvasNodeProps {
   block: Block;
@@ -132,7 +132,23 @@ function CanvasNodeImpl({
     [block.id, onResizeEnd]
   );
 
-  const borderColor = meta.color || "#151310";
+  // The chosen ink tints the card's HEADER strip (the drag handle) — far
+  // more visible than the old 1.5px border tint. The ink swatch flips
+  // its label to paper for contrast; the body below stays paper.
+  const headerStyle =
+    meta.color
+      ? {
+          backgroundColor: meta.color,
+          color: meta.color === CANVAS_INK_COLOR ? "#f3efe6" : "#151310",
+        }
+      : undefined;
+
+  // Blank blocks (no text/src) render a muted placeholder instead of a
+  // dead empty card — cards are read-only; editing happens in Document
+  // view via double-click.
+  const hasContent = Boolean(
+    block.properties.text?.trim() || block.properties.src
+  );
 
   return (
     <div
@@ -143,7 +159,6 @@ function CanvasNodeImpl({
         top: `${meta.y}px`,
         width: `${meta.width}px`,
         height: `${meta.height}px`,
-        borderColor: borderColor,
       }}
     >
       {/* Header / Drag Handle */}
@@ -153,7 +168,7 @@ function CanvasNodeImpl({
         onPointerUp={handleDragPointerUp}
         onPointerCancel={handleDragPointerUp}
         className="cn-head"
-        style={{ cursor: isHandMode ? "default" : "grab" }}
+        style={{ cursor: isHandMode ? "default" : "grab", ...headerStyle }}
         title={isHandMode ? undefined : "Drag to move card (or double-click to edit content in Document view)"}
         onDoubleClick={() => onOpenInDocument?.(block.id)}
       >
@@ -208,7 +223,13 @@ function CanvasNodeImpl({
         className="cn-body-el"
         title="Double-click to edit content in Document view"
       >
-        <BlockContent block={block} />
+        {hasContent ? (
+          <BlockContent block={block} />
+        ) : (
+          <p className="cn-empty">
+            EMPTY {block.type.replace("header-", "HEADING ").toUpperCase()} — DOUBLE-CLICK TO EDIT IN DOCUMENT VIEW
+          </p>
+        )}
       </div>
 
       {/* Connection Ports: Left & Right (hidden in Hand mode) */}

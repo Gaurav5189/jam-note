@@ -75,6 +75,13 @@ Stores credential hashes, profile configurations, and custom visual settings.
 
 ### B. Notes & Canvas Documents Collection (`notes`)
 Using a parent-child adjacency list representation. This allows infinite nesting without deep document overhead.
+
+> **PLANNED CHANGE — Phase 6 ("Folders in Denial"), not yet implemented.**
+> This adjacency-list model is being split: a new `folders` collection takes
+> over nesting, notes swap `parent_id` → `folder_id` and become leaves, and
+> `parent_id` is frozen in Mongo for rollback. The schema below describes the
+> **current** implementation and must be updated together with the Phase 6
+> code. Full plan: `make/phase6_folders_plan.md`.
 ```json
 {
   "_id": "ObjectId",

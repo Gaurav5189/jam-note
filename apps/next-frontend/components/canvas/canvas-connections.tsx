@@ -3,6 +3,7 @@
 import { memo, useMemo, useState } from "react";
 import { X } from "lucide-react";
 import type { Block, BlockConnection } from "@/lib/types";
+import { isCanvasCard } from "./types";
 
 interface CanvasConnectionsProps {
   connections: BlockConnection[];
@@ -43,6 +44,9 @@ function CanvasConnectionsImpl({
       const from = blockMap.get(conn.from_id);
       const to = blockMap.get(conn.to_id);
       if (!from?.canvas_metadata || !to?.canvas_metadata) continue;
+      // Dividers never render as cards — a legacy edge pointing at one
+      // has no visible endpoint geometry, so it is not drawn either.
+      if (!isCanvasCard(from) || !isCanvasCard(to)) continue;
 
       const f = from.canvas_metadata;
       const t = to.canvas_metadata;

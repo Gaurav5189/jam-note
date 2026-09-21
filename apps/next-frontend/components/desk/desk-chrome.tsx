@@ -179,10 +179,10 @@ export function DeskChrome() {
         <p className="end-word">SESSION CLOSED</p>
         <p className="end-line">THE DESK IS FILED — COME BACK SOON.</p>
         <div className="end-actions">
-          <button type="button" className="gold-cta" onClick={resume}>
+          <button type="button" className="end-btn end-btn-primary" onClick={resume}>
             RESUME SESSION
           </button>
-          <button type="button" className="end-signout" onClick={signOut} disabled={signingOut}>
+          <button type="button" className="end-btn end-btn-ghost" onClick={signOut} disabled={signingOut}>
             SIGN OUT
           </button>
         </div>

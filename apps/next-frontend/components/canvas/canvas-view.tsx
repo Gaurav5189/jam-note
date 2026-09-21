@@ -7,6 +7,7 @@ import { useCanvasState } from "./use-canvas-state";
 import { CanvasNode } from "./canvas-node";
 import { CanvasConnections } from "./canvas-connections";
 import { CanvasToolbar } from "./canvas-toolbar";
+import { CANVAS_GRID, isCanvasCard } from "./types";
 
 interface CanvasViewProps {
   noteId: string;
@@ -176,6 +177,11 @@ export function CanvasView({
     [setTransform, transform]
   );
 
+  // Dividers stay in `blocks` (they're saved with the note) but are not
+  // cards — counts and the empty notice reflect real card geometry only.
+  const cardCount = blocks.filter(isCanvasCard).length;
+  const linkCount = connections.length;
+
   return (
     <div
       ref={containerRef}
@@ -188,8 +194,10 @@ export function CanvasView({
       onWheel={handleWheel}
       className="canvas-plate"
       style={{
+        // Dot lattice matches the snap grid so cards visibly settle
+        // onto the dots they snap to.
         backgroundImage: `radial-gradient(rgba(243,239,230,.16) 1px, transparent 1.4px)`,
-        backgroundSize: `${24 * transform.scale}px ${24 * transform.scale}px`,
+        backgroundSize: `${CANVAS_GRID * transform.scale}px ${CANVAS_GRID * transform.scale}px`,
         backgroundPosition: `${transform.x}px ${transform.y}px`,
         cursor: isHandMode ? "grab" : "crosshair",
       }}
@@ -210,8 +218,9 @@ export function CanvasView({
           onRemoveConnection={removeConnection}
         />
 
-        {/* Node Cards */}
-        {blocks.map((block) => (
+        {/* Node Cards — dividers are document-only furniture and never
+            become spatial cards */}
+        {blocks.filter(isCanvasCard).map((block) => (
           <div
             key={block.id}
             className="world-node"
@@ -268,7 +277,7 @@ export function CanvasView({
       </div>
 
       {/* Empty Canvas Notice */}
-      {blocks.length === 0 && (
+      {cardCount === 0 && (
         <div className="canvas-empty">
           <div className="canvas-empty-inner">
             <p className="canvas-empty-kicker">EMPTY CANVAS</p>
@@ -283,6 +292,7 @@ export function CanvasView({
       <div className="canvas-status">
         <i className={isHandMode ? "hand" : ""} aria-hidden="true" />
         <span>
+          {`${cardCount} BLOCK${cardCount === 1 ? "" : "S"} · ${linkCount} LINK${linkCount === 1 ? "" : "S"} · `}
           {isHandMode
             ? "HAND VIEW MODE · DRAG ANYWHERE TO PAN · TAB TO SWITCH TO POINTER"
             : "POINTER MODE · DRAG CARDS · DOUBLE-CLICK CARD TO EDIT · TAB TO SWITCH TO HAND"}

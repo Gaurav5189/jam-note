@@ -60,9 +60,17 @@ body.go .desk .chrome{opacity:1}
 .desk .end-word{font-family:var(--font-archivo),'Helvetica Neue',Helvetica,Arial,sans-serif;font-weight:900;font-variation-settings:'wght' 900,'wdth' 116;font-size:clamp(2.6rem,9vw,6.5rem);line-height:.9;letter-spacing:-.02em;text-shadow:.04em .035em 0 rgba(255,181,17,.55)}
 .desk .end-line{font-family:var(--font-space-mono),monospace;font-size:9.5px;letter-spacing:.26em;color:rgba(243,239,230,.6)}
 .desk .end-actions{display:flex;align-items:center;gap:14px;flex-wrap:wrap;justify-content:center}
-.desk .end-signout{display:inline-block;padding:16px 34px;border:1.5px solid var(--red);color:var(--red);font-family:var(--font-archivo),'Helvetica Neue',Helvetica,Arial,sans-serif;font-weight:850;font-variation-settings:'wght' 850,'wdth' 110;font-size:clamp(1rem,1.8vw,1.2rem);letter-spacing:.07em;transition:transform .16s,box-shadow .16s,background .16s,color .16s}
-.desk .end-signout:hover{background:var(--red);color:var(--ink);transform:translate(-2px,-2px);box-shadow:5px 6px 0 rgba(243,239,230,.85)}
-.desk .end-signout:active{transform:translate(2px,3px);box-shadow:1px 1px 0 rgba(243,239,230,.85)}
+/* One shared button base for the overlay's CTAs — identical padding,
+   font, border, and height so the two sit on the same baseline; the
+   variants carry only the ink. Both rest raised on the same hard-
+   offset treatment (paper-tint vs red-tint), so neither reads flat. */
+.desk .end-btn{display:inline-block;padding:16px 34px;font-family:var(--font-archivo),'Helvetica Neue',Helvetica,Arial,sans-serif;font-weight:850;font-variation-settings:'wght' 850,'wdth' 110;font-size:clamp(1rem,1.8vw,1.2rem);letter-spacing:.07em;border:1.5px solid;transition:transform .16s,box-shadow .16s,background .16s,color .16s}
+.desk .end-btn-primary{background:var(--gold);color:var(--ink);border-color:var(--ink);box-shadow:5px 6px 0 rgba(243,239,230,.85)}
+.desk .end-btn-primary:hover{transform:translate(-2px,-2px);box-shadow:8px 9px 0 rgba(243,239,230,.85)}
+.desk .end-btn-primary:active{transform:translate(2px,3px);box-shadow:1px 1px 0 rgba(243,239,230,.85)}
+.desk .end-btn-ghost{background:transparent;color:var(--red);border-color:var(--red);box-shadow:5px 6px 0 rgba(255,61,28,.4)}
+.desk .end-btn-ghost:hover{background:var(--red);color:var(--ink);transform:translate(-2px,-2px);box-shadow:8px 9px 0 rgba(255,61,28,.4)}
+.desk .end-btn-ghost:active{transform:translate(2px,3px);box-shadow:1px 1px 0 rgba(255,61,28,.4)}
 
 .desk .tick{animation:desk-tick .3s ease}
 @keyframes desk-tick{0%{opacity:0;transform:translateY(5px)}100%{opacity:1;transform:none}}
@@ -125,15 +133,20 @@ body.go .desk .chrome{opacity:1}
    ============================================================ */
 .desk .desk-dash{position:absolute;inset:0;overflow-y:auto}
 .desk .empty-view{height:100%;display:flex;align-items:center;justify-content:center;padding:6vh 5vw}
-.desk .plate-frame{position:relative;border:1.5px solid var(--hair);max-width:900px;width:100%;padding:8vh 6vw 7vh;text-align:center}
+/* The plate is its own query container so the title can size itself to
+   the plate's CONTENT width (cqw), never the viewport: the stage is
+   narrower than the window (sidebar) and the kinetic field swells wdth
+   to 125 — a vw-sized title clipped "…WORKSP|ACE" on common screens.
+   11.5cqw keeps ~9 Archivo-900 glyphs inside the box at full swell. */
+.desk .plate-frame{position:relative;border:1.5px solid var(--hair);max-width:1000px;width:100%;padding:8vh 56px 7vh;text-align:center;container-type:inline-size}
 .desk .fig-cap{position:absolute;top:-7px;left:20px;background:var(--ink);padding:0 9px;font-family:var(--font-space-mono),monospace;font-size:8.5px;letter-spacing:.2em;color:rgba(243,239,230,.55)}
 .desk .fc{position:absolute;width:13px;height:13px;border-color:var(--gold);border-style:solid;border-width:0}
 .desk .fc.tl{top:-1.5px;left:-1.5px;border-top-width:1.5px;border-left-width:1.5px}
 .desk .fc.tr{top:-1.5px;right:-1.5px;border-top-width:1.5px;border-right-width:1.5px}
 .desk .fc.bl{bottom:-1.5px;left:-1.5px;border-bottom-width:1.5px;border-left-width:1.5px}
 .desk .fc.br{bottom:-1.5px;right:-1.5px;border-bottom-width:1.5px;border-right-width:1.5px}
-.desk .ev-title{font-family:var(--font-archivo),'Helvetica Neue',Helvetica,Arial,sans-serif;font-weight:900;letter-spacing:-.02em;font-variation-settings:'wght' 900,'wdth' 112;font-size:clamp(2.8rem,9.5vw,7.2rem);line-height:.86}
-.desk .ev-line{display:block;overflow:hidden;padding-bottom:.04em}
+.desk .ev-title{font-family:var(--font-archivo),'Helvetica Neue',Helvetica,Arial,sans-serif;font-weight:900;letter-spacing:-.02em;font-variation-settings:'wght' 900,'wdth' 112;font-size:clamp(2.1rem,11.5cqw,7.2rem);line-height:.86}
+.desk .ev-line{display:block;overflow:hidden;padding:0 .05em .04em}
 .desk .ev-line .ht{display:inline-block;white-space:nowrap}
 .desk .k{display:inline-block;will-change:transform;font-weight:inherit}
 .desk .k.sp{width:.26em;overflow:hidden}
@@ -326,6 +339,7 @@ body.go .desk .title-rule{transform:scaleX(1)}
 .desk .embed-frame{position:relative;margin:8px 0}
 .desk .embed-frame img{max-width:100%;display:block;border:1.5px solid var(--hair)}
 .desk .cn-body .embed-frame img{border-color:rgba(21,19,16,.35)}
+.desk .cn-card .embed-frame img{border-color:rgba(21,19,16,.35)}
 .desk .embed-actions{position:absolute;top:8px;right:8px;display:none;gap:6px}
 .desk .embed-frame:hover .embed-actions{display:flex}
 .desk .embed-act{background:var(--ink);border:1.5px solid var(--hair);padding:6px;color:rgba(243,239,230,.7);transition:color .15s,border-color .15s;line-height:1}
@@ -357,18 +371,31 @@ body.go .desk .title-rule{transform:scaleX(1)}
 .desk .canvas-plate{position:absolute;inset:0;overflow:hidden;user-select:none;touch-action:none}
 .desk .canvas-plate:focus{outline:none}
 .desk .canvas-world{position:absolute;inset:0;pointer-events:none}
-.desk .cn-body{--bv-fg:var(--ink);--bv-muted:rgba(21,19,16,.62)}
+/* Card bodies are paper stock: flip the block-view inks to ink-on-paper.
+   (Selector must match the real element class `cn-body-el` — an earlier
+   `.cn-body` typo left cards with light text on the light card.) */
+.desk .cn-body-el{--bv-fg:var(--ink);--bv-muted:rgba(21,19,16,.62)}
+/* Deepened print accents for code tokens + tags on paper — the desk's
+   flat gold is illegible on the light card face. */
+.desk .cn-card .bv-tok-keyword{color:#8a5a00}
+.desk .cn-card .bv-tok-string{color:#c22f14}
+.desk .cn-card .bv-tok-number{color:#c22f14}
+.desk .cn-card .bv-tok-comment{color:rgba(21,19,16,.55)}
+.desk .cn-card .bv-tag{border-color:rgba(21,19,16,.5)}
+.desk .cn-card .bv-tag-dot{background:var(--red)}
 .desk .cn-card{position:absolute;background:var(--paper);color:var(--ink);border:1.5px solid var(--ink);box-shadow:5px 6px 0 var(--cn-shadow);display:flex;flex-direction:column;user-select:none;will-change:transform}
 .desk .cn-card.is-grab{box-shadow:9px 11px 0 rgba(255,181,17,.3)}
 .desk .cn-card.is-connecting{outline:2px solid var(--gold);outline-offset:1px}
 .desk .cn-head{height:30px;padding:0 8px;border-bottom:1.5px solid rgba(21,19,16,.35);display:flex;align-items:center;justify-content:space-between;flex:0 0 auto;touch-action:none}
-.desk .cn-badge{display:flex;align-items:center;gap:6px;font-family:var(--font-space-mono),monospace;font-size:8.5px;letter-spacing:.18em;text-transform:uppercase;color:rgba(21,19,16,.6)}
+.desk .cn-badge{display:flex;align-items:center;gap:6px;font-family:var(--font-space-mono),monospace;font-size:8.5px;letter-spacing:.18em;text-transform:uppercase;color:inherit;opacity:.75}
 .desk .cn-btns{display:flex;align-items:center;gap:4px}
-.desk .cn-btn{display:flex;align-items:center;gap:4px;padding:4px 5px;border:1px solid rgba(21,19,16,.3);color:rgba(21,19,16,.65);cursor:pointer;transition:color .15s,border-color .15s;line-height:1;font-size:10px}
-.desk .cn-btn:hover{color:var(--ink);border-color:var(--ink)}
-.desk .cn-dot{width:10px;height:10px;border:1.5px solid rgba(21,19,16,.5);flex:0 0 auto}
-.desk .cn-btn:hover .cn-dot{border-color:var(--ink)}
-.desk .cn-btn.edit:hover{color:var(--red);border-color:var(--red)}
+/* Header controls ride on the tinted strip: currentColor keeps them
+   legible on gold/red/ink headers alike. */
+.desk .cn-btn{display:flex;align-items:center;gap:4px;padding:4px 5px;border:1px solid color-mix(in srgb,currentColor 32%,transparent);color:inherit;opacity:.85;cursor:pointer;transition:opacity .15s,border-color .15s;line-height:1;font-size:10px}
+.desk .cn-btn:hover{opacity:1;border-color:currentColor}
+.desk .cn-dot{width:10px;height:10px;border:1.5px solid color-mix(in srgb,currentColor 50%,transparent);flex:0 0 auto}
+.desk .cn-btn:hover .cn-dot{border-color:currentColor}
+.desk .cn-empty{font-family:var(--font-space-mono),monospace;font-size:8.5px;letter-spacing:.16em;text-transform:uppercase;color:rgba(21,19,16,.45);line-height:1.7}
 .desk .cn-body-el{flex:1;overflow-y:auto;padding:10px 12px;font-size:13px;line-height:1.65;pointer-events:auto;cursor:default}
 .desk .cn-port{position:absolute;top:50%;width:16px;height:16px;margin-top:-8px;border:1.5px solid var(--ink);background:var(--paper);display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:0;transition:opacity .15s,transform .15s;padding:0}
 .desk .cn-port-l{left:-8px}.desk .cn-port-r{right:-8px}
@@ -466,6 +493,7 @@ body.go .desk .title-rule{transform:scaleX(1)}
   .desk .side-foot{margin-top:0;margin-left:auto;border-top:0;border-left:1.5px solid var(--hair);padding:12px 14px;flex:0 0 auto}
 }
 @media (max-width:640px){
+  .desk .plate-frame{padding:6vh 18px 5vh}
   .desk .rh-c{display:none}
   .desk .runhead{padding:0 14px;gap:12px}
   .desk .srch .srch-label{display:none}

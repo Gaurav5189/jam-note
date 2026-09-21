@@ -15,24 +15,32 @@ export function insertTreeItem(
 ): NoteTreeItem[] {
   if (item.parent_id === null) return [...nodes, item];
 
-  let inserted = false;
-  const result = nodes.map((node) => {
-    if (node.id === item.parent_id) {
-      inserted = true;
-      return { ...node, children: [...node.children, item] };
-    }
-    const newChildren = insertTreeItem(node.children, item);
-    if (newChildren !== node.children) {
-      inserted = true;
-      return { ...node, children: newChildren };
-    }
-    return node;
-  });
+  let found = false;
+  const walk = (items: NoteTreeItem[]): NoteTreeItem[] => {
+    let changed = false;
+    const result = items.map((node) => {
+      if (node.id === item.parent_id) {
+        found = true;
+        changed = true;
+        return { ...node, children: [...node.children, item] };
+      }
+      const newChildren = walk(node.children);
+      if (newChildren !== node.children) {
+        changed = true;
+        return { ...node, children: newChildren };
+      }
+      return node;
+    });
+    return changed ? result : items;
+  };
+  const result = walk(nodes);
 
-  // Parent missing from the local tree — surface the note as a root so it
-  // stays visible (same guarantee as the backend's build_tree).
-  if (!inserted) return [...nodes, item];
-  return result;
+  // Parent missing from the whole tree — surface the note as a root so it
+  // stays visible (same guarantee as the backend's build_tree). This
+  // fallback must consider the ENTIRE tree: firing it per-subtree used to
+  // append the note to every leaf's children, duplicating it all over the
+  // sidebar and the dashboard's flattened list (duplicate React keys).
+  return found ? result : [...nodes, item];
 }
 
 /** Remove a note, lifting its children into its own slot (delete cascade). */
