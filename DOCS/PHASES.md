@@ -142,28 +142,51 @@ This document maps out a structured, eight-phase build order to take `jam-note` 
 
 ---
 
-## Phase 7: Publishing Hub (CRM) & Aesthetics Polish (Sprint 7)
-**Goal:** Build the news blog/CRM publishing layer, apply the custom neo-industrial aesthetics across all modules, add note export, and perform integration testing.
+## Phase 7: Note Export, Profile Console & Resilience Polish (Sprint 7)
+**Goal:** Ship note export, the operator Profile page (`/profile`), offline resilience, and a 30-day trash — then apply the custom neo-industrial aesthetics across all modules. The Publishing Hub (CRM) has been moved to **Upcoming Features** (after Phase 8) and is explicitly out of this phase. Design authorities: `make/dashboard_profile/design.md` (Profile page) and `make/import_export_DESIGN.md` (import/export policy).
 
 ### Milestones
-1. **Publishing Core & public CRM:**
-   - Implement "Publish" settings pane for notes.
-   - Create route `POST /api/pub/posts/{id}/publish` which generates slug-mapped entries.
-   - Develop the unauthenticated public dynamic sub-app/route `apps/next-frontend/app/pub/[username]/[slug]` allowing readers to view notes.
-2. **Note Export (Markdown / JSON):**
+1. **Note Export (Markdown / JSON):**
    - Route `GET /api/notes/{note_id}/export?format=md|json` — single note.
    - Route `GET /api/notes/export?format=md|json` — full workspace as a zip (one file per note, folder structure mirrors sidebar tree).
    - Markdown export: convert `blocks[]` to standard MD syntax (headers, lists, todos as `- [ ]`, code fences with language). Canvas-layout notes export as MD with a plain block order (canvas coordinates dropped) plus an optional `--include-canvas-json` flag that also emits raw `canvas_metadata`.
    - JSON export: raw note document (blocks + canvas_metadata + meta), suitable for backup/reimport later.
    - Add "Export" action to note command palette and note settings menu.
-3. **Neo-Industrial Theme Injection:**
+2. **Profile Page — the Operator Console (`/profile`):**
+   - Implement per `make/dashboard_profile/design.md` (concept: `make/dashboard_profile/concept_profile.html`): paper-on-ink inverted ground, crop marks, runhead, section panels (Account / Security / Workspace data / Trash), data-row paper-flood hover, export index-card modal with the download fill animation.
+   - Account panel: username + email locked (dimmed, no affordance), display name inline edit.
+   - Backend: `PATCH /api/auth/me` (display name), `PUT /api/auth/password` (new + confirm password, live validation).
+   - Wire the app runhead profile chip to `/profile` (currently dead), plus `← DASHBOARD` back-link.
+   - Import (JSON-only, per `make/import_export_DESIGN.md`) and Export picker live here as Workspace data rows; Open Trash row links to the trash view (M3).
+3. **Trash / Soft Delete (30-day TTL):**
+   - Notes get `deleted_at: ISODate | null (indexed)`. `DELETE /api/notes/{note_id}` sets the timestamp instead of removing the document; every workspace/note/search/export query filters `deleted_at: null`.
+   - TTL index performs the permanent purge:
+     ```js
+     // 1. Mark with a Date timestamp when soft deleting
+     db.notes.updateOne(
+       { _id: noteId, user_id: ownerId },
+       { $set: { deleted_at: new Date() } }
+     );
+     // 2. Auto-delete 30 days after deleted_at
+     db.notes.createIndex(
+       { "deleted_at": 1 },
+       { expireAfterSeconds: 2592000 } // 30 days
+     );
+     ```
+   - Restore endpoint (`POST /api/notes/{note_id}/restore`) clears `deleted_at`; the Profile page trash view lists soft-deleted notes with restore + immediate-purge actions.
+4. **Offline Indicator:**
+   - Small connectivity-state hook (`navigator.onLine` + online/offline events) surfaced as a status chip near the save indicator ("OFFLINE — changes queued" vs the quiet "Saving..." state).
+   - Combined with the existing localStorage draft mirror: an offline save path that queues locally and flushes on reconnect. No CRDT, no local-first DB — the centralized DB remains the sole authority (PRD §5).
+5. **Neo-Industrial Theme Injection:**
    - Apply the specific visual styles (Off-black matte background, neon accents, razor-thin solid borders, strict typographic limits).
    - Run optimization checks and test compilation using Turbopack during development.
 
 ### Verification Checklist
-- [ ] A note can be marked public and immediately accessed via standard public URL.
 - [ ] Single-note export produces valid Markdown/JSON matching the note's current content.
 - [ ] Full-workspace export zip preserves folder/note tree structure and downloads without timing out on large workspaces.
+- [ ] Profile page renders per `make/dashboard_profile/design.md`: display name edits inline, password rotation validates and persists, export picker browses/confirm-downloads, all wired to live API routes.
+- [ ] Deleting a note moves it to the trash view (visible on Profile), restore returns it intact, and TTL purge removes it after 30 days (verified with a short `expireAfterSeconds` in test).
+- [ ] Going offline shows the offline chip; edits made offline survive a reload via the draft mirror and flush to MongoDB on reconnect.
 - [ ] CSS elements match the precise visual directions with non-templated typography and palette.
 - [ ] The entire developer build passes compile checks and production-ready tests.
 
@@ -253,7 +276,7 @@ key so events for one note retain partition ordering. OpenSearch block ids use
    - Connection via env-configured Aiven OpenSearch URL + credentials; health-checked like MongoDB (service degrades, never crashes).
 2. **Kafka-Driven Index Sync:**
    - Consume `note.changed`, `note.deleted`, and `note.published` events from Kafka using a dedicated OpenSearch consumer group.
-   - On `note.changed` (blocks changed): delete-by-`note_id` + bulk-index that note's docs. On note create/delete/cascade: index/remove accordingly.
+   - On `note.changed` (blocks changed): skip notes with `deleted_at` set, and delete-by-`note_id` + bulk-index active notes' docs. On note create/delete/cascade: index/remove accordingly so trashed notes leave magic search.
    - OpenSearch outages pause/retry the consumer and NEVER block or fail a MongoDB note write.
    - `scripts/reindex.py` backfills the full index from MongoDB (idempotent, re-runnable).
 3. **Search API:**
@@ -274,3 +297,17 @@ key so events for one note retain partition ordering. OpenSearch block ids use
 - [ ] Multi-tenant isolation: no query ever returns another user's content.
 - [ ] With OpenSearch down, saves and title search still work (graceful degradation).
 - [ ] The reindex script rebuilds the full index from MongoDB; incremental sync is correct across create/update/delete.
+
+---
+
+## Upcoming Features — In the Next Phase (not yet scheduled)
+
+### Publishing Hub (CRM) — The "Public News Feed"
+**Goal:** Build the news blog/CRM publishing layer on top of the finished note engine, export pipeline, and event stream (Phase 8.1's `note.published` event already exists in the outbox contract — this phase is its first consumer beyond search).
+
+1. **Publishing Core & public routes:**
+   - Implement "Publish" settings pane for notes.
+   - Route `POST /api/pub/posts/{id}/publish` generates slug-mapped entries.
+   - Unauthenticated public dynamic sub-app/route `apps/next-frontend/app/pub/[username]/[slug]` for readers.
+2. **Public CRM Panel:** manage published notes, edit headlines, track view counters, schedule post releases, customize the public page layout (PRD §2D).
+3. **Reader feed:** public readers browse the published notes feed without an account.

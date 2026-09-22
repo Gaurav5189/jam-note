@@ -108,6 +108,7 @@ Notes are content leaves (Phase 6, "Folders in Denial"): each note lives in zero
   "links_to": ["ObjectId"],
   "backlinks": ["ObjectId"],
   "is_published": "boolean (indexed)",
+  "deleted_at": "ISODate | null (indexed; soft-delete timestamp, TTL purged after 30 days)",
   "published_metadata": {
     "slug": "string (unique/indexed, custom URL path)",
     "headline": "string",
@@ -215,13 +216,18 @@ fastapi-backend/
   * `POST /login` - Issues HTTP-Only JWT tokens.
   * `POST /logout` - Clears the session.
   * `GET /me` - Returns logged-in user profile.
+  * `PATCH /me` - Updates the logged-in user's display name.
+  * `PUT /password` - Rotates the logged-in user's password after confirmation.
 * **Notes Engine (`/api/notes`)**:
   * `GET /` - Fetches the flat index of the user's notes (leaves; nesting lives in folders).
   * `POST /` - Creates a new note (as document or canvas, optionally inside a folder via `folder_id`).
   * `GET /{note_id}` - Retrieves a single note's full block contents.
   * `GET /search?q=` - Title search used by the ⌘K palette.
   * `PUT /{note_id}` - Updates a note's blocks/meta (including `folder_id` moves and the `color` sidebar accent — omitted vs explicit-null distinguishes "keep" from "clear"). **Shipped:** sends the full ordered `blocks` array (delta/JSON-patch syncing deliberately deferred until documents grow — see MEMORY.md Phase 3).
-  * `DELETE /{note_id}` - Deletes a note (leaves — no children to lift).
+  * `DELETE /{note_id}` - Soft-deletes a note by setting `deleted_at` (leaves — no children to lift).
+  * `POST /{note_id}/restore` - Restores a soft-deleted note by clearing `deleted_at`.
+  * `GET /{note_id}/export?format=md|json` - Exports one active note.
+  * `GET /export?format=md|json|zip` - Exports the active workspace or its Markdown tree.
 * **Folders Engine (`/api/folders`)**:
   * `POST /` - Creates a folder (optionally inside another via `parent_folder_id`).
   * `GET /` - Lists the user's folders (flat, `created_at` asc).
@@ -234,6 +240,12 @@ fastapi-backend/
   * `GET /posts` - Returns list of public posts for a given username.
   * `GET /posts/{slug}` - Public-facing unauthenticated route to fetch single post content.
   * `POST /posts/{note_id}/publish` - Converts note to a public post, configures slug/headline.
+
+All workspace, note, search, export, and OpenSearch indexing queries exclude notes
+whose `deleted_at` is set. The TTL index on `notes.deleted_at` permanently purges
+trashed notes after 30 days. Import is JSON-only and follows the validation,
+ownership-remapping, and transactional commit policy in
+`make/import_export_DESIGN.md`.
 
 ---
 
