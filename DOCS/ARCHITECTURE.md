@@ -224,16 +224,22 @@ fastapi-backend/
   * `GET /{note_id}` - Retrieves a single note's full block contents.
   * `GET /search?q=` - Title search used by the ⌘K palette.
   * `PUT /{note_id}` - Updates a note's blocks/meta (including `folder_id` moves and the `color` sidebar accent — omitted vs explicit-null distinguishes "keep" from "clear"). **Shipped:** sends the full ordered `blocks` array (delta/JSON-patch syncing deliberately deferred until documents grow — see MEMORY.md Phase 3).
-  * `DELETE /{note_id}` - Soft-deletes a note by setting `deleted_at` (leaves — no children to lift).
-  * `POST /{note_id}/restore` - Restores a soft-deleted note by clearing `deleted_at`.
-  * `GET /{note_id}/export?format=md|json` - Exports one active note.
-  * `GET /export?format=md|json|zip` - Exports the active workspace or its Markdown tree.
+  * `DELETE /{note_id}` - Files the note into the trash (30-day retention). **Empty notes (no blocks, or every block blank: empty text, no src, dividers never count) are deleted permanently instead** — response is `200 {purged, message}` telling which happened (empty → `purged: true`, skipped the trash).
+  * `POST /{note_id}/restore` - Restores a soft-deleted note by clearing `deleted_at` (a dangling folder reference restores to the workspace root).
+  * `POST /{note_id}/purge` - Permanently deletes a trashed note (immediate, irrecoverable; live notes are 404 here).
+  * `GET /trash` - Lists the user's soft-deleted notes, most recently trashed first (Profile trash view).
+  * `GET /{note_id}/export?format=md|json` - Exports one active note. `md` = standard markdown (canvas coordinates dropped, drawing blocks omitted entirely — strokes render as noise in raw md; optional `&include_canvas_json=true` appends raw canvas metadata as a fenced JSON block). `json` = the lossless single-note backup in the importable manifest envelope — **flat**: importing lands the note at the workspace root.
+  * `GET /export?format=zip|json` - Full-workspace export (API-level; the Profile picker exports per note/folder). `zip` = one markdown file per note mirroring the folder tree; `json` = the workspace backup manifest (import prerequisite).
 * **Folders Engine (`/api/folders`)**:
   * `POST /` - Creates a folder (optionally inside another via `parent_folder_id`).
   * `GET /` - Lists the user's folders (flat, `created_at` asc).
   * `GET /{folder_id}` - Retrieves a single folder.
   * `PUT /{folder_id}` - Renames and/or moves a folder (distinguishes omitted vs explicit `null`; rejects cycles) and/or sets its `color` accent.
-  * `DELETE /{folder_id}` - Deletes the folder, lifting contents to its parent (never cascades).
+  * `DELETE /{folder_id}` - Deletes the folder, lifting contents to its parent (never cascades; trashed notes are lifted too so nothing is orphaned).
+  * `GET /{folder_id}/export?format=zip|json` - Folder export (the Profile picker's folder row) — **always FLAT** (no nesting re-created on import; only full-workspace backups carry the tree). `zip` = every descendant note as `Title.md` directly at the archive root (title collisions deduped); `json` = a single backup manifest with all descendant notes at root (`folders: []`).
+* **Import (`/api/import`)**:
+  * `POST /preview` - Runs the full validation gauntlet and returns counts ("N notes, M folders — confirm?"); commits nothing. JSON-only, 10 MB cap, NaN/Infinity rejected, depth gate 50, strict Pydantic (`extra="ignore"`), block-type whitelist, src scheme allowlist (`https://` or `data:image/png;base64,`).
+  * `POST /commit?import_token=…` - Performs the validated import in one Mongo transaction (all-or-nothing; compensating-delete fallback where sessions are unavailable). The client-generated `import_token` makes commit **idempotent**: a retry after a lost response (slow networks) replays the stored receipt (unique index on `(user_id, token)`, TTL 30d) instead of importing again; a genuinely failed commit writes no receipt, so retrying re-executes cleanly. Replays don't consume the rate limit (~5 fresh imports/hour/user, per-process). All incoming `_id`/`user_id`/`folder_id` are discarded — fresh ObjectIds, ownership always the importer, placement remapped by folder paths.
 * **Workspace (`/api`)**:
   * `GET /workspace` - Combined folder + note tree for the sidebar: `{folders: [FolderTreeItem], notes: [NoteListItem]}`, folders-before-notes at every level, each list `created_at` asc. (Replaces the removed `GET /api/notes/trees`.)
 * **Publishing Engine (`/api/pub`)**:

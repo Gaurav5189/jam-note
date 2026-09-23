@@ -23,6 +23,7 @@ export function Header({ user }: { user: User }) {
   const activeNoteId = pathname.startsWith(NOTE_URL_PREFIX)
     ? pathname.slice(NOTE_URL_PREFIX.length)
     : null;
+  const onProfile = pathname === "/profile";
 
   const allNotes = flattenNotes(tree);
   const count = allNotes.length;
@@ -70,9 +71,22 @@ export function Header({ user }: { user: User }) {
           {sidebarOpen ? <PanelLeftClose size={13} /> : <PanelLeftOpen size={13} />}
         </button>
         <Link href="/dashboard" className="rh-brand">Jam Notes</Link>
+        {onProfile && (
+          <Link href="/dashboard" className="rh-back" title="Back to the workspace">
+            &larr; DASHBOARD
+          </Link>
+        )}
       </div>
 
-      <span className="rh-c" ref={statusRef}>{statusLine}</span>
+      <span className="rh-c" ref={statusRef}>
+        {onProfile ? (
+          <>
+            CHANNEL — MAIN · <b>PROFILE</b>
+          </>
+        ) : (
+          statusLine
+        )}
+      </span>
 
       <div className="rh-r">
         <button onClick={openSearch} className="srch" type="button" aria-label="Search notes">
@@ -81,7 +95,9 @@ export function Header({ user }: { user: User }) {
           <kbd>⌘K</kbd>
         </button>
 
-        <div className="u-block">
+        {/* Profile chip — the "clicking the avatar does nothing" fix
+            (make/dashboard_profile/design.md §9). */}
+        <Link href="/profile" className="u-block" title="Profile">
           <span className="u-ava" aria-hidden="true">
             {displayName.slice(0, 1).toUpperCase()}
           </span>
@@ -90,7 +106,7 @@ export function Header({ user }: { user: User }) {
             <br />
             <span className="u-mail">{user.email}</span>
           </span>
-        </div>
+        </Link>
 
         <button onClick={requestSignout} className="disconnect" type="button">
           DISCONNECT

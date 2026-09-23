@@ -65,7 +65,23 @@ class Database:
         await notes.create_index("user_id")
         await notes.create_index("folder_id")
         await notes.create_index("published_metadata.slug", unique=True, sparse=True)
-        
+        # Phase 7 trash: TTL index purges soft-deleted notes 30 days
+        # after `deleted_at` is stamped. Documents without the field
+        # (or with null) are never expired — a TTL index only matches
+        # BSON dates. The index also serves the `deleted_at: null`
+        # filters on every workspace/note/search read.
+        await notes.create_index("deleted_at", expireAfterSeconds=2592000)
+
+        # Import idempotency receipts: one per (user, client token).
+        # A retry after a lost response replays instead of double-
+        # importing. TTL 30 days — receipts exist only to guard
+        # retries, never for audit.
+        receipts = cls.db.import_receipts
+        await receipts.create_index(
+            [("user_id", 1), ("token", 1)], unique=True
+        )
+        await receipts.create_index("created_at", expireAfterSeconds=2592000)
+
         logger.info("Database indexes verified.")
 
 def get_db() -> AsyncIOMotorDatabase:

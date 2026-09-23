@@ -5,9 +5,11 @@ import { Redo2, Undo2 } from "lucide-react";
 import { useWorkspace } from "@/context/workspace-context";
 import type { Block, BlockConnection, LayoutType, Note } from "@/lib/types";
 import { findNotePath, findFolderPath } from "@/lib/workspace-tree";
+import { downloadFile } from "@/lib/api";
 import { BlockEditor, type EditorUndoState } from "@/components/editor/block-editor";
 import { CanvasView } from "@/components/canvas/canvas-view";
 import { NoteDeleteButton, NoteTitleEditor } from "@/components/note-header";
+import { deskToast } from "@/components/desk/desk-chrome";
 import { formatLocalDateTime, formatRelativeStamp } from "@/lib/time";
 
 /**
@@ -177,6 +179,17 @@ export function NoteLayoutView({ note }: { note: Note }) {
   const docActive = layout === "document";
   const canActive = layout === "canvas";
 
+  // Note-bar Export action (Phase 7) — instant markdown download of
+  // the open note; JSON backup lives in the Profile picker.
+  const handleExport = useCallback(() => {
+    downloadFile(
+      `/api/notes/${note.id}/export?format=md`,
+      `${note.title || "untitled"}.md`
+    )
+      .then((filename) => deskToast(`EXPORTED — ${filename.toUpperCase()}`))
+      .catch(() => deskToast("EXPORT FAILED — THE PLATE IS UNREACHABLE."));
+  }, [note.id, note.title]);
+
   return (
     <div className="note-body">
       {/* Glass command bar — one 48px row over the panes: back-link +
@@ -215,6 +228,16 @@ export function NoteLayoutView({ note }: { note: Note }) {
         </div>
 
         <div className="nb-right">
+          {/* Export action (Phase 7 — instant .md of the open note). */}
+          <button
+            type="button"
+            className="nb-export"
+            onClick={handleExport}
+            title="Download this note as markdown"
+          >
+            EXPORT
+          </button>
+
           {/* Document Mode Undo / Redo (canvas has its own in the HUD) */}
           {docActive && editorUndoState && (
             <div className="undo-pill">

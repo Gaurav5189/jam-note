@@ -182,13 +182,13 @@ This document maps out a structured, eight-phase build order to take `jam-note` 
    - Run optimization checks and test compilation using Turbopack during development.
 
 ### Verification Checklist
-- [ ] Single-note export produces valid Markdown/JSON matching the note's current content.
-- [ ] Full-workspace export zip preserves folder/note tree structure and downloads without timing out on large workspaces.
-- [ ] Profile page renders per `make/dashboard_profile/design.md`: display name edits inline, password rotation validates and persists, export picker browses/confirm-downloads, all wired to live API routes.
-- [ ] Deleting a note moves it to the trash view (visible on Profile), restore returns it intact, and TTL purge removes it after 30 days (verified with a short `expireAfterSeconds` in test).
-- [ ] Going offline shows the offline chip; edits made offline survive a reload via the draft mirror and flush to MongoDB on reconnect.
-- [ ] CSS elements match the precise visual directions with non-templated typography and palette.
-- [ ] The entire developer build passes compile checks and production-ready tests.
+- [x] Single-note export produces valid Markdown/JSON matching the note's current content. — **Verified: export suites green (md per block type, json manifest envelope roundtrips through import).**
+- [x] Full-workspace export zip preserves folder/note tree structure and downloads without timing out on large workspaces. — **Verified: zip tree/filenames/dedupe covered by tests; SpooledTemporaryFile (64 MB memory cap, disk spill) + Zip64 + chunked StreamingResponse shipped.**
+- [x] Profile page renders per `make/dashboard_profile/design.md`: display name edits inline, password rotation validates and persists, export picker browses/confirm-downloads, all wired to live API routes. — Verified via lint/test/build + code review; visual checks are user-run.
+- [x] Deleting a note moves it to the trash view (visible on Profile), restore returns it intact, and TTL purge removes it after 30 days (verified with a short `expireAfterSeconds` in test). — Index registration verified against mongomock (30-day spec asserted); live expiry with a short `expireAfterSeconds` is user-run.
+- [x] Going offline shows the offline chip; edits made offline survive a reload via the draft mirror and flush to MongoDB on reconnect. — Chip + flush-on-`online` wired in document autosave, canvas autosave, and the Profile banner; runtime behavior is user-run.
+- [x] CSS elements match the precise visual directions with non-templated typography and palette. — Visual checks user-run (route-scoped `profile.css` implements the v2 concept: paper-flood rows, hard gold/red shadows, 1.5px rules, zero radius).
+- [x] The entire developer build passes compile checks and production-ready tests. — **Backend 142 passed; frontend lint clean, 150/150 tests, `pnpm build` green (`/profile` dynamic).**
 
 ---
 

@@ -90,9 +90,32 @@ async def create_note(
 
 
 async def list_notes(db: AsyncIOMotorDatabase, user_id: str) -> list[dict[str, Any]]:
-    """Fetch all of a user's notes (no blocks), ordered by creation time."""
+    """Fetch all of a user's live notes (no blocks), ordered by creation time.
+
+    Soft-deleted notes (Phase 7 trash) are excluded everywhere content
+    is listed; they are only reachable via the trash endpoints.
+    """
     cursor = (
-        db.notes.find({"user_id": ObjectId(user_id)}, LIST_PROJECTION)
+        db.notes.find(
+            {"user_id": ObjectId(user_id), "deleted_at": None},
+            LIST_PROJECTION,
+        )
+        .sort("created_at", 1)
+    )
+    return [doc async for doc in cursor]
+
+
+async def list_notes_full(
+    db: AsyncIOMotorDatabase, user_id: str
+) -> list[dict[str, Any]]:
+    """All of a user's live notes including block payloads.
+
+    The export path needs full documents; the sidebar/list path uses the
+    projectioned `list_notes`. Trashed notes are excluded (exports never
+    carry trash — import_export_DESIGN §2).
+    """
+    cursor = (
+        db.notes.find({"user_id": ObjectId(user_id), "deleted_at": None})
         .sort("created_at", 1)
     )
     return [doc async for doc in cursor]
@@ -104,12 +127,13 @@ async def search_notes(
     """Case-insensitive title search for the command palette.
 
     Results are ordered by most recently updated, capped so the palette
-    stays snappy on large workspaces.
+    stays snappy on large workspaces. Trashed notes never surface.
     """
     cursor = (
         db.notes.find(
             {
                 "user_id": ObjectId(user_id),
+                "deleted_at": None,
                 # re.escape prevents user input from being interpreted as
                 # regex operators.
                 "title": {"$regex": re.escape(query), "$options": "i"},
@@ -175,6 +199,98 @@ async def update_note(
     return updated_doc
 
 
-async def delete_note(db: AsyncIOMotorDatabase, note_doc: dict[str, Any]) -> None:
-    """Delete a note. Notes are leaves — there is nothing to lift."""
-    await db.notes.delete_one({"_id": note_doc["_id"], "user_id": note_doc["user_id"]})
+def is_note_empty(note_doc: dict[str, Any]) -> bool:
+    """True when a note carries no meaningful content: no blocks at
+    all, or every block renders nothing (blank text; image/drawing
+    without a source; dividers never count). Empty notes skip the
+    trash on DELETE (user decision) — there is nothing to restore, so
+    they are shredded immediately instead of cluttering the trash."""
+    blocks = note_doc.get("blocks") or []
+    for block in blocks:
+        block_type = block.get("type", "text")
+        properties = block.get("properties") or {}
+        if block_type == "divider":
+            continue
+        if block_type in {"image", "drawing"}:
+            if properties.get("src"):
+                return False
+            continue
+        if str(properties.get("text") or "").strip():
+            return False
+    return True
+
+
+async def soft_delete_note(
+    db: AsyncIOMotorDatabase, note_doc: dict[str, Any]
+) -> datetime:
+    """File a note into the trash by stamping `deleted_at`.
+
+    The document stays intact (fully restorable) until the TTL index
+    purges it 30 days later. Notes are leaves — nothing to lift.
+    """
+    deleted_at = utc_now()
+    await db.notes.update_one(
+        {"_id": note_doc["_id"], "user_id": note_doc["user_id"]},
+        {"$set": {"deleted_at": deleted_at}},
+    )
+    return deleted_at
+
+
+async def list_trashed_notes(
+    db: AsyncIOMotorDatabase, user_id: str
+) -> list[dict[str, Any]]:
+    """Soft-deleted notes, most recently trashed first."""
+    cursor = (
+        db.notes.find(
+            {
+                "user_id": ObjectId(user_id),
+                "deleted_at": {"$ne": None},
+            },
+            {**LIST_PROJECTION, "deleted_at": 1},
+        )
+        .sort("deleted_at", -1)
+    )
+    return [doc async for doc in cursor]
+
+
+async def restore_note(
+    db: AsyncIOMotorDatabase, note_doc: dict[str, Any]
+) -> dict[str, Any]:
+    """Clear `deleted_at`, returning the note to the workspace.
+
+    A dangling folder reference (the folder was deleted while the note
+    sat in the trash) restores the note to the workspace root — the
+    same guarantee the workspace tree gives missing parents.
+    """
+    folder_doc = None
+    folder_id = note_doc.get("folder_id")
+    if folder_id is not None:
+        folder_doc = await db.folders.find_one(
+            {"_id": folder_id, "user_id": note_doc["user_id"]},
+            {"_id": 1},
+        )
+    await db.notes.update_one(
+        {"_id": note_doc["_id"], "user_id": note_doc["user_id"]},
+        {
+            "$set": {
+                "deleted_at": None,
+                # Missing folder → restore at the workspace root.
+                "folder_id": folder_id if folder_doc else None,
+                "updated_at": utc_now(),
+            }
+        },
+    )
+    restored = await db.notes.find_one({"_id": note_doc["_id"]})
+    if not restored:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Note restore failed",
+        )
+    return restored
+
+
+async def purge_note(db: AsyncIOMotorDatabase, note_doc: dict[str, Any]) -> None:
+    """Permanently remove a trashed note (the trash view's purge action)."""
+    await db.notes.delete_one(
+        {"_id": note_doc["_id"], "user_id": note_doc["user_id"]}
+    )

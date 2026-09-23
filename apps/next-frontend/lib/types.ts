@@ -17,6 +17,7 @@ export interface User {
       font_size: number;
     };
   };
+  created_at: string;
 }
 
 export type LayoutType = "document" | "canvas";
@@ -81,7 +82,6 @@ export interface Folder {
   created_at: string;
   updated_at: string;
 }
-
 /** A folder plus its nested folders and notes (folders before notes). */
 export interface FolderTreeItem extends Folder {
   folders: FolderTreeItem[];
@@ -124,4 +124,25 @@ export interface FolderUpdateInput {
   name?: string;
   parent_folder_id?: string | null;
   color?: string | null;
+}
+
+/** A soft-deleted note as listed by the Profile trash view
+ *  (GET /api/notes/trash) — the 30-day purge clock reads deleted_at. */
+export interface TrashItem extends NoteListItem {
+  deleted_at: string;
+}
+
+/** POST /api/import/preview response — counts, nothing committed. */
+export interface ImportPreview {
+  folders: number;
+  notes: number;
+  size_bytes: number;
+  message: string;
+}
+
+/** POST /api/import/commit response. */
+export interface ImportCommit {
+  folders: number;
+  notes: number;
+  message: string;
 }

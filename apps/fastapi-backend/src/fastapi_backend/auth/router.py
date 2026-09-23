@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 from typing import Annotated
 
+from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
@@ -8,9 +9,11 @@ from fastapi_backend.config import settings
 from fastapi_backend.database import get_db
 from fastapi_backend.auth.models import (
     MessageResponse,
+    PasswordUpdate,
     UserLogin,
     UserOut,
     UserSignUp,
+    UserUpdateMe,
 )
 from fastapi_backend.auth.service import (
     create_access_token,
@@ -121,3 +124,77 @@ async def logout(response: Response) -> MessageResponse:
 @router.get("/me")
 async def get_me(current_user: CurrentUserDep) -> UserOut:
     return current_user
+
+
+@router.patch("/me")
+async def update_me(
+    update_data: UserUpdateMe,
+    current_user: CurrentUserDep,
+    db: Annotated[AsyncIOMotorDatabase, Depends(get_db)],
+) -> UserOut:
+    """Profile identity card — update the display name."""
+    now = datetime.now(timezone.utc)
+    result = await db.users.update_one(
+        {"_id": ObjectId(current_user.id)},
+        {
+            "$set": {
+                "profile.display_name": update_data.display_name,
+                "updated_at": now,
+            }
+        },
+    )
+    if result.matched_count == 0:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="User update failed",
+        )
+    user_doc = await db.users.find_one({"_id": ObjectId(current_user.id)})
+    if not user_doc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="User update failed",
+        )
+    return UserOut.from_mongo(user_doc)
+
+
+@router.put("/password")
+async def update_password(
+    password_data: PasswordUpdate,
+    current_user: CurrentUserDep,
+    db: Annotated[AsyncIOMotorDatabase, Depends(get_db)],
+) -> MessageResponse:
+    """Profile security form — rotate the password.
+
+    The current password is verified against the stored hash first —
+    an unattended browser or a hijacked session cookie must not be
+    enough to take the credential over. The stateless session cookie
+    stays valid (no session revoke — noted as deferred scope); users
+    log in with the new password next time.
+    """
+    user_doc = await db.users.find_one(
+        {"_id": ObjectId(current_user.id)}, {"password_hash": 1}
+    )
+    if user_doc is None or not verify_password(
+        password_data.current_password, user_doc["password_hash"]
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Current password is incorrect",
+        )
+
+    now = datetime.now(timezone.utc)
+    result = await db.users.update_one(
+        {"_id": ObjectId(current_user.id)},
+        {
+            "$set": {
+                "password_hash": get_password_hash(password_data.new_password),
+                "updated_at": now,
+            }
+        },
+    )
+    if result.matched_count == 0:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Password update failed",
+        )
+    return MessageResponse(message="Password updated")

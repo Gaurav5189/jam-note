@@ -191,6 +191,16 @@ export function useCanvasState({
     };
   }, [flushSave]);
 
+  // Flush queued canvas changes when connectivity returns (Phase 7
+  // offline path — mirrors the document autosave).
+  useEffect(() => {
+    const handleOnline = () => {
+      if (isDirtyRef.current) flushSave();
+    };
+    window.addEventListener("online", handleOnline);
+    return () => window.removeEventListener("online", handleOnline);
+  }, [flushSave]);
+
   // ─── Undo / Redo ─────────────────────────────────────────────────────────
 
   const recordSnapshot = useCallback((newBlocks: Block[], newConns: BlockConnection[]) => {

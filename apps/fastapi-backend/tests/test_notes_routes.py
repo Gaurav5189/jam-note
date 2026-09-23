@@ -22,10 +22,12 @@ async def signup_and_authenticate(client: AsyncClient, username: str) -> None:
     client.cookies.set(settings.cookie_name, cookie_value)
 
 
-async def create_note(client: AsyncClient, title: str, folder_id: str | None = None) -> dict:
+async def create_note(client: AsyncClient, title: str, folder_id: str | None = None, blocks: list | None = None) -> dict:
     payload: dict = {"title": title}
     if folder_id is not None:
         payload["folder_id"] = folder_id
+    if blocks is not None:
+        payload["blocks"] = blocks
     response = await client.post("/api/notes", json=payload)
     assert response.status_code == 201
     return response.json()
@@ -366,12 +368,21 @@ async def test_update_note_isolated_from_other_users(client: AsyncClient):
 async def test_delete_note_success(client: AsyncClient, mock_db: AsyncIOMotorDatabase):
     await signup_and_authenticate(client, "delete_user")
 
-    created = await create_note(client, "Doomed Note")
+    # Real content — only empty notes skip the trash on DELETE.
+    content = [
+        {"id": "seed", "type": "text", "properties": {"text": "Doomed words"}, "canvas_metadata": None}
+    ]
+    created = await create_note(client, "Doomed Note", blocks=content)
     response = await client.delete(f"/api/notes/{created['id']}")
-    assert response.status_code == 204
+    assert response.status_code == 200
+    assert response.json()["purged"] is False
 
+    # Phase 7 trash: DELETE stamps `deleted_at` instead of removing the
+    # document — the note stays fully restorable for 30 days.
     stored = await mock_db.notes.find_one({"_id": ObjectId(created["id"])})
-    assert stored is None
+    assert stored is not None
+    assert stored["deleted_at"] is not None
+    assert stored["title"] == "Doomed Note"
 
 
 @pytest.mark.asyncio
@@ -381,13 +392,19 @@ async def test_delete_note_does_not_touch_its_folder(
     await signup_and_authenticate(client, "cascade_user")
 
     folder = await create_folder(client, "Surviving Folder")
-    note = await create_note(client, "Doomed Note", folder_id=folder["id"])
+    note = await create_note(
+        client,
+        "Doomed Note",
+        folder_id=folder["id"],
+        blocks=[{"id": "seed", "type": "text", "properties": {"text": "words"}, "canvas_metadata": None}],
+    )
 
     response = await client.delete(f"/api/notes/{note['id']}")
-    assert response.status_code == 204
+    assert response.status_code == 200
 
     stored = await mock_db.notes.find_one({"_id": ObjectId(note["id"])})
-    assert stored is None
+    assert stored is not None
+    assert stored["deleted_at"] is not None
     # Notes are leaves — deleting one must never touch the folder.
     stored_folder = await mock_db.folders.find_one({"_id": ObjectId(folder["id"])})
     assert stored_folder is not None

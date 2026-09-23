@@ -63,8 +63,9 @@ export function NoteTitleEditor({ noteId, title: initialTitle }: { noteId: strin
 }
 
 /**
- * Two-step shred button for the glass command bar — first click arms the
- * red confirm chip (auto-resets after 2.5s), second click deletes.
+ * Two-step trash button for the glass command bar — first click arms the
+ * red confirm chip (auto-resets after 2.5s), second click files the note
+ * to trash (30-day retention).
  */
 export function NoteDeleteButton({ noteId }: { noteId: string }) {
   const { deleteNote } = useWorkspace();
@@ -86,16 +87,26 @@ export function NoteDeleteButton({ noteId }: { noteId: string }) {
   const confirmDelete = async () => {
     if (deleteResetTimer.current) clearTimeout(deleteResetTimer.current);
     setConfirmingDelete(false);
-    await deleteNote(noteId);
-    deskBurst(innerWidth / 2, innerHeight / 2, "#ff3d1c");
-    deskToast("NOTE SHREDDED — GONE.");
+    try {
+      const { purged } = await deleteNote(noteId);
+      deskBurst(innerWidth / 2, innerHeight / 2, "#ff3d1c");
+      // Empty notes skip the trash — they are shredded right away.
+      deskToast(
+        purged
+          ? "EMPTY NOTE SHREDDED — NOTHING TO RESTORE."
+          : "NOTE FILED TO TRASH — 30 DAYS."
+      );
+    } catch {
+      deskToast("DELETE FAILED — NOTE STILL FILED.");
+      return;
+    }
     router.push("/dashboard");
   };
 
   if (confirmingDelete) {
     return (
       <button onClick={confirmDelete} className="del-chip-head" type="button">
-        CONFIRM SHRED?
+        CONFIRM TRASH?
       </button>
     );
   }

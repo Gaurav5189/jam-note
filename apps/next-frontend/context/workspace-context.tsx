@@ -37,7 +37,9 @@ interface WorkspaceContextType {
   renameNote: (id: string, title: string) => Promise<void>;
   /** Move a note into a folder (null = workspace root). */
   moveNote: (id: string, folderId: string | null) => Promise<void>;
-  deleteNote: (id: string) => Promise<void>;
+  /** Delete a note. Empty notes are shredded immediately server-side
+   *  (they skip the trash) — the result says which happened. */
+  deleteNote: (id: string) => Promise<{ purged: boolean }>;
   /**
    * Quiet blocks-only save for the editor's autosave. Deliberately bypasses
    * `mutating`/`error` so keystroke-driven saves never churn the sidebar —
@@ -191,14 +193,18 @@ export function WorkspaceProvider({
   );
 
   const deleteNote = useCallback(
-    async (id: string) => {
+    async (id: string): Promise<{ purged: boolean }> => {
       setMutating(true);
       setError(null);
       // Optimistic: notes are leaves — nothing lifts. On failure,
       // refetch the authoritative tree.
       applyTree(removeNote(treeRef.current, id));
       try {
-        await fetchApi(`/api/notes/${id}`, { method: "DELETE" });
+        const result = await fetchApi<{ purged?: boolean }>(
+          `/api/notes/${id}`,
+          { method: "DELETE" }
+        );
+        return { purged: result.purged === true };
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to delete note");
         try {
@@ -206,6 +212,7 @@ export function WorkspaceProvider({
         } catch {
           // Keep the original mutation error.
         }
+        throw err;
       } finally {
         setMutating(false);
       }
@@ -215,12 +222,18 @@ export function WorkspaceProvider({
 
   const saveBlocks = useCallback(
     async (id: string, blocks: Block[], options?: { keepalive?: boolean }) => {
-      const note = await fetchApi<Note>(`/api/notes/${id}`, {
-        method: "PUT",
-        body: JSON.stringify({ blocks }),
-        // Spread into fetch — keepalive lets unload flushes survive navigation.
-        ...(options?.keepalive ? { keepalive: true } : {}),
-      });
+      const note = await fetchApi<Note>(
+        `/api/notes/${id}`,
+        {
+          method: "PUT",
+          body: JSON.stringify({ blocks }),
+          // Spread into fetch — keepalive lets unload flushes survive navigation.
+          ...(options?.keepalive ? { keepalive: true } : {}),
+        },
+        // Quiet background save — the editor's save chip tracks it;
+        // the top loading bar stays for explicit button presses only.
+        false
+      );
       // Keep the tree's updated_at fresh for the dashboard's recent list.
       applyTree(
         updateNoteItem(treeRef.current, id, { updated_at: note.updated_at })
@@ -239,11 +252,17 @@ export function WorkspaceProvider({
       },
       options?: { keepalive?: boolean }
     ) => {
-      const note = await fetchApi<Note>(`/api/notes/${id}`, {
-        method: "PUT",
-        body: JSON.stringify(payload),
-        ...(options?.keepalive ? { keepalive: true } : {}),
-      });
+      const note = await fetchApi<Note>(
+        `/api/notes/${id}`,
+        {
+          method: "PUT",
+          body: JSON.stringify(payload),
+          ...(options?.keepalive ? { keepalive: true } : {}),
+        },
+        // Quiet background save — the editor's save chip tracks it;
+        // the top loading bar stays for explicit button presses only.
+        false
+      );
       applyTree(
         updateNoteItem(treeRef.current, id, {
           updated_at: note.updated_at,

@@ -213,6 +213,17 @@ export function useAutosave<T>(options: UseAutosaveOptions<T>) {
     return () => window.removeEventListener("pagehide", onHide);
   }, []);
 
+  // Flush queued changes the moment connectivity returns (Phase 7
+  // offline path) — the draft mirror already survived the outage, and
+  // a failed save keeps the payload dirty, so this closes the loop.
+  useEffect(() => {
+    const onOnline = () => {
+      void flushRef.current();
+    };
+    window.addEventListener("online", onOnline);
+    return () => window.removeEventListener("online", onOnline);
+  }, []);
+
   // Flush pending changes when the editor unmounts (client-side route
   // navigation). Strict-mode dev double-mounts no-op on clean dirty state.
   useEffect(() => {

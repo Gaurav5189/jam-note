@@ -222,3 +222,148 @@ async def test_logout(client: AsyncClient):
     logout_res = await client.post("/api/auth/logout")
     assert logout_res.status_code == 200
     assert "Successfully logged out" in logout_res.json()["message"]
+
+
+# --- Profile page endpoints (Phase 7) ---
+
+
+async def _signup_and_authenticate(client: AsyncClient, username: str) -> None:
+    response = await client.post(
+        "/api/auth/signup",
+        json={
+            "email": f"{username}@jamnote.dev",
+            "username": username,
+            "password": "SecurePassword123!",
+        },
+    )
+    assert response.status_code == 201
+    client.cookies.set(
+        settings.cookie_name, response.cookies.get(settings.cookie_name)
+    )
+
+
+@pytest.mark.asyncio
+async def test_update_me_display_name(client: AsyncClient, mock_db: AsyncIOMotorDatabase):
+    await _signup_and_authenticate(client, "profile_editor")
+
+    response = await client.patch(
+        "/api/auth/me", json={"display_name": "The Operator"}
+    )
+    assert response.status_code == 200
+    assert response.json()["profile"]["display_name"] == "The Operator"
+
+    stored = await mock_db.users.find_one({"username": "profile_editor"})
+    assert stored["profile"]["display_name"] == "The Operator"
+
+
+@pytest.mark.asyncio
+async def test_update_me_rejects_empty_and_long_names(client: AsyncClient):
+    await _signup_and_authenticate(client, "profile_validator")
+
+    # Whitespace-only is stripped then rejected by min_length.
+    response = await client.patch("/api/auth/me", json={"display_name": "   "})
+    assert response.status_code == 422
+
+    response = await client.patch(
+        "/api/auth/me", json={"display_name": "x" * 61}
+    )
+    assert response.status_code == 422
+
+    # Missing field entirely.
+    response = await client.patch("/api/auth/me", json={})
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_update_me_unauthorized(client: AsyncClient):
+    response = await client.patch("/api/auth/me", json={"display_name": "Ghost"})
+    assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_update_password_and_login_with_new(client: AsyncClient, mock_db: AsyncIOMotorDatabase):
+    await _signup_and_authenticate(client, "pw_rotator")
+
+    response = await client.put(
+        "/api/auth/password",
+        json={
+            "current_password": "SecurePassword123!",
+            "new_password": "RotatedPass456!",
+            "confirm_password": "RotatedPass456!",
+        },
+    )
+    assert response.status_code == 200
+    assert response.json()["message"] == "Password updated"
+
+    # Old password no longer logs in; the new one does.
+    res = await client.post(
+        "/api/auth/login",
+        json={"email_or_username": "pw_rotator", "password": "SecurePassword123!"},
+    )
+    assert res.status_code == 401
+    res = await client.post(
+        "/api/auth/login",
+        json={"email_or_username": "pw_rotator", "password": "RotatedPass456!"},
+    )
+    assert res.status_code == 200
+
+    stored = await mock_db.users.find_one({"username": "pw_rotator"})
+    assert stored["password_hash"] != "RotatedPass456!"
+
+
+@pytest.mark.asyncio
+async def test_update_password_mismatch_and_short(client: AsyncClient):
+    await _signup_and_authenticate(client, "pw_validator")
+
+    response = await client.put(
+        "/api/auth/password",
+        json={
+            "current_password": "SecurePassword123!",
+            "new_password": "NewPassword789!",
+            "confirm_password": "Different789!",
+        },
+    )
+    assert response.status_code == 422
+    assert "match" in str(response.json()["detail"]).lower()
+
+    response = await client.put(
+        "/api/auth/password",
+        json={
+            "current_password": "SecurePassword123!",
+            "new_password": "short",
+            "confirm_password": "short",
+        },
+    )
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_update_password_rejects_wrong_current_password(client: AsyncClient):
+    """Rotation requires knowing the current password — an open session
+    alone must never be enough to take the credential over."""
+    await _signup_and_authenticate(client, "pw_current_guard")
+
+    response = await client.put(
+        "/api/auth/password",
+        json={
+            "current_password": "DefinitelyWrong1!",
+            "new_password": "HijackedPass999!",
+            "confirm_password": "HijackedPass999!",
+        },
+    )
+    assert response.status_code == 400
+    assert "current password" in response.json()["detail"].lower()
+
+    # The old password still logs in — nothing changed.
+    res = await client.post(
+        "/api/auth/login",
+        json={"email_or_username": "pw_current_guard", "password": "SecurePassword123!"},
+    )
+    assert res.status_code == 200
+
+    # Missing current_password is a structural rejection too.
+    response = await client.put(
+        "/api/auth/password",
+        json={"new_password": "NoCurrentPass9!", "confirm_password": "NoCurrentPass9!"},
+    )
+    assert response.status_code == 422

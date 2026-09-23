@@ -297,6 +297,12 @@ body.go .desk .note-bar{opacity:1;transform:none}
 .desk .nb-title-input:focus{outline:none;border-bottom-color:var(--gold)}
 /* right cluster — undo/redo, relative stamp, shred */
 .desk .nb-right{display:flex;align-items:center;gap:12px;flex:0 0 auto}
+.desk .nb-export{
+  font-family:var(--font-space-mono),monospace;font-size:8.5px;letter-spacing:.16em;
+  color:rgba(243,239,230,.6);border:1.5px solid var(--hair);padding:6px 10px;
+  transition:border-color .15s,color .15s;
+}
+.desk .nb-export:hover{border-color:var(--gold);color:var(--gold)}
 .desk .nb-time-wrap{position:relative;flex:0 0 auto}
 .desk .nb-time{font-family:var(--font-space-mono),monospace;font-size:8.5px;letter-spacing:.14em;color:rgba(243,239,230,.6);white-space:nowrap;padding:4px 0;transition:color .15s}
 .desk .nb-time:hover{color:var(--paper)}
@@ -485,6 +491,7 @@ body.go .desk .note-bar{opacity:1;transform:none}
 .desk .save-chip.saving{color:rgba(21,19,16,.6);box-shadow:none}
 .desk .save-chip.saved{color:var(--ink)}
 .desk .save-chip.error{color:var(--red);border-color:var(--red);cursor:pointer;box-shadow:4px 5px 0 rgba(255,61,28,.25)}
+.desk .save-chip.offline{color:var(--red);border-color:var(--red);box-shadow:4px 5px 0 rgba(255,61,28,.25)}
 
 /* ============================================================
    CANVAS — dotted plate, loose paper cards (rack DNA)
@@ -632,4 +639,17 @@ body.go .desk .note-bar{opacity:1;transform:none}
   .desk .nb-seg .fig-tab i{display:none}
   .desk .editor-grip{display:none}
   .desk .dash-stamp{display:none}
+}
+
+/* ── Top pending bar ─────────────────────────────────────────────────────
+   Visible while any tracked request is in flight (fetchApi) so a
+   pressed button shows it is working on throttled networks. Quiet
+   autosaves (save chips) never trip it. */
+
+.desk .pend-bar{position:fixed;top:0;left:0;right:0;height:2px;z-index:520;pointer-events:none;opacity:0;transition:opacity .18s ease;background:rgba(243,239,230,.06)}
+.desk .pend-bar.is-on{opacity:1}
+.desk .pend-bar::before{content:"";position:absolute;top:0;bottom:0;left:-32%;width:32%;background:var(--gold);box-shadow:0 0 6px rgba(255,181,17,.55);animation:pend-sweep .9s cubic-bezier(.4,.1,.6,.9) infinite}
+@keyframes pend-sweep{to{left:100%}}
+@media (prefers-reduced-motion: reduce){
+  .desk .pend-bar::before{animation:none;left:35%;width:30%}
 }

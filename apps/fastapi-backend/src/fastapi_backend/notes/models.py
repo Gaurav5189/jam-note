@@ -172,3 +172,27 @@ class NoteOut(NoteListItem):
                 for conn in data.get("block_connections", [])
             ],
         )
+
+
+class TrashItem(NoteListItem):
+    """A soft-deleted note as listed by the trash view (GET /api/notes/trash).
+
+    Adds the `deleted_at` stamp; the 30-day TTL purge clock reads it.
+    """
+
+    deleted_at: datetime
+
+    @classmethod
+    def from_mongo(cls, data: dict[str, Any]) -> "TrashItem":
+        return cls(
+            id=str(data["_id"]),
+            folder_id=str(data["folder_id"]) if data.get("folder_id") is not None else None,
+            title=data["title"],
+            layout_type=data.get("layout_type", "document"),
+            emoji_icon=data.get("emoji_icon"),
+            color=data.get("color"),
+            is_published=data.get("is_published", False),
+            created_at=data["created_at"],
+            updated_at=data["updated_at"],
+            deleted_at=data["deleted_at"],
+        )

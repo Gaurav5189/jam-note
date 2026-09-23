@@ -2,13 +2,14 @@ import type { Metadata, Viewport } from "next";
 import { redirect } from "next/navigation";
 import { Archivo, Newsreader, Space_Mono } from "next/font/google";
 import { ApiError, serverFetchApi } from "@/lib/server-api";
+import { getServerUser } from "@/lib/server-user";
 import { WorkspaceProvider } from "@/context/workspace-context";
 import { ShellProvider } from "@/context/shell-context";
 import { Header } from "@/components/header";
 import { ShellFrame } from "@/components/shell-frame";
 import { SearchPalette } from "@/components/search-palette";
 import { DeskChrome } from "@/components/desk/desk-chrome";
-import type { User, WorkspaceTree } from "@/lib/types";
+import type { WorkspaceTree } from "@/lib/types";
 import "./desk.css";
 
 export const metadata: Metadata = {
@@ -35,11 +36,13 @@ export default async function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
-  let user: User;
+  let user: Awaited<ReturnType<typeof getServerUser>>;
   let tree: WorkspaceTree;
   try {
+    // The user fetch goes through React cache() so the profile page's
+    // own /api/auth/me call collapses into this one.
     [user, tree] = await Promise.all([
-      serverFetchApi<User>("/api/auth/me"),
+      getServerUser(),
       serverFetchApi<WorkspaceTree>("/api/workspace"),
     ]);
   } catch (err) {

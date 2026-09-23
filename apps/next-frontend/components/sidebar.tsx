@@ -13,6 +13,8 @@ import {
 import {
   ChevronDown,
   ChevronRight,
+  ChevronsDownUp,
+  ChevronsUpDown,
   FilePlus,
   FileText,
   Folder,
@@ -26,6 +28,11 @@ import { usePathname, useRouter } from "next/navigation";
 import { useWorkspace } from "@/context/workspace-context";
 import { findNotePath } from "@/lib/workspace-tree";
 import { NS_COLOR_KEYS, NS_COLORS } from "@/lib/ns-colors";
+import {
+  persistCollapsed,
+  updateCollapsed,
+  useSidebarCollapsed,
+} from "@/lib/sidebar-collapse";
 import { deskToast } from "@/components/desk/desk-chrome";
 import type { FolderTreeItem, NoteListItem } from "@/lib/types";
 
@@ -233,7 +240,14 @@ export function Sidebar() {
     setNoteColor,
     error,
   } = useWorkspace();
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  // Collapse state lives in a persisted store (lib/sidebar-collapse):
+  // refreshes keep the exact open/collapsed folders the user left.
+  // The effect write-through is what persists — render only mutates
+  // the in-memory cache.
+  const collapsed = useSidebarCollapsed();
+  useEffect(() => {
+    persistCollapsed(collapsed);
+  }, [collapsed]);
   const [confirmFolder, setConfirmFolder] = useState<FolderTreeItem | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   const pathname = usePathname();
@@ -243,24 +257,24 @@ export function Sidebar() {
     ? pathname.slice(NOTE_URL_PREFIX.length)
     : null;
 
-  // Auto-expand the ancestors of the active note so it is always visible,
-  // even when reached via search. Render-time state adjustment keyed on
-  // the active id — manual collapses between navigations are preserved.
-  const [prevActiveNoteId, setPrevActiveNoteId] = useState<string | null>(activeNoteId);
-  if (activeNoteId !== prevActiveNoteId) {
-    setPrevActiveNoteId(activeNoteId);
+  // Auto-expand the ancestors of the active note so it is always
+  // visible, even when reached via search. Runs as an effect (an
+  // external-store update, like dispatching an event) — notifying
+  // store listeners during render is the forbidden setState-in-render;
+  // the ref guard keeps manual collapses between navigations intact.
+  const prevActiveNoteIdRef = useRef<string | null>(activeNoteId);
+  useEffect(() => {
+    if (activeNoteId === prevActiveNoteIdRef.current) return;
+    prevActiveNoteIdRef.current = activeNoteId;
     const path = activeNoteId ? findNotePath(tree, activeNoteId) : null;
-    if (path) {
-      setCollapsed((prev) => {
-        const next = new Set(prev);
-        let changed = false;
-        for (const folder of path.folders) {
-          if (next.delete(folder.id)) changed = true;
-        }
-        return changed ? next : prev;
-      });
+    if (!path) return;
+    const next = new Set(collapsed);
+    let changed = false;
+    for (const folder of path.folders) {
+      if (next.delete(folder.id)) changed = true;
     }
-  }
+    if (changed) updateCollapsed(next);
+  }, [activeNoteId, collapsed, tree]);
 
   // Active-location chain (Phase 6 fix): every folder between the root
   // and the open note carries the accent, so collapsing any level still
@@ -272,24 +286,37 @@ export function Sidebar() {
   );
 
   const toggleCollapse = (id: string) => {
-    setCollapsed((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
+    const next = new Set(collapsed);
+    if (next.has(id)) {
+      next.delete(id);
+    } else {
+      next.add(id);
+    }
+    updateCollapsed(next);
+  };
+
+  // VS Code-style collapse/expand-all toggle: collapses every folder at
+  // any depth; when everything is already collapsed it expands all.
+  const allFolderIds: string[] = [];
+  const walkFolders = (nodes: readonly FolderTreeItem[]) => {
+    for (const node of nodes) {
+      allFolderIds.push(node.id);
+      walkFolders(node.folders);
+    }
+  };
+  walkFolders(tree.folders);
+  const allCollapsed =
+    allFolderIds.length > 0 && allFolderIds.every((id) => collapsed.has(id));
+  const toggleCollapseAll = () => {
+    updateCollapsed(allCollapsed ? new Set() : new Set(allFolderIds));
   };
 
   const reveal = (folderId: string | null) => {
     if (!folderId) return;
-    setCollapsed((prev) => {
-      const next = new Set(prev);
-      if (next.delete(folderId)) return next;
-      return prev;
-    });
+    if (!collapsed.has(folderId)) return;
+    const next = new Set(collapsed);
+    next.delete(folderId);
+    updateCollapsed(next);
   };
 
   const isEmpty = tree.folders.length === 0 && tree.notes.length === 0;
@@ -318,7 +345,18 @@ export function Sidebar() {
   };
 
   const handleDeleteNote = async (id: string) => {
-    await deleteNote(id);
+    try {
+      const { purged } = await deleteNote(id);
+      // Empty notes skip the trash — they are shredded right away.
+      deskToast(
+        purged
+          ? "EMPTY NOTE SHREDDED — NOTHING TO RESTORE."
+          : "NOTE FILED TO TRASH — 30 DAYS."
+      );
+    } catch {
+      deskToast("DELETE FAILED — NOTE STILL FILED.");
+      return;
+    }
     if (pathname === `${NOTE_URL_PREFIX}${id}`) {
       router.push("/dashboard");
     }
@@ -463,6 +501,18 @@ export function Sidebar() {
             >
               <Folder size={12} />
             </button>
+            {allFolderIds.length > 0 && (
+              <button
+                onClick={toggleCollapseAll}
+                className="side-add side-add-fold"
+                title={allCollapsed ? "Expand all folders" : "Collapse all folders"}
+                aria-label={allCollapsed ? "Expand all folders" : "Collapse all folders"}
+                aria-pressed={allCollapsed}
+                type="button"
+              >
+                {allCollapsed ? <ChevronsUpDown size={12} /> : <ChevronsDownUp size={12} />}
+              </button>
+            )}
           </div>
         </div>
         {isEmpty && (
@@ -538,7 +588,7 @@ function FolderNode({
   node: FolderTreeItem;
   depth: number;
   index: number;
-  collapsed: Set<string>;
+  collapsed: ReadonlySet<string>;
   activeNoteId: string | null;
   activeChainIds: ReadonlySet<string>;
   /** Effective accent of each ancestor level (root…parent; null = none). */
@@ -859,11 +909,11 @@ function NoteLeaf({
                 }
               }}
               className={confirmingDelete ? "del-chip" : "row-btn"}
-              title={confirmingDelete ? "Confirm delete" : "Delete"}
-              aria-label={confirmingDelete ? `Confirm delete ${note.title}` : `Delete ${note.title}`}
+              title={confirmingDelete ? "Confirm — file to trash (30 days)" : "File to trash (30 days)"}
+              aria-label={confirmingDelete ? `Confirm filing ${note.title} to trash` : `File ${note.title} to trash`}
               type="button"
             >
-              {confirmingDelete ? "DEL?" : <Trash2 size={11} />}
+              {confirmingDelete ? "TRASH?" : <Trash2 size={11} />}
             </button>
           </div>
 
