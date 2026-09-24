@@ -1,0 +1,61 @@
+{
+  "settings": {
+    "index": {
+      "number_of_shards": 1,
+      "number_of_replicas": 1
+    },
+    "analysis": {
+      "analyzer": {
+        "autocomplete": {
+          "type": "custom",
+          "tokenizer": "standard",
+          "filter": [
+            "lowercase",
+            "autocomplete_filter"
+          ]
+        }
+      },
+      "filter": {
+        "autocomplete_filter": {
+          "type": "edge_ngram",
+          "min_gram": 1,
+          "max_gram": 20
+        }
+      }
+    }
+  },
+  "mappings": {
+    "properties": {
+      "user_id": {
+        "type": "keyword"
+      },
+      "note_id": {
+        "type": "keyword"
+      },
+      "block_id": {
+        "type": "keyword"
+      },
+      "note_title": {
+        "type": "text",
+        "fields": {
+          "autocomplete": {
+            "type": "text",
+            "analyzer": "autocomplete"
+          }
+        }
+      },
+      "block_order": {
+        "type": "integer"
+      },
+      "text": {
+        "type": "text"
+      },
+      "updated_at": {
+        "type": "date"
+      }
+    }
+  },
+  "aliases": {
+    "notes-blocks": {}
+  }
+}

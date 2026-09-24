@@ -36,6 +36,8 @@ ENV/
 .env.*
 !.env.example
 !.env.*.example
+ca.pem
+*.pem
 
 # Logs and runtime files
 *.log
@@ -44,6 +46,11 @@ ENV/
 
 # Test and coverage output
 coverage/
+
+# Go binaries and build artifacts
+streamer
+/search-indexer
+bin/
 
 # IDE and editor files
 .idea/

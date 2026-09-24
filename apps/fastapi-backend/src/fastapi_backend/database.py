@@ -82,7 +82,37 @@ class Database:
         )
         await receipts.create_index("created_at", expireAfterSeconds=2592000)
 
+        # Phase 8 — Outbox indexes (OUTBOX_STREAMER_IMPLEMENTATION_PLAN_V3 §4).
+        outbox = cls.db.event_outbox
+
+        # Unique guard — prevents double-insert on retry (idempotency).
+        await outbox.create_index("event_id", unique=True)
+
+        # Compound index: the Go streamer's claim query (status + timing).
+        await outbox.create_index(
+            [("status", 1), ("available_at", 1), ("claimed_at", 1)]
+        )
+
+        # TTL: purge published events after 7 days. The partial filter
+        # expression restricts expiry to status="published" — pending,
+        # publishing, and failed events are NEVER TTL-deleted.
+        await outbox.create_index(
+            "published_at",
+            expireAfterSeconds=604800,  # 7 days
+            partialFilterExpression={"status": "published"},
+        )
+
+        # Phase 8 — Seed the streamer_state document (idempotent).
+        # The Go streamer reads and persists the Change Stream resume token
+        # here. $setOnInsert means this is a no-op if the doc already exists.
+        await cls.db.streamer_state.update_one(
+            {"_id": "main_streamer"},
+            {"$setOnInsert": {"resume_token": None, "updated_at": None}},
+            upsert=True,
+        )
+
         logger.info("Database indexes verified.")
+
 
 def get_db() -> AsyncIOMotorDatabase:
     if Database.db is None:

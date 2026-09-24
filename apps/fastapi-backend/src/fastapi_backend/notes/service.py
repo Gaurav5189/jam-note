@@ -1,3 +1,18 @@
+"""Notes service — all mutations go through the transactional outbox.
+
+Phase 8 rule (OUTBOX_STREAMER_IMPLEMENTATION_PLAN_V3.md §5):
+  Every note create / update / soft-delete / restore / purge writes the
+  business mutation AND the outbox event in ONE MongoDB transaction, with the
+  owner filter on every write. FastAPI never talks to Kafka.
+
+Event mapping:
+  create / update / restore  →  note.changed  (changed_fields = $set keys)
+  soft_delete_note           →  note.deleted  (for trashed notes with content)
+  purge_note                 →  note.deleted  (hard delete / empty-note purge)
+
+``note.published`` is reserved in the schema, not emitted here (post-8).
+"""
+
 import re
 from datetime import datetime, timezone
 from typing import Any
@@ -7,6 +22,7 @@ from fastapi import HTTPException, status
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from fastapi_backend.notes.models import NoteCreate, NoteUpdate
+from fastapi_backend.events.outbox import record_note_event, transaction_or_fallback
 
 # Fields returned for list/tree/search reads — block payloads are heavy and
 # unnecessary when rendering the sidebar index.
@@ -35,7 +51,11 @@ def utc_now() -> datetime:
 async def create_note(
     db: AsyncIOMotorDatabase, user_id: str, data: NoteCreate
 ) -> dict[str, Any]:
-    """Insert a new note for a user, optionally inside a folder."""
+    """Insert a new note for a user, optionally inside a folder.
+
+    The insert and the outbox event are written in one transaction (or
+    sequentially with the fallback path — see ``transaction_or_fallback``).
+    """
     user_object_id = ObjectId(user_id)
 
     folder_object_id: ObjectId | None = None
@@ -83,8 +103,35 @@ async def create_note(
         "updated_at": now,
     }
 
-    result = await db.notes.insert_one(note_doc)
-    created_doc = await db.notes.find_one({"_id": result.inserted_id})
+    # Compute changed_fields from the supplied create payload.
+    changed_fields = ["title", "blocks"]
+    if data.folder_id is not None:
+        changed_fields.append("folder_id")
+    if data.layout_type != "document":
+        changed_fields.append("layout_type")
+    if data.emoji_icon is not None:
+        changed_fields.append("emoji_icon")
+    if data.color is not None:
+        changed_fields.append("color")
+    if data.block_connections:
+        changed_fields.append("block_connections")
+
+    async with transaction_or_fallback(db) as session:
+        sess_kwargs: dict[str, Any] = {"session": session} if session is not None else {}
+        result = await db.notes.insert_one(note_doc, **sess_kwargs)
+        inserted_id = result.inserted_id
+
+        await record_note_event(
+            db,
+            event_type="note.changed",
+            note_id=inserted_id,
+            user_id=user_object_id,
+            changed_fields=changed_fields,
+            updated_at=now,
+            session=session,
+        )
+
+    created_doc = await db.notes.find_one({"_id": inserted_id})
     if not created_doc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -180,6 +227,8 @@ async def update_note(
     produce a sync error. Layout switching stays allowed (presentation,
     not content), as do folder moves, accents, pins, and the request
     that lifts the lock itself.
+
+    The note mutation and the outbox event are written in one transaction.
     """
     content_locked = bool(note_doc.get("read_only"))
     if content_locked and "read_only" not in data.model_fields_set:
@@ -243,8 +292,37 @@ async def update_note(
     if data.read_only is not None:
         update_fields["read_only"] = data.read_only
 
-    await db.notes.update_one({"_id": note_doc["_id"]}, {"$set": update_fields})
-    updated_doc = await db.notes.find_one({"_id": note_doc["_id"]})
+    # changed_fields excludes the internal `updated_at` timestamp — the
+    # downstream indexer cares about content fields, not the timestamp.
+    changed_fields = [k for k in update_fields if k != "updated_at"]
+
+    note_object_id: ObjectId = note_doc["_id"]
+    user_object_id: ObjectId = note_doc["user_id"]
+
+    async with transaction_or_fallback(db) as session:
+        sess_kwargs: dict[str, Any] = {"session": session} if session is not None else {}
+        result = await db.notes.update_one(
+            {"_id": note_object_id, "user_id": user_object_id},
+            {"$set": update_fields},
+            **sess_kwargs,
+        )
+        if result.matched_count != 1:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Note update failed",
+            )
+
+        await record_note_event(
+            db,
+            event_type="note.changed",
+            note_id=note_object_id,
+            user_id=user_object_id,
+            changed_fields=changed_fields,
+            updated_at=update_fields["updated_at"],
+            session=session,
+        )
+
+    updated_doc = await db.notes.find_one({"_id": note_object_id})
     if not updated_doc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -281,12 +359,30 @@ async def soft_delete_note(
 
     The document stays intact (fully restorable) until the TTL index
     purges it 30 days later. Notes are leaves — nothing to lift.
+
+    The stamp write and outbox event are committed in one transaction.
     """
     deleted_at = utc_now()
-    await db.notes.update_one(
-        {"_id": note_doc["_id"], "user_id": note_doc["user_id"]},
-        {"$set": {"deleted_at": deleted_at}},
-    )
+    note_object_id: ObjectId = note_doc["_id"]
+    user_object_id: ObjectId = note_doc["user_id"]
+
+    async with transaction_or_fallback(db) as session:
+        sess_kwargs: dict[str, Any] = {"session": session} if session is not None else {}
+        await db.notes.update_one(
+            {"_id": note_object_id, "user_id": user_object_id},
+            {"$set": {"deleted_at": deleted_at}},
+            **sess_kwargs,
+        )
+        await record_note_event(
+            db,
+            event_type="note.deleted",
+            note_id=note_object_id,
+            user_id=user_object_id,
+            changed_fields=[],
+            updated_at=deleted_at,
+            session=session,
+        )
+
     return deleted_at
 
 
@@ -315,6 +411,8 @@ async def restore_note(
     A dangling folder reference (the folder was deleted while the note
     sat in the trash) restores the note to the workspace root — the
     same guarantee the workspace tree gives missing parents.
+
+    The restore write and outbox event are committed in one transaction.
     """
     folder_doc = None
     folder_id = note_doc.get("folder_id")
@@ -323,18 +421,37 @@ async def restore_note(
             {"_id": folder_id, "user_id": note_doc["user_id"]},
             {"_id": 1},
         )
-    await db.notes.update_one(
-        {"_id": note_doc["_id"], "user_id": note_doc["user_id"]},
-        {
-            "$set": {
-                "deleted_at": None,
-                # Missing folder → restore at the workspace root.
-                "folder_id": folder_id if folder_doc else None,
-                "updated_at": utc_now(),
-            }
-        },
-    )
-    restored = await db.notes.find_one({"_id": note_doc["_id"]})
+
+    now = utc_now()
+    note_object_id: ObjectId = note_doc["_id"]
+    user_object_id: ObjectId = note_doc["user_id"]
+    resolved_folder_id = folder_id if folder_doc else None
+
+    update_fields = {
+        "deleted_at": None,
+        # Missing folder → restore at the workspace root.
+        "folder_id": resolved_folder_id,
+        "updated_at": now,
+    }
+
+    async with transaction_or_fallback(db) as session:
+        sess_kwargs: dict[str, Any] = {"session": session} if session is not None else {}
+        await db.notes.update_one(
+            {"_id": note_object_id, "user_id": user_object_id},
+            {"$set": update_fields},
+            **sess_kwargs,
+        )
+        await record_note_event(
+            db,
+            event_type="note.changed",
+            note_id=note_object_id,
+            user_id=user_object_id,
+            changed_fields=["deleted_at", "folder_id"],
+            updated_at=now,
+            session=session,
+        )
+
+    restored = await db.notes.find_one({"_id": note_object_id})
     if not restored:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -344,7 +461,26 @@ async def restore_note(
 
 
 async def purge_note(db: AsyncIOMotorDatabase, note_doc: dict[str, Any]) -> None:
-    """Permanently remove a trashed note (the trash view's purge action)."""
-    await db.notes.delete_one(
-        {"_id": note_doc["_id"], "user_id": note_doc["user_id"]}
-    )
+    """Permanently remove a note (trash purge or empty-note shred).
+
+    The hard delete and outbox event are committed in one transaction.
+    """
+    note_object_id: ObjectId = note_doc["_id"]
+    user_object_id: ObjectId = note_doc["user_id"]
+    now = utc_now()
+
+    async with transaction_or_fallback(db) as session:
+        sess_kwargs: dict[str, Any] = {"session": session} if session is not None else {}
+        await db.notes.delete_one(
+            {"_id": note_object_id, "user_id": user_object_id},
+            **sess_kwargs,
+        )
+        await record_note_event(
+            db,
+            event_type="note.deleted",
+            note_id=note_object_id,
+            user_id=user_object_id,
+            changed_fields=[],
+            updated_at=now,
+            session=session,
+        )

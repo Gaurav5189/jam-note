@@ -25,6 +25,7 @@ from pydantic import ValidationError
 from pymongo.errors import DuplicateKeyError
 
 from fastapi_backend.importing import models
+from fastapi_backend.events.outbox import record_note_event
 
 
 def utc_now() -> datetime:
@@ -351,8 +352,20 @@ async def _insert_all(
             note_doc, **_session_kwargs(session)
         )
         inserted.note_ids.append(result.inserted_id)
+        # Phase 8: emit a note.changed event for each imported note so the
+        # search indexer picks it up through the normal path (user decision).
+        await record_note_event(
+            db,
+            event_type="note.changed",
+            note_id=result.inserted_id,
+            user_id=user_object_id,
+            changed_fields=["blocks", "title"],
+            updated_at=note.updated_at or now,
+            session=session,
+        )
 
     return len(inserted.note_ids), len(inserted.folder_ids)
+
 
 
 async def _compensate(
