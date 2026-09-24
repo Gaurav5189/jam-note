@@ -602,3 +602,95 @@ async def test_note_color_rejects_unknown_key(client: AsyncClient):
         "/api/notes", json={"title": "Bad Tint", "color": "neon-pink"}
     )
     assert response.status_code == 422
+
+
+# --- Pin & read-only (the note action menu fields) ---
+
+
+@pytest.mark.asyncio
+async def test_pin_and_unpin_note(client: AsyncClient):
+    await signup_and_authenticate(client, "pin_user")
+    note = await create_note(client, "Pinnable")
+
+    response = await client.put(f"/api/notes/{note['id']}", json={"is_pinned": True})
+    assert response.status_code == 200
+    assert response.json()["is_pinned"] is True
+
+    # The flags ride the workspace list/tree (sidebar + dashboard reads).
+    tree = (await client.get("/api/workspace")).json()
+    assert tree["notes"][0]["is_pinned"] is True
+    assert tree["notes"][0]["read_only"] is False
+
+    response = await client.put(f"/api/notes/{note['id']}", json={"is_pinned": False})
+    assert response.status_code == 200
+    assert response.json()["is_pinned"] is False
+
+
+@pytest.mark.asyncio
+async def test_read_only_lock_blocks_content_edits(client: AsyncClient):
+    await signup_and_authenticate(client, "readonly_user")
+    note = await create_note(
+        client,
+        "Locked Note",
+        blocks=[{"id": "b1", "type": "text", "properties": {"text": "Original"}, "canvas_metadata": None}],
+    )
+
+    lock = await client.put(f"/api/notes/{note['id']}", json={"read_only": True})
+    assert lock.status_code == 200
+    assert lock.json()["read_only"] is True
+
+    # Content edits are rejected while locked…
+    assert (
+        await client.put(f"/api/notes/{note['id']}", json={"title": "Nope"})
+    ).status_code == 400
+    assert (
+        await client.put(f"/api/notes/{note['id']}", json={"blocks": []})
+    ).status_code == 400
+    changed_text = [
+        {
+            "id": "b1",
+            "type": "text",
+            "properties": {"text": "Rewritten"},
+            "canvas_metadata": None,
+        }
+    ]
+    assert (
+        await client.put(f"/api/notes/{note['id']}", json={"blocks": changed_text})
+    ).status_code == 400
+
+    # …but the canvas surface stays live (user decision — read-only
+    # applies to document mode only): moved-node saves differ ONLY in
+    # canvas_metadata, and connections always pass.
+    moved_node = [
+        {
+            "id": "b1",
+            "type": "text",
+            "properties": {"text": "Original"},
+            "canvas_metadata": {"x": 40.0, "y": 90.0, "width": 220.0, "height": 90.0, "color": None},
+        }
+    ]
+    moved = await client.put(f"/api/notes/{note['id']}", json={"blocks": moved_node})
+    assert moved.status_code == 200
+    assert moved.json()["blocks"][0]["canvas_metadata"]["x"] == 40.0
+    assert (
+        await client.put(
+            f"/api/notes/{note['id']}",
+            json={"block_connections": [{"from_id": "b1", "to_id": "b1", "color": None}]},
+        )
+    ).status_code == 200
+    # Layout switching stays allowed — it is presentation, not content.
+    assert (
+        await client.put(f"/api/notes/{note['id']}", json={"layout_type": "canvas"})
+    ).status_code == 200
+
+    # …but organizational fields and the unlock itself stay allowed.
+    assert (
+        await client.put(f"/api/notes/{note['id']}", json={"is_pinned": True})
+    ).status_code == 200
+    unlock = await client.put(f"/api/notes/{note['id']}", json={"read_only": False})
+    assert unlock.status_code == 200
+
+    # Unlocked — content edits flow again.
+    ok = await client.put(f"/api/notes/{note['id']}", json={"title": "Freed"})
+    assert ok.status_code == 200
+    assert ok.json()["title"] == "Freed"

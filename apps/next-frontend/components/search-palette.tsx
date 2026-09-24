@@ -6,6 +6,7 @@ import { FileText } from "lucide-react";
 import { useWorkspace } from "@/context/workspace-context";
 import { fetchApi } from "@/lib/api";
 import { findNotePath } from "@/lib/workspace-tree";
+import { beginNavPending } from "@/lib/pending-bar";
 import type { NoteListItem } from "@/lib/types";
 import { OPEN_SEARCH_EVENT } from "@/components/header";
 
@@ -34,6 +35,7 @@ export function SearchPalette() {
   const navigateTo = useCallback(
     (id: string) => {
       close();
+      beginNavPending();
       router.push(`/notes/${id}`);
     },
     [close, router]

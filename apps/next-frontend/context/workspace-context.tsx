@@ -72,6 +72,10 @@ interface WorkspaceContextType {
   setFolderColor: (id: string, color: string | null) => Promise<void>;
   /** Set/clear a note's own accent (palette key, null = clear inheritance). */
   setNoteColor: (id: string, color: string | null) => Promise<void>;
+  /** Pin/unpin a note (dashboard pin indicator). */
+  setNotePinned: (id: string, pinned: boolean) => Promise<void>;
+  /** Lock/unlock a note's content (read-only). */
+  setNoteReadOnly: (id: string, readOnly: boolean) => Promise<void>;
 }
 
 const WorkspaceContext = createContext<WorkspaceContextType | undefined>(undefined);
@@ -428,6 +432,52 @@ export function WorkspaceProvider({
     [applyTree, refreshWorkspace]
   );
 
+  const setNotePinned = useCallback(
+    async (id: string, pinned: boolean) => {
+      const current = treeRef.current;
+      const next = updateNoteItem(current, id, { is_pinned: pinned });
+      if (next === current) return;
+      applyTree(next);
+      try {
+        await fetchApi<Note>(`/api/notes/${id}`, {
+          method: "PUT",
+          body: JSON.stringify({ is_pinned: pinned }),
+        });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to pin note");
+        try {
+          await refreshWorkspace();
+        } catch {
+          // Keep the original mutation error.
+        }
+      }
+    },
+    [applyTree, refreshWorkspace]
+  );
+
+  const setNoteReadOnly = useCallback(
+    async (id: string, readOnly: boolean) => {
+      const current = treeRef.current;
+      const next = updateNoteItem(current, id, { read_only: readOnly });
+      if (next === current) return;
+      applyTree(next);
+      try {
+        await fetchApi<Note>(`/api/notes/${id}`, {
+          method: "PUT",
+          body: JSON.stringify({ read_only: readOnly }),
+        });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to set note lock");
+        try {
+          await refreshWorkspace();
+        } catch {
+          // Keep the original mutation error.
+        }
+      }
+    },
+    [applyTree, refreshWorkspace]
+  );
+
   return (
     <WorkspaceContext.Provider
       value={{
@@ -448,6 +498,8 @@ export function WorkspaceProvider({
         deleteFolder,
         setFolderColor,
         setNoteColor,
+        setNotePinned,
+        setNoteReadOnly,
       }}
     >
       {children}

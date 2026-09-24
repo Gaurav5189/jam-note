@@ -96,8 +96,9 @@ export function Header({ user }: { user: User }) {
         </button>
 
         {/* Profile chip — the "clicking the avatar does nothing" fix
-            (make/dashboard_profile/design.md §9). */}
-        <Link href="/profile" className="u-block" title="Profile">
+            (make/dashboard_profile/design.md §9). data-desk-avatar is
+            the landing point for deskFly (trash → profile arcs). */}
+        <Link href="/profile" className="u-block" title="Profile" data-desk-avatar>
           <span className="u-ava" aria-hidden="true">
             {displayName.slice(0, 1).toUpperCase()}
           </span>

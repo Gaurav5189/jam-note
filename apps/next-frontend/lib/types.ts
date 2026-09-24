@@ -62,6 +62,10 @@ export interface NoteListItem {
   /** Sidebar accent (Phase 6 color coding) — palette key or null. */
   color: string | null;
   is_published: boolean;
+  /** Pinned notes carry the pin indicator in the dashboard list. */
+  is_pinned: boolean;
+  /** Locked notes reject content edits (the action menu's lock). */
+  read_only: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -112,6 +116,8 @@ export interface NoteUpdateInput {
   color?: string | null;
   blocks?: Block[];
   block_connections?: BlockConnection[];
+  is_pinned?: boolean;
+  read_only?: boolean;
 }
 
 export interface FolderCreateInput {

@@ -29,6 +29,10 @@ body:has(.desk){background:var(--ink)}
 /* kicker (gold square + mono label) */
 .desk .kicker{display:flex;align-items:center;gap:10px;font-family:var(--font-space-mono),monospace;font-size:9px;letter-spacing:.22em;font-weight:400}
 .desk .kicker::before{content:"";width:8px;height:8px;background:var(--gold);flex:0 0 auto}
+/* The sidebar's WORKSPACE kicker is a link back to the dashboard. */
+.desk a.kicker{color:inherit;text-decoration:none;width:max-content;transition:color .18s}
+.desk a.kicker:hover{color:var(--gold)}
+.desk a.kicker:hover::before{background:var(--paper)}
 
 /* ============================================================
    CHROME — crop marks / toast / ink bursts / sign-out overlay.
@@ -266,9 +270,27 @@ body.intro-done .desk .ev-title .k{transition:none}
 .desk .dash-main{flex:1;min-width:0}
 .desk .dash-title{display:block;font-family:var(--font-archivo),'Helvetica Neue',Helvetica,Arial,sans-serif;font-weight:700;font-size:14px;letter-spacing:.04em;text-transform:uppercase;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .desk .dash-sub{display:block;font-family:var(--font-space-mono),monospace;font-size:8.5px;letter-spacing:.12em;opacity:.55;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.desk .dash-stamp{font-family:var(--font-space-mono),monospace;font-size:8.5px;letter-spacing:.14em;opacity:.6;flex:0 0 auto}
+.desk .dash-stamp{font-family:var(--font-space-mono),monospace;font-size:8.5px;letter-spacing:.14em;opacity:.6;flex:0 0 auto;transition:opacity .18s ease,transform .18s ease}
+/* The ⋯ button replaces the stamp's corner on hover (no overlap — the
+   stamp slides out; touch devices never see the stamp at all). */
+.desk .dash-li:hover .dash-stamp{opacity:0;transform:translateX(10px)}
 .desk .dash-canvas{font-family:var(--font-space-mono),monospace;font-size:8.5px;letter-spacing:.18em;color:var(--gold);flex:0 0 auto}
 .desk .dash-row:hover .dash-canvas{color:var(--red)}
+/* Row container anchors the ⋯ action menu button (a Link sibling —
+   buttons must never nest inside the row link). */
+.desk .dash-li{position:relative}
+.desk .dash-menu-btn{position:absolute;right:8px;top:50%;transform:translateY(-50%);width:27px;height:27px;display:inline-flex;align-items:center;justify-content:center;background:var(--ink);border:1.5px solid var(--hair);color:rgba(243,239,230,.6);z-index:2;padding:0;transition:opacity .15s,color .15s,border-color .15s}
+.desk .dash-menu-btn:hover{color:var(--gold);border-color:var(--gold)}
+@media (hover:hover){
+  /* Pointer devices: the button appears on row approach; touch keeps
+     it always visible. */
+  .desk .dash-li .dash-menu-btn{opacity:0}
+  .desk .dash-li:hover .dash-menu-btn{opacity:1}
+}
+/* Pin indicator rides the title line; READ-ONLY tags the row. */
+.desk .dash-pin{margin-right:7px;color:var(--gold);vertical-align:-1px}
+.desk .dash-row:hover .dash-pin{color:var(--red)}
+.desk .dash-ro{font-family:var(--font-space-mono),monospace;font-size:8.5px;letter-spacing:.18em;color:var(--red);flex:0 0 auto}
 
 /* ============================================================
    NOTE VIEW — single-row glass command bar + panes.
@@ -285,7 +307,7 @@ body.intro-done .desk .ev-title .k{transition:none}
 body.go .desk .note-bar{opacity:1;transform:none}
 /* Older WebViews / Firefox builds ignore backdrop-filter silently —
    the bar must stay legible over scrolled content either way. */
-@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){.desk .note-bar,.desk .runhead,.desk .nb-time-pop{background:var(--ink)}}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){.desk .note-bar,.desk .runhead,.nm-pop{background:var(--ink)}}
 /* left cluster — parent back-link + inline title */
 .desk .nb-left{display:flex;align-items:center;gap:12px;flex:1 1 auto;min-width:0}
 .desk .folder-path{flex:0 1 auto;min-width:0;max-width:420px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--font-space-mono),monospace;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:rgba(243,239,230,.55)}
@@ -295,26 +317,36 @@ body.go .desk .note-bar{opacity:1;transform:none}
 .desk .nb-title:hover svg{opacity:.9}
 .desk .nb-title-input{flex:1 1 auto;min-width:60px;max-width:420px;background:transparent;border:0;border-bottom:1.5px solid var(--hair2);color:var(--paper);caret-color:var(--gold);font-family:var(--font-archivo),'Helvetica Neue',Helvetica,Arial,sans-serif;font-weight:700;font-size:15px;letter-spacing:.01em;line-height:1;padding:0 0 2px;outline:none}
 .desk .nb-title-input:focus{outline:none;border-bottom-color:var(--gold)}
-/* right cluster — undo/redo, relative stamp, shred */
+/* right cluster — undo/redo + the ⋯ action menu (export, last edited,
+   pin, read-only, trash) */
 .desk .nb-right{display:flex;align-items:center;gap:12px;flex:0 0 auto}
-.desk .nb-export{
-  font-family:var(--font-space-mono),monospace;font-size:8.5px;letter-spacing:.16em;
-  color:rgba(243,239,230,.6);border:1.5px solid var(--hair);padding:6px 10px;
-  transition:border-color .15s,color .15s;
-}
-.desk .nb-export:hover{border-color:var(--gold);color:var(--gold)}
-.desk .nb-time-wrap{position:relative;flex:0 0 auto}
-.desk .nb-time{font-family:var(--font-space-mono),monospace;font-size:8.5px;letter-spacing:.14em;color:rgba(243,239,230,.6);white-space:nowrap;padding:4px 0;transition:color .15s}
-.desk .nb-time:hover{color:var(--paper)}
-/* Glass stamp popup — the bar's own treatment, revealed on hover/focus. */
-.desk .nb-time-pop{position:absolute;top:calc(100% + 10px);right:0;z-index:40;display:flex;flex-direction:column;gap:6px;padding:10px 12px;background:color-mix(in srgb,var(--ink) 55%,transparent);-webkit-backdrop-filter:blur(14px) saturate(140%);backdrop-filter:blur(14px) saturate(140%);border:1.5px solid var(--hair2);border-radius:3px;box-shadow:0 1.5px 0 rgba(0,0,0,.3);font-family:var(--font-space-mono),monospace;font-size:8.5px;letter-spacing:.14em;color:rgba(243,239,230,.75);white-space:nowrap;opacity:0;visibility:hidden;transform:translateY(-4px);transition:opacity .18s ease,transform .18s cubic-bezier(.16,1,.3,1),visibility .18s;pointer-events:none}
-.desk .nb-time-wrap:hover .nb-time-pop,.desk .nb-time-wrap:focus-within .nb-time-pop{opacity:1;visibility:visible;transform:none}
-.desk .nb-time-pop span{display:flex;align-items:center;gap:8px}
-.desk .nb-time-pop span i{width:5px;height:5px;background:var(--gold);flex:0 0 auto}
-.desk .nb-time-pop span.upd i{background:var(--red)}
-.desk .del-btn{flex:0 0 auto;padding:8px 10px;border:1.5px solid var(--hair);color:rgba(243,239,230,.6);transition:border-color .18s,color .18s;line-height:1}
-.desk .del-btn:hover{border-color:var(--red);color:var(--red)}
-.desk .del-chip-head{flex:0 0 auto;font-family:var(--font-space-mono),monospace;font-size:9px;letter-spacing:.12em;padding:9px 12px;background:var(--red);color:var(--ink);line-height:1}
+.desk .nb-menu-btn{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border:1.5px solid var(--hair);color:rgba(243,239,230,.6);transition:border-color .15s,color .15s;background:transparent;padding:0}
+.desk .nb-menu-btn:hover{border-color:var(--gold);color:var(--gold)}
+.desk .nb-menu-btn[aria-expanded="true"]{border-color:var(--paper);color:var(--paper)}
+/* Read-only flag chip next to the title */
+.desk .nb-lock{flex:0 0 auto;font-family:var(--font-space-mono),monospace;font-size:8.5px;letter-spacing:.16em;color:var(--red);border:1.5px solid var(--red);padding:3px 6px}
+/* Locked panes: the surface is inert; the doc pane still scrolls —
+   pointer-events pass through .doc-wrap to the .pane-doc scroller. */
+.desk .is-locked{pointer-events:none}
+
+/* Note action menu (⋯) — glass index card, the note bar's own
+   treatment (same ink-glass, blur, hairline, soft shadow). Shares one
+   component between the note bar and dashboard rows. */
+.nm-pop{z-index:90;display:flex;flex-direction:column;min-width:220px;padding:6px;background:color-mix(in srgb,var(--ink) 55%,transparent);-webkit-backdrop-filter:blur(14px) saturate(140%);backdrop-filter:blur(14px) saturate(140%);border:1.5px solid var(--hair2);border-radius:3px;box-shadow:0 1.5px 0 rgba(0,0,0,.3);font-family:var(--font-space-mono),monospace}
+.nm-info{padding:8px 10px;font-size:8.5px;letter-spacing:.14em;color:rgba(243,239,230,.45);border-bottom:1.5px solid var(--hair2);margin-bottom:4px}
+.nm-row{display:block;width:100%;text-align:left;background:transparent;border:0;padding:9px 10px;font-family:var(--font-space-mono),monospace;font-size:9.5px;letter-spacing:.14em;color:var(--paper);cursor:pointer;transition:background .12s,color .12s}
+.nm-row:hover{background:var(--paper);color:var(--ink)}
+/* Trash row — the reference bin sits before the label as a static
+ * mark (no animation on request). */
+.nm-row.nm-danger{display:flex;align-items:center;gap:9px;color:var(--red)}
+.nm-row.nm-danger .nm-bin{width:12px;height:12px;flex:0 0 auto}
+.nm-row.nm-danger .nm-bin path{fill:currentColor}
+.nm-row.nm-danger:hover{background:var(--red);color:var(--ink)}
+.nm-row.nm-danger.is-armed{background:var(--red);color:var(--ink);font-weight:700}
+
+/* Fly-to-profile chip — a trashed note's little paper card arcing to
+   the runhead avatar (deskFly in desk-chrome). */
+.desk .fly-chip{position:fixed;z-index:515;pointer-events:none;background:var(--paper);color:var(--ink);border:1.5px solid var(--ink);box-shadow:3px 3px 0 var(--red);padding:5px 9px;font-family:var(--font-space-mono),monospace;font-size:8.5px;letter-spacing:.14em;white-space:nowrap;transform:translate(-50%,-50%)}
 
 /* Segmented Document/Canvas control — sits on the glass; the active
    tab carries a slightly more opaque chip so it doesn't disappear
@@ -634,7 +666,6 @@ body.go .desk .note-bar{opacity:1;transform:none}
   .desk .srch .srch-label{display:none}
   .desk .u-name{display:none}
   .desk .note-bar{padding:0 12px;gap:10px}
-  .desk .nb-time{display:none}
   .desk .nb-seg .fig-tab{padding:6px 9px;gap:6px;letter-spacing:.1em}
   .desk .nb-seg .fig-tab i{display:none}
   .desk .editor-grip{display:none}

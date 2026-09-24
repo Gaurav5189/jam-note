@@ -19,6 +19,8 @@ LIST_PROJECTION = {
     "emoji_icon": 1,
     "color": 1,
     "is_published": 1,
+    "is_pinned": 1,
+    "read_only": 1,
     "created_at": 1,
     "updated_at": 1,
 }
@@ -72,6 +74,8 @@ async def create_note(
         "links_to": [],
         "backlinks": [],
         "is_published": False,
+        "is_pinned": False,
+        "read_only": False,
         # Populated by the Phase 5 publishing hub; null keeps the unique
         # sparse index on `published_metadata.slug` inactive for this note.
         "published_metadata": None,
@@ -146,10 +150,56 @@ async def search_notes(
     return [doc async for doc in cursor]
 
 
+def _canvas_only_blocks_change(
+    stored: list[dict[str, Any]], incoming: list[Any]
+) -> bool:
+    """True when incoming blocks differ from the stored ones ONLY in
+    `canvas_metadata` (node positions/dimensions — the spatial surface).
+    Text, type, id, property, or count changes are CONTENT."""
+    if len(stored) != len(incoming):
+        return False
+    for old_block, new_block in zip(stored, incoming):
+        old = {k: v for k, v in old_block.items() if k != "canvas_metadata"}
+        new = {
+            k: v for k, v in new_block.model_dump().items() if k != "canvas_metadata"
+        }
+        if old != new:
+            return False
+    return True
+
+
 async def update_note(
     db: AsyncIOMotorDatabase, note_doc: dict[str, Any], data: NoteUpdate
 ) -> dict[str, Any]:
-    """Replace the fields provided in a partial update."""
+    """Replace the fields provided in a partial update.
+
+    Read-only locks the DOCUMENT (title + prose content): renames and
+    text/type/block-list changes are rejected while locked. The canvas
+    stays fully live — spatial saves (canvas_metadata positions,
+    block_connections) are allowed, since dragging a node must never
+    produce a sync error. Layout switching stays allowed (presentation,
+    not content), as do folder moves, accents, pins, and the request
+    that lifts the lock itself.
+    """
+    content_locked = bool(note_doc.get("read_only"))
+    if content_locked and "read_only" not in data.model_fields_set:
+        if "title" in data.model_fields_set:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Note is read-only — lift the lock first",
+            )
+        if (
+            "blocks" in data.model_fields_set
+            and data.blocks is not None
+            and not _canvas_only_blocks_change(
+                note_doc.get("blocks") or [], data.blocks
+            )
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Note is read-only — lift the lock first",
+            )
+
     update_fields: dict[str, Any] = {"updated_at": utc_now()}
     if data.title is not None:
         update_fields["title"] = data.title
@@ -188,6 +238,10 @@ async def update_note(
         update_fields["block_connections"] = [
             conn.model_dump() for conn in data.block_connections
         ]
+    if data.is_pinned is not None:
+        update_fields["is_pinned"] = data.is_pinned
+    if data.read_only is not None:
+        update_fields["read_only"] = data.read_only
 
     await db.notes.update_one({"_id": note_doc["_id"]}, {"$set": update_fields})
     updated_doc = await db.notes.find_one({"_id": note_doc["_id"]})

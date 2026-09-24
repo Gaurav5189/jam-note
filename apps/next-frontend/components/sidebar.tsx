@@ -33,7 +33,8 @@ import {
   updateCollapsed,
   useSidebarCollapsed,
 } from "@/lib/sidebar-collapse";
-import { deskToast } from "@/components/desk/desk-chrome";
+import { beginNavPending } from "@/lib/pending-bar";
+import { deskFly, deskToast } from "@/components/desk/desk-chrome";
 import type { FolderTreeItem, NoteListItem } from "@/lib/types";
 
 const NOTE_URL_PREFIX = "/notes/";
@@ -51,7 +52,9 @@ interface RowActions {
   onToggleCollapse: (id: string) => void;
   onCreateNote: (folderId: string) => void;
   onCreateFolder: (folderId: string) => void;
-  onDeleteNote: (id: string) => void;
+  /** `from` = viewport origin of the pressed control, used by the
+   *  fly-to-profile chip on successful delete. */
+  onDeleteNote: (id: string, from?: { x: number; y: number }) => void;
   onRequestDeleteFolder: (folder: FolderTreeItem) => void;
   onRenameNote: (id: string, title: string) => void;
   onRenameFolder: (id: string, name: string) => void;
@@ -325,6 +328,7 @@ export function Sidebar() {
     try {
       const note = await createNote({ title: "Untitled", folder_id: folderId ?? null });
       reveal(folderId);
+      beginNavPending();
       router.push(`/notes/${note.id}`);
     } catch (err) {
       console.error("Note creation failed:", err);
@@ -344,10 +348,16 @@ export function Sidebar() {
     }
   };
 
-  const handleDeleteNote = async (id: string) => {
+  const handleDeleteNote = async (
+    id: string,
+    from?: { x: number; y: number }
+  ) => {
     try {
       const { purged } = await deleteNote(id);
       // Empty notes skip the trash — they are shredded right away.
+      if (from) {
+        deskFly(from.x, from.y, purged ? "SHREDDED" : "TO TRASH");
+      }
       deskToast(
         purged
           ? "EMPTY NOTE SHREDDED — NOTHING TO RESTORE."
@@ -358,6 +368,7 @@ export function Sidebar() {
       return;
     }
     if (pathname === `${NOTE_URL_PREFIX}${id}`) {
+      beginNavPending();
       router.push("/dashboard");
     }
   };
@@ -481,7 +492,9 @@ export function Sidebar() {
           onDragLeave={dnd.onDragLeave}
           onDrop={dnd.onRootDrop}
         >
-          <p className="kicker">WORKSPACE</p>
+          <Link href="/dashboard" className="kicker kicker-link" title="Back to dashboard">
+            WORKSPACE
+          </Link>
           <div className="side-adds">
             <button
               onClick={() => handleCreateNote(null)}
@@ -818,10 +831,16 @@ function NoteLeaf({
     deleteResetTimer.current = setTimeout(() => setConfirmingDelete(false), 2500);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = (event: React.MouseEvent<HTMLButtonElement>) => {
     if (deleteResetTimer.current) clearTimeout(deleteResetTimer.current);
     setConfirmingDelete(false);
-    actions.onDeleteNote(note.id);
+    // Origin for the fly-to-profile chip, captured before the row can
+    // unmount (the optimistic tree update removes it on commit).
+    const rect = event.currentTarget.getBoundingClientRect();
+    actions.onDeleteNote(note.id, {
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2,
+    });
   };
 
   const submitRename = (value: string) => {
@@ -901,9 +920,9 @@ function NoteLeaf({
               <Palette size={11} />
             </button>
             <button
-              onClick={() => {
+              onClick={(event) => {
                 if (confirmingDelete) {
-                  confirmDelete();
+                  confirmDelete(event);
                 } else {
                   startDeleteConfirm();
                 }

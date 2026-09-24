@@ -1,11 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
-import { Pencil, Trash2 } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Pencil } from "lucide-react";
 import { useWorkspace } from "@/context/workspace-context";
 import { findNotePath } from "@/lib/workspace-tree";
-import { deskBurst, deskToast } from "@/components/desk/desk-chrome";
 
 /**
  * Live title from the context tree (updates optimistically on rename from
@@ -24,7 +22,16 @@ function useLiveTitle(noteId: string, initialTitle: string): string {
  * Inline note title for the glass command bar — 15px, single line, with an
  * edit-pencil affordance. Click the title (or the pencil) to rename.
  */
-export function NoteTitleEditor({ noteId, title: initialTitle }: { noteId: string; title: string }) {
+export function NoteTitleEditor({
+  noteId,
+  title: initialTitle,
+  readOnly = false,
+}: {
+  noteId: string;
+  title: string;
+  /** Read-only notes keep the title static (backend rejects renames). */
+  readOnly?: boolean;
+}) {
     const renameNote = useWorkspace().renameNote;
   const [editing, setEditing] = useState(false);
   const title = useLiveTitle(noteId, initialTitle);
@@ -55,71 +62,15 @@ export function NoteTitleEditor({ noteId, title: initialTitle }: { noteId: strin
   }
 
   return (
-    <h1 className="nb-title" onClick={() => setEditing(true)} title="Click to rename">
-      <span>{title}</span>
-      <Pencil size={11} aria-hidden="true" />
-    </h1>
-  );
-}
-
-/**
- * Two-step trash button for the glass command bar — first click arms the
- * red confirm chip (auto-resets after 2.5s), second click files the note
- * to trash (30-day retention).
- */
-export function NoteDeleteButton({ noteId }: { noteId: string }) {
-  const { deleteNote } = useWorkspace();
-  const router = useRouter();
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
-  const deleteResetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (deleteResetTimer.current) clearTimeout(deleteResetTimer.current);
-    };
-  }, []);
-
-  const startDeleteConfirm = () => {
-    setConfirmingDelete(true);
-    deleteResetTimer.current = setTimeout(() => setConfirmingDelete(false), 2500);
-  };
-
-  const confirmDelete = async () => {
-    if (deleteResetTimer.current) clearTimeout(deleteResetTimer.current);
-    setConfirmingDelete(false);
-    try {
-      const { purged } = await deleteNote(noteId);
-      deskBurst(innerWidth / 2, innerHeight / 2, "#ff3d1c");
-      // Empty notes skip the trash — they are shredded right away.
-      deskToast(
-        purged
-          ? "EMPTY NOTE SHREDDED — NOTHING TO RESTORE."
-          : "NOTE FILED TO TRASH — 30 DAYS."
-      );
-    } catch {
-      deskToast("DELETE FAILED — NOTE STILL FILED.");
-      return;
-    }
-    router.push("/dashboard");
-  };
-
-  if (confirmingDelete) {
-    return (
-      <button onClick={confirmDelete} className="del-chip-head" type="button">
-        CONFIRM TRASH?
-      </button>
-    );
-  }
-
-  return (
-    <button
-      onClick={startDeleteConfirm}
-      className="del-btn"
-      title="Delete note"
-      aria-label="Delete note"
-      type="button"
+    <h1
+      className="nb-title"
+      onClick={() => {
+        if (!readOnly) setEditing(true);
+      }}
+      title={readOnly ? "Read-only note" : "Click to rename"}
     >
-      <Trash2 size={13} />
-    </button>
+      <span>{title}</span>
+      {!readOnly && <Pencil size={11} aria-hidden="true" />}
+    </h1>
   );
 }

@@ -52,16 +52,30 @@ export async function fetchApi<T>(
 /**
  * Download a file endpoint (export routes) through the same-origin
  * browser proxy so the session cookie rides along. Parses the
- * Content-Disposition filename (RFC 5266 `filename*` UTF-8 name first,
+ * Content-Disposition filename (RFC 6266 `filename*` UTF-8 name first,
  * ASCII fallback second), hands the blob to the browser via an object
- * URL + transient anchor click, and returns the saved filename.
+ * URL + transient anchor click, and returns the saved filename. The
+ * top pending bar tracks the whole download — the note-bar EXPORT
+ * button has no other busy state.
  */
 export async function downloadFile(
   endpoint: string,
   fallbackFilename: string
 ): Promise<string> {
   const url = endpoint.startsWith("/api") ? endpoint : `/api${endpoint}`;
-  const response = await fetch(url, { credentials: "include" });
+  beginPending();
+  try {
+    const response = await fetch(url, { credentials: "include" });
+    return await _consumeDownloadResponse(response, fallbackFilename);
+  } finally {
+    endPending();
+  }
+}
+
+async function _consumeDownloadResponse(
+  response: Response,
+  fallbackFilename: string
+): Promise<string> {
 
   if (!response.ok) {
     let errorMessage = `Download failed: ${response.status} ${response.statusText}`;

@@ -3,11 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Ellipsis, Pin, Plus } from "lucide-react";
 import { useWorkspace } from "@/context/workspace-context";
 import { findNotePath, flattenNotes } from "@/lib/workspace-tree";
+import { beginNavPending } from "@/lib/pending-bar";
 import type { NoteListItem, WorkspaceTree } from "@/lib/types";
 import { deskBurst, deskToast } from "@/components/desk/desk-chrome";
+import { NoteMenu } from "@/components/note-menu";
 import { formatLocalDateTime } from "@/lib/time";
 
 const RECENT_LIMIT = 8;
@@ -116,6 +118,7 @@ export function RecentNotes() {
         const rect = source.getBoundingClientRect();
         deskBurst(rect.left + rect.width / 2, rect.top + rect.height / 2, "#ffb511");
       }
+      beginNavPending();
       router.push(`/notes/${note.id}`);
     } catch (err) {
       console.error("Note creation failed:", err);
@@ -191,14 +194,17 @@ function RecentNoteRow({
   /** false until mount — SSR renders the deterministic UTC slice. */
   local: boolean;
 }) {
+  const router = useRouter();
   const path = findNotePath(tree, note.id);
   const parentPath =
     path && path.folders.length > 0
       ? path.folders.map((folder) => folder.name).join(" › ")
       : null;
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuBtnRef = useRef<HTMLButtonElement | null>(null);
 
   return (
-    <li>
+    <li className="dash-li">
       <Link
         href={`/notes/${note.id}`}
         prefetch={true}
@@ -206,12 +212,40 @@ function RecentNoteRow({
       >
         <i>{String(index + 1).padStart(2, "0")}</i>
         <span className="dash-main">
-          <span className="dash-title">{note.title}</span>
+          <span className="dash-title">
+            {note.is_pinned && (
+              <Pin size={11} className="dash-pin" aria-label="Pinned" />
+            )}
+            {note.title}
+          </span>
           {parentPath && <span className="dash-sub">{parentPath}</span>}
         </span>
+        {note.read_only && <span className="dash-ro">READ-ONLY</span>}
         {note.layout_type === "canvas" && <span className="dash-canvas">CANVAS</span>}
         <span className="dash-stamp">{formatStamp(note.updated_at, local)}</span>
       </Link>
+      {/* Sibling of the Link (never nested inside it) — same action
+          menu as the note bar: export, pin, read-only, trash. */}
+      <button
+        ref={menuBtnRef}
+        type="button"
+        className="dash-menu-btn"
+        onClick={() => setMenuOpen((open) => !open)}
+        title="Note actions"
+        aria-label={`Actions for ${note.title}`}
+        aria-haspopup="menu"
+        aria-expanded={menuOpen}
+      >
+        <Ellipsis size={14} />
+      </button>
+      {menuOpen && (
+        <NoteMenu
+          anchorRef={menuBtnRef}
+          note={note}
+          onClose={() => setMenuOpen(false)}
+          onDeleted={() => router.push("/dashboard")}
+        />
+      )}
     </li>
   );
 }

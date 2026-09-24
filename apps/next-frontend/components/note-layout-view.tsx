@@ -1,16 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Redo2, Undo2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Ellipsis, Redo2, Undo2 } from "lucide-react";
 import { useWorkspace } from "@/context/workspace-context";
 import type { Block, BlockConnection, LayoutType, Note } from "@/lib/types";
 import { findNotePath, findFolderPath } from "@/lib/workspace-tree";
-import { downloadFile } from "@/lib/api";
 import { BlockEditor, type EditorUndoState } from "@/components/editor/block-editor";
 import { CanvasView } from "@/components/canvas/canvas-view";
-import { NoteDeleteButton, NoteTitleEditor } from "@/components/note-header";
-import { deskToast } from "@/components/desk/desk-chrome";
-import { formatLocalDateTime, formatRelativeStamp } from "@/lib/time";
+import { NoteTitleEditor } from "@/components/note-header";
+import { NoteMenu } from "@/components/note-menu";
 
 /**
  * Icon construct — the concept's stroke-draw + dot-pop figures. The
@@ -71,6 +70,7 @@ function FolderPath({ path }: { path: ReturnType<typeof findFolderPath> }) {
 
 export function NoteLayoutView({ note }: { note: Note }) {
   const { updateNote, tree } = useWorkspace();
+  const router = useRouter();
   const [layout, setLayout] = useState<LayoutType>(note.layout_type);
   const [blocks, setBlocks] = useState<Block[]>(note.blocks);
   const [connections, setConnections] = useState<BlockConnection[]>(note.block_connections ?? []);
@@ -78,43 +78,25 @@ export function NoteLayoutView({ note }: { note: Note }) {
   // The pane that is animating out (kept mounted until its transition
   // finishes — the concept's cross-fade + slide).
   const [exiting, setExiting] = useState<LayoutType | null>(null);
+  // The action menu (⋯ in the bar).
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuBtnRef = useRef<HTMLButtonElement | null>(null);
   const exitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Relative stamp. Computed only after mount (server and client clocks
-  // disagree — a server-rendered "2H AGO" risks hydration drift; the
-  // deterministic date slice renders first, then swaps). Re-ticks every
-  // 30s so an open page stays honest. All setState calls live inside
-  // scheduled callbacks — never synchronously in the effect body
-  // (react-hooks/set-state-in-effect).
-  const [now, setNow] = useState<number | null>(null);
-  useEffect(() => {
-    const first = setTimeout(() => setNow(Date.now()), 0);
-    const id = setInterval(() => setNow(Date.now()), 30_000);
-    return () => {
-      clearTimeout(first);
-      clearInterval(id);
-    };
-  }, []);
-
-  // Live updated_at from the context tree (saveBlocks refreshes the node
-  // on every quiet autosave), falling back to the SSR value. Both stamps
-  // parse as UTC and render in the browser's timezone (lib/time.ts).
+  // Live metadata from the context tree (saveBlocks refreshes the node
+  // on every quiet autosave; the menu's pin/lock toggles update it
+  // optimistically), falling back to the SSR value.
   const liveNode = useMemo(() => {
     const path = findNotePath(tree, note.id);
     return path ? path.note : null;
   }, [tree, note.id]);
+  const menuNote = liveNode ?? note;
+  const readOnly = menuNote.read_only;
   // Ancestor chain for the monospace folder-path label in the command bar.
   const folderPath = useMemo(() => {
     if (!note.folder_id) return null;
     return findFolderPath(tree, note.folder_id);
   }, [tree, note.folder_id]);
-  const updatedAt = liveNode?.updated_at ?? note.updated_at;
-  const createdAt = note.created_at;
-  const timeLabel = now === null ? updatedAt.slice(0, 10) : formatRelativeStamp(updatedAt, now);
-  // Popup strings render local date+time only after mount — SSR shows
-  // the deterministic UTC slice so hydration can't drift.
-  const createdLabel = now === null ? createdAt.slice(0, 10) : formatLocalDateTime(createdAt);
-  const updatedLabel = now === null ? updatedAt.slice(0, 16).replace("T", " ") + " UTC" : formatLocalDateTime(updatedAt);
 
   useEffect(() => {
     return () => {
@@ -179,27 +161,18 @@ export function NoteLayoutView({ note }: { note: Note }) {
   const docActive = layout === "document";
   const canActive = layout === "canvas";
 
-  // Note-bar Export action (Phase 7) — instant markdown download of
-  // the open note; JSON backup lives in the Profile picker.
-  const handleExport = useCallback(() => {
-    downloadFile(
-      `/api/notes/${note.id}/export?format=md`,
-      `${note.title || "untitled"}.md`
-    )
-      .then((filename) => deskToast(`EXPORTED — ${filename.toUpperCase()}`))
-      .catch(() => deskToast("EXPORT FAILED — THE PLATE IS UNREACHABLE."));
-  }, [note.id, note.title]);
-
   return (
     <div className="note-body">
       {/* Glass command bar — one 48px row over the panes: back-link +
           inline title, segmented Document/Canvas control, undo/redo,
-          relative stamp, shred. The panes ride up underneath it so
-          scrolling/panning content passes beneath the blur. */}
+          and the ⋯ action menu (export, last edited, pin, read-only,
+          trash — the bar stays clean; the panes ride up underneath it
+          so scrolling/paning content passes beneath the blur). */}
       <header className="note-bar">
         <div className="nb-left">
           <FolderPath path={folderPath} />
-          <NoteTitleEditor noteId={note.id} title={note.title} />
+          <NoteTitleEditor noteId={note.id} title={note.title} readOnly={readOnly} />
+          {readOnly && <span className="nb-lock">READ-ONLY</span>}
         </div>
 
         <div className="nb-seg" role="tablist" aria-label="Note surfaces">
@@ -228,18 +201,8 @@ export function NoteLayoutView({ note }: { note: Note }) {
         </div>
 
         <div className="nb-right">
-          {/* Export action (Phase 7 — instant .md of the open note). */}
-          <button
-            type="button"
-            className="nb-export"
-            onClick={handleExport}
-            title="Download this note as markdown"
-          >
-            EXPORT
-          </button>
-
           {/* Document Mode Undo / Redo (canvas has its own in the HUD) */}
-          {docActive && editorUndoState && (
+          {docActive && editorUndoState && !readOnly && (
             <div className="undo-pill">
               <button
                 type="button"
@@ -264,19 +227,27 @@ export function NoteLayoutView({ note }: { note: Note }) {
             </div>
           )}
 
-          <div className="nb-time-wrap">
-            <button type="button" className="nb-time" title="Created / updated (your timezone)">
-              {timeLabel}
-            </button>
-            {/* Glass popup — same treatment as the bar. Hover or keyboard
-                focus reveals the full local created/updated stamps. */}
-            <div className="nb-time-pop" role="tooltip">
-              <span><i aria-hidden="true" />CREATED — {createdLabel}</span>
-              <span className="upd"><i aria-hidden="true" />UPDATED — {updatedLabel}</span>
-            </div>
-          </div>
-
-          <NoteDeleteButton noteId={note.id} />
+          {/* Action menu — export, last edited, pin, read-only, trash. */}
+          <button
+            ref={menuBtnRef}
+            type="button"
+            className="nb-menu-btn"
+            onClick={() => setMenuOpen((open) => !open)}
+            title="Note actions"
+            aria-label="Note actions"
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+          >
+            <Ellipsis size={15} />
+          </button>
+          {menuOpen && (
+            <NoteMenu
+              anchorRef={menuBtnRef}
+              note={menuNote}
+              onClose={() => setMenuOpen(false)}
+              onDeleted={() => router.push("/dashboard")}
+            />
+          )}
         </div>
       </header>
 
@@ -290,7 +261,7 @@ export function NoteLayoutView({ note }: { note: Note }) {
             role="tabpanel"
             aria-label="Document view"
           >
-            <div className="doc-wrap">
+            <div className={`doc-wrap${readOnly ? " is-locked" : ""}`}>
               <BlockEditor
                 noteId={note.id}
                 initialBlocks={blocks}
@@ -306,6 +277,9 @@ export function NoteLayoutView({ note }: { note: Note }) {
             role="tabpanel"
             aria-label="Canvas view"
           >
+            {/* Canvas is exempt from the read-only lock (user decision):
+                node drags and connections save spatial data only and
+                the server accepts canvas-metadata-only PUTs. */}
             <CanvasView
               noteId={note.id}
               initialBlocks={blocks}

@@ -12,6 +12,34 @@ import { useSyncExternalStore } from "react";
 let count = 0;
 const listeners = new Set<() => void>();
 
+// Navigation segment: Next's App Router gives no global transition
+// events, so the PendingBar component arms this on same-app anchor
+// clicks (and router.push call sites arm it directly). The pathname
+// effect ends it the moment the URL settles.
+let navActive = false;
+let navTimer: ReturnType<typeof setTimeout> | null = null;
+
+/** Mark the start of an in-app navigation (link click / router.push). */
+export function beginNavPending(): void {
+  navActive = true;
+  if (navTimer) clearTimeout(navTimer);
+  // Safety: a navigation that never settles (blocked, cancelled) must
+  // not leave the bar stuck on.
+  navTimer = setTimeout(() => endNavPending(), 15_000);
+  for (const listener of listeners) listener();
+}
+
+/** End the navigation segment — pathname settled, or safety timeout. */
+export function endNavPending(): void {
+  if (!navActive) return;
+  navActive = false;
+  if (navTimer) {
+    clearTimeout(navTimer);
+    navTimer = null;
+  }
+  for (const listener of listeners) listener();
+}
+
 /** Mark the start of a tracked request (idempotent per begin/end pair). */
 export function beginPending(): void {
   count += 1;
@@ -37,7 +65,7 @@ function subscribe(listener: () => void): () => void {
 }
 
 function getSnapshot(): boolean {
-  return count > 0;
+  return count > 0 || navActive;
 }
 
 function getServerSnapshot(): boolean {

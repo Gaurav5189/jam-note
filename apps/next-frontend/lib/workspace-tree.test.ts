@@ -26,6 +26,8 @@ function note(id: string, folder_id: string | null): NoteListItem {
     emoji_icon: null,
     color: null,
     is_published: false,
+    is_pinned: false,
+    read_only: false,
     created_at: "2026-09-01T00:00:00Z",
     updated_at: "2026-09-01T00:00:00Z",
   };

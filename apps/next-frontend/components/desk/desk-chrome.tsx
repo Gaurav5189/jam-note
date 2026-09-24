@@ -6,6 +6,7 @@ import { fetchApi } from "@/lib/api";
 
 export const DESK_TOAST_EVENT = "jam:desk-toast";
 export const DESK_BURST_EVENT = "jam:desk-burst";
+export const DESK_FLY_EVENT = "jam:desk-fly";
 export const DESK_SIGNOUT_EVENT = "jam:desk-signout";
 
 /** Fire a mono toast line (bottom-left paper chip). */
@@ -16,6 +17,14 @@ export function deskToast(message: string) {
 /** One-shot confirmation ink burst at viewport coordinates. Never a trail. */
 export function deskBurst(x: number, y: number, color: string) {
   window.dispatchEvent(new CustomEvent(DESK_BURST_EVENT, { detail: { x, y, color } }));
+}
+
+/** Fly a small paper chip from (x, y) to the runhead's profile chip —
+ *  the "trashed note goes to Profile" arc. Label rides the chip. */
+export function deskFly(x: number, y: number, label: string) {
+  window.dispatchEvent(
+    new CustomEvent(DESK_FLY_EVENT, { detail: { x, y, label } })
+  );
 }
 
 const REGMARK =
@@ -116,6 +125,63 @@ export function DeskChrome() {
     };
     addEventListener(DESK_BURST_EVENT, onBurst);
     return () => removeEventListener(DESK_BURST_EVENT, onBurst);
+  }, []);
+
+  // Fly-to-profile chips — a trashed note's little paper card arcs to
+  // the runhead avatar (the Profile door). Skipped for reduced-motion.
+  useEffect(() => {
+    const onFly = (event: Event) => {
+      const { x, y, label } = (
+        event as CustomEvent<{ x: number; y: number; label: string }>
+      ).detail;
+      const layer = document.querySelector<HTMLElement>(".desk .ink-bursts");
+      const target = document.querySelector<HTMLElement>("[data-desk-avatar]");
+      if (!layer || !target) return;
+      if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+      if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+      const rect = target.getBoundingClientRect();
+      const dx = rect.left + rect.width / 2 - x;
+      const dy = rect.top + rect.height / 2 - y;
+
+      const chip = document.createElement("i");
+      chip.className = "fly-chip";
+      chip.textContent = label;
+      chip.style.left = `${x}px`;
+      chip.style.top = `${y}px`;
+      layer.append(chip);
+
+      // Arc: pop in, rise, then shrink into the profile chip and fade.
+      const settle = chip.animate(
+        [
+          {
+            transform: "translate(-50%,-50%) scale(.6) rotate(0deg)",
+            opacity: 0,
+          },
+          {
+            transform: "translate(-50%,-50%) scale(1) rotate(-3deg)",
+            opacity: 1,
+            offset: 0.15,
+          },
+          {
+            transform: `translate(calc(-50% + ${dx * 0.3}px), calc(-50% + ${
+              Math.min(dy * 0.3, -30) - 52
+            }px)) scale(.92) rotate(-6deg)`,
+            opacity: 1,
+            offset: 0.55,
+          },
+          {
+            transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(.1) rotate(9deg)`,
+            opacity: 0,
+          },
+        ],
+        { duration: 720, easing: "cubic-bezier(.45,0,.55,1)" }
+      );
+      settle.onfinish = () => chip.remove();
+      window.setTimeout(() => chip.remove(), 1000);
+    };
+    addEventListener(DESK_FLY_EVENT, onFly);
+    return () => removeEventListener(DESK_FLY_EVENT, onFly);
   }, []);
 
   // Sign-out overlay — the concept's session-end plate, repurposed as

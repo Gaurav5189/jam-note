@@ -108,6 +108,8 @@ Notes are content leaves (Phase 6, "Folders in Denial"): each note lives in zero
   "links_to": ["ObjectId"],
   "backlinks": ["ObjectId"],
   "is_published": "boolean (indexed)",
+  "is_pinned": "boolean (default false — dashboard pin indicator)",
+  "read_only": "boolean (default false — document lock; while true, title + text/type/block-list PUTs are rejected 400 until lifted. Canvas is EXEMPT: canvas_metadata-only blocks PUTs and block_connections always pass)",
   "deleted_at": "ISODate | null (indexed; soft-delete timestamp, TTL purged after 30 days)",
   "published_metadata": {
     "slug": "string (unique/indexed, custom URL path)",
@@ -223,7 +225,7 @@ fastapi-backend/
   * `POST /` - Creates a new note (as document or canvas, optionally inside a folder via `folder_id`).
   * `GET /{note_id}` - Retrieves a single note's full block contents.
   * `GET /search?q=` - Title search used by the ⌘K palette.
-  * `PUT /{note_id}` - Updates a note's blocks/meta (including `folder_id` moves and the `color` sidebar accent — omitted vs explicit-null distinguishes "keep" from "clear"). **Shipped:** sends the full ordered `blocks` array (delta/JSON-patch syncing deliberately deferred until documents grow — see MEMORY.md Phase 3).
+  * `PUT /{note_id}` - Updates a note's blocks/meta (including `folder_id` moves and the `color` sidebar accent — omitted vs explicit-null distinguishes "keep" from "clear"), plus the action-menu flags: `is_pinned` (dashboard pin) and `read_only` (document lock). **Shipped:** sends the full ordered `blocks` array (delta/JSON-patch syncing deliberately deferred until documents grow — see MEMORY.md Phase 3). While `read_only` is true the DOCUMENT is locked: title changes and text/type/block-list changes are rejected 400 ("lift the lock first") — but the **canvas stays fully live** (user decision): blocks PUTs that differ only in `canvas_metadata` (node positions/dimensions) and any `block_connections` update pass, so dragging a node never sync-errors. Layout switching, folder moves, accents, pins, and the unlock request itself stay allowed.
   * `DELETE /{note_id}` - Files the note into the trash (30-day retention). **Empty notes (no blocks, or every block blank: empty text, no src, dividers never count) are deleted permanently instead** — response is `200 {purged, message}` telling which happened (empty → `purged: true`, skipped the trash).
   * `POST /{note_id}/restore` - Restores a soft-deleted note by clearing `deleted_at` (a dangling folder reference restores to the workspace root).
   * `POST /{note_id}/purge` - Permanently deletes a trashed note (immediate, irrecoverable; live notes are 404 here).

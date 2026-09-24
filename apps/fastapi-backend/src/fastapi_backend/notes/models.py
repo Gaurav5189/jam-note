@@ -104,6 +104,8 @@ class NoteUpdate(BaseModel):
     color: str | None = None
     blocks: list[Block] | None = None
     block_connections: list[BlockConnection] | None = None
+    is_pinned: bool | None = None
+    read_only: bool | None = None
 
     @field_validator("title", mode="before")
     @classmethod
@@ -128,6 +130,8 @@ class NoteListItem(BaseModel):
     emoji_icon: str | None
     color: str | None = None
     is_published: bool
+    is_pinned: bool = False
+    read_only: bool = False
     created_at: datetime
     updated_at: datetime
 
@@ -143,6 +147,8 @@ class NoteListItem(BaseModel):
             emoji_icon=data.get("emoji_icon"),
             color=data.get("color"),
             is_published=data.get("is_published", False),
+            is_pinned=data.get("is_pinned", False),
+            read_only=data.get("read_only", False),
             created_at=data["created_at"],
             updated_at=data["updated_at"],
         )
@@ -164,6 +170,8 @@ class NoteOut(NoteListItem):
             emoji_icon=data.get("emoji_icon"),
             color=data.get("color"),
             is_published=data.get("is_published", False),
+            is_pinned=data.get("is_pinned", False),
+            read_only=data.get("read_only", False),
             created_at=data["created_at"],
             updated_at=data["updated_at"],
             blocks=[Block.model_validate(block) for block in data.get("blocks", [])],
@@ -192,6 +200,8 @@ class TrashItem(NoteListItem):
             emoji_icon=data.get("emoji_icon"),
             color=data.get("color"),
             is_published=data.get("is_published", False),
+            is_pinned=data.get("is_pinned", False),
+            read_only=data.get("read_only", False),
             created_at=data["created_at"],
             updated_at=data["updated_at"],
             deleted_at=data["deleted_at"],
