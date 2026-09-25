@@ -10,6 +10,7 @@ import { BlockEditor, type EditorUndoState } from "@/components/editor/block-edi
 import { CanvasView } from "@/components/canvas/canvas-view";
 import { NoteTitleEditor } from "@/components/note-header";
 import { NoteMenu } from "@/components/note-menu";
+import { parseBlockIdFromHash } from "@/lib/search";
 
 /**
  * Icon construct — the concept's stroke-draw + dot-pop figures. The
@@ -157,6 +158,54 @@ export function NoteLayoutView({ note }: { note: Note }) {
     },
     [handleToggle, layout, note.id, updateNote]
   );
+
+  /**
+   * Deep-link jump-to-the-line handler.
+   * Smoothly scrolls to target block and flashes electric neon (#D1FF4D) for 1.5s.
+   * Switches to document layout if currently viewing spatial canvas.
+   */
+  const scrollToBlock = useCallback(
+    (targetBlockId: string) => {
+      if (layout !== "document") {
+        handleToggle("document");
+        updateNote(note.id, { layout_type: "document" }).catch(() => {});
+      }
+
+      let attempts = 0;
+      const tryScroll = () => {
+        const el = document.getElementById(`block-${targetBlockId}`);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+          el.classList.add("neon-flash");
+          setTimeout(() => el.classList.remove("neon-flash"), 1500);
+        } else if (attempts < 10) {
+          attempts++;
+          setTimeout(tryScroll, 60);
+        }
+      };
+
+      requestAnimationFrame(() => {
+        requestAnimationFrame(tryScroll);
+      });
+    },
+    [handleToggle, layout, note.id, updateNote]
+  );
+
+  useEffect(() => {
+    const handleHash = () => {
+      if (typeof window === "undefined") return;
+      const targetBlockId = parseBlockIdFromHash(window.location.hash);
+      if (targetBlockId) {
+        scrollToBlock(targetBlockId);
+      }
+    };
+
+    handleHash();
+    window.addEventListener("hashchange", handleHash);
+    return () => {
+      window.removeEventListener("hashchange", handleHash);
+    };
+  }, [scrollToBlock]);
 
   const docActive = layout === "document";
   const canActive = layout === "canvas";

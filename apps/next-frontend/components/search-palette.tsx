@@ -1,23 +1,41 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { FileText } from "lucide-react";
 import { useWorkspace } from "@/context/workspace-context";
 import { fetchApi } from "@/lib/api";
 import { findNotePath } from "@/lib/workspace-tree";
 import { beginNavPending } from "@/lib/pending-bar";
-import type { NoteListItem } from "@/lib/types";
 import { OPEN_SEARCH_EVENT } from "@/components/header";
+import { parseHighlightSegments, type SearchResponse, type SearchResultItem } from "@/lib/search";
 
-const DEBOUNCE_MS = 300;
+const DEBOUNCE_MS = 250;
+
+function HighlightedSnippet({ text }: { text: string }) {
+  const segments = useMemo(() => parseHighlightSegments(text), [text]);
+  return (
+    <>
+      {segments.map((seg, idx) =>
+        seg.highlighted ? (
+          <mark key={idx} className="pal-mark">
+            {seg.text}
+          </mark>
+        ) : (
+          <span key={idx}>{seg.text}</span>
+        )
+      )}
+    </>
+  );
+}
 
 export function SearchPalette() {
   const { tree } = useWorkspace();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<NoteListItem[]>([]);
+  const [results, setResults] = useState<SearchResultItem[]>([]);
+  const [isMagic, setIsMagic] = useState(true);
   const [activeIndex, setActiveIndex] = useState(0);
   const [searching, setSearching] = useState(false);
 
@@ -30,13 +48,18 @@ export function SearchPalette() {
     setQuery("");
     setResults([]);
     setActiveIndex(0);
+    setIsMagic(true);
   }, []);
 
   const navigateTo = useCallback(
-    (id: string) => {
+    (noteId: string, blockId: string | null) => {
       close();
       beginNavPending();
-      router.push(`/notes/${id}`);
+      if (blockId) {
+        router.push(`/notes/${noteId}#block-${blockId}`);
+      } else {
+        router.push(`/notes/${noteId}`);
+      }
     },
     [close, router]
   );
@@ -58,29 +81,32 @@ export function SearchPalette() {
     };
   }, []);
 
-  // Debounced search, cancelling stale requests. The empty-query state is
-  // derived at render time (`query.trim() === ""` branch below), so this
-  // effect only arms the timer for non-empty queries — no synchronous
-  // setState inside the effect.
+  // Debounced search, cancelling stale requests.
   useEffect(() => {
     if (!open) return;
     const trimmed = query.trim();
-    if (!trimmed) return;
+    if (!trimmed) {
+      return;
+    }
 
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
     debounceTimer.current = setTimeout(async () => {
       const seq = ++requestSeq.current;
       setSearching(true);
       try {
-        const found = await fetchApi<NoteListItem[]>(
-          `/api/notes/search?q=${encodeURIComponent(trimmed)}`
+        const response = await fetchApi<SearchResponse>(
+          `/api/search?q=${encodeURIComponent(trimmed)}`
         );
         if (seq === requestSeq.current) {
-          setResults(found);
+          setResults(response.results);
+          setIsMagic(response.magic);
           setActiveIndex(0);
         }
       } catch (err) {
-        if (seq === requestSeq.current) setResults([]);
+        if (seq === requestSeq.current) {
+          setResults([]);
+          setIsMagic(false);
+        }
         console.error("Search failed:", err);
       } finally {
         if (seq === requestSeq.current) setSearching(false);
@@ -121,7 +147,7 @@ export function SearchPalette() {
     if (event.key === "Enter") {
       event.preventDefault();
       const selected = results[activeIndex];
-      if (selected) navigateTo(selected.id);
+      if (selected) navigateTo(selected.note_id, selected.block_id);
     }
   };
 
@@ -137,7 +163,14 @@ export function SearchPalette() {
     >
       <div className="pal-card" onClick={(e) => e.stopPropagation()}>
         <div className="pal-head">
-          <span>INDEX — SEARCH</span>
+          <div className="pal-head-left">
+            <span>INDEX — SEARCH</span>
+            {!isMagic && (
+              <span className="pal-offline-chip" role="status">
+                MAGIC SEARCH OFFLINE
+              </span>
+            )}
+          </div>
           <span>ESC TO CLOSE</span>
         </div>
 
@@ -147,7 +180,7 @@ export function SearchPalette() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Search notes…"
+            placeholder="Search notes and block content…"
             className="pal-input"
             aria-label="Search query"
           />
@@ -156,23 +189,37 @@ export function SearchPalette() {
 
         <ul className="pal-list">
           {query.trim() === "" ? (
-            <li className="pal-empty">Type to filter workspace.</li>
+            <li className="pal-empty">Type to search notes and content.</li>
           ) : results.length === 0 && !searching ? (
             <li className="pal-empty">No signal — no notes match.</li>
           ) : (
-            results.map((note, index) => {
-              const parentPath = parentPathLabel(note.id);
+            results.map((result, index) => {
+              const isBlockMatch = result.block_id !== null;
+              const parentPath = parentPathLabel(result.note_id);
+
               return (
-                <li key={note.id}>
+                <li key={`${result.note_id}:${result.block_id ?? "title"}:${result.rank}`}>
                   <button
-                    onClick={() => navigateTo(note.id)}
+                    onClick={() => navigateTo(result.note_id, result.block_id)}
                     onMouseEnter={() => setActiveIndex(index)}
                     className={`pal-item${index === activeIndex ? " is-active" : ""}`}
                   >
                     <FileText size={14} aria-hidden="true" />
                     <span style={{ minWidth: 0, flex: 1 }}>
-                      <span className="pal-title">{note.title}</span>
-                      {parentPath && <span className="pal-path">{parentPath}</span>}
+                      <span className="pal-title">
+                        {isBlockMatch ? (
+                          result.note_title
+                        ) : (
+                          <HighlightedSnippet text={result.snippet || result.note_title} />
+                        )}
+                      </span>
+                      {isBlockMatch ? (
+                        <span className="pal-snippet">
+                          <HighlightedSnippet text={result.snippet} />
+                        </span>
+                      ) : (
+                        parentPath && <span className="pal-path">{parentPath}</span>
+                      )}
                     </span>
                   </button>
                 </li>

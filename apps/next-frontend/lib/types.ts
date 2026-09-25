@@ -152,3 +152,18 @@ export interface ImportCommit {
   notes: number;
   message: string;
 }
+
+/** Individual search match from GET /api/search */
+export interface SearchResultItem {
+  note_id: string;
+  block_id: string | null;
+  note_title: string;
+  snippet: string;
+  rank: number;
+}
+
+/** Unified response envelope from GET /api/search */
+export interface SearchResponse {
+  magic: boolean;
+  results: SearchResultItem[];
+}
