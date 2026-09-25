@@ -11,6 +11,7 @@ from fastapi_backend.notes.router import router as notes_router
 from fastapi_backend.folders.router import router as folders_router
 from fastapi_backend.folders.router import workspace_router
 from fastapi_backend.importing.router import router as importing_router
+from fastapi_backend.search.router import router as search_router
 
 
 @asynccontextmanager
@@ -53,3 +54,4 @@ app.include_router(notes_router, prefix="/api")
 app.include_router(folders_router, prefix="/api")
 app.include_router(workspace_router, prefix="/api")
 app.include_router(importing_router, prefix="/api")
+app.include_router(search_router, prefix="/api")

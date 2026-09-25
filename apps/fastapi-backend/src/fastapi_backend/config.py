@@ -10,6 +10,14 @@ class Settings(BaseSettings):
     cookie_name: str = "jam_session"
     cors_origins: list[str] = ["http://localhost:3000"]
 
+    # OpenSearch settings
+    opensearch_url: str = "http://localhost:9200"
+    opensearch_user: str | None = None
+    opensearch_password: str | None = None
+    opensearch_index: str = "notes-blocks-v1"
+    opensearch_alias: str = "notes-blocks"
+    opensearch_timeout: float = 5.0
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

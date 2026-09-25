@@ -10,6 +10,7 @@ requires-python = ">=3.14"
 dependencies = [
     "fastapi[standard]>=0.141.1",
     "motor>=3.7.1",
+    "opensearch-py>=3.2.0",
     "pwdlib[bcrypt]>=0.3.1",
     "pydantic-settings>=2.15.0",
     "pydantic[email]>=2.13.5",
