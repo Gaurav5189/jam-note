@@ -261,14 +261,14 @@ key so events for one note retain partition ordering. OpenSearch block ids use
 
 #### Verification checklist
 
-- [ ] A note update and its outbox event are committed together on replica-set/Atlas MongoDB.
-- [ ] A Kafka outage does not fail an already committed note update.
-- [ ] The publisher retries failed records and reclaims leases after worker crashes.
-- [ ] Duplicate delivery does not create duplicate OpenSearch state.
-- [ ] A dead-letter event and structured error are produced after retry exhaustion.
-- [ ] Replay/reconciliation restores downstream state from MongoDB.
-- [ ] FastAPI writes note data and the outbox event in one Atlas/replica-set transaction with an owner filter.
-- [ ] Go `test`, `vet`, and `build` checks pass, including duplicate, crash, Kafka outage, lease, and Error 286 scenarios.
+- [x] A note update and its outbox event are committed together on replica-set/Atlas MongoDB.
+- [x] A Kafka outage does not fail an already committed note update.
+- [x] The publisher retries failed records and reclaims leases after worker crashes.
+- [x] Duplicate delivery does not create duplicate OpenSearch state.
+- [x] A dead-letter event and structured error are produced after retry exhaustion.
+- [x] Replay/reconciliation restores downstream state from MongoDB.
+- [x] FastAPI writes note data and the outbox event in one Atlas/replica-set transaction with an owner filter.
+- [x] Go `test`, `vet`, and `build` checks pass, including duplicate, crash, Kafka outage, lease, and Error 286 scenarios.
 
 ### Milestones
 1. **OpenSearch Client & Index Schema** (`src/fastapi_backend/search/`):
@@ -292,11 +292,11 @@ key so events for one note retain partition ordering. OpenSearch block ids use
    - Aggregations for usage analytics (popular searches, most-edited notes — internal dashboard).
 
 ### Verification Checklist
-- [ ] Search finds text inside any block of any note, tolerating typos.
-- [ ] Selecting a result opens the note scrolled to the exact block with a neon flash; the URL hash deep-links there.
-- [ ] Multi-tenant isolation: no query ever returns another user's content.
-- [ ] With OpenSearch down, saves and title search still work (graceful degradation).
-- [ ] The reindex script rebuilds the full index from MongoDB; incremental sync is correct across create/update/delete.
+- [x] Search finds text inside any block of any note, tolerating typos.
+- [x] Selecting a result opens the note scrolled to the exact block with a neon flash; the URL hash deep-links there.
+- [x] Multi-tenant isolation: no query ever returns another user's content.
+- [x] With OpenSearch down, saves and title search still work (graceful degradation).
+- [x] The reindex script rebuilds the full index from MongoDB; incremental sync is correct across create/update/delete.
 
 ---
 

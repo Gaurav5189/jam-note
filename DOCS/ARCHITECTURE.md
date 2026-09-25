@@ -40,7 +40,7 @@ This document details the software architecture, database design, and technical 
 2. **Backend:** FastAPI, Python 3.14, Pydantic v2. Fully asynchronous MongoDB connection via motor/pymongo.
 3. **Database:** MongoDB (using motor async driver). A document-based DB is perfect for storing block hierarchies, nested trees, and flexible custom block configurations.
 4. **Event stream:** Aiven Kafka, used for durable asynchronous domain events. Kafka is not the source of truth for notes.
-5. **Workers:** Separate Python processes that publish outbox records or consume Kafka topics. MongoDB and Aiven do not provide these application workers.
+5. **Workers:** Standalone Go daemons (`apps/hybrid_outbox_streamer` and `apps/search-indexer`) deployed as AlwaysData persistent services (`Idle time = 0`). MongoDB and Aiven do not provide these workers — they are application-owned processes that run continuously alongside the FastAPI backend.
 
 ---
 
@@ -204,11 +204,13 @@ fastapi-backend/
 │       │   └── service.py
 │       ├── events/
 │       │   ├── schemas.py       # Versioned domain-event payloads
-│       │   ├── outbox.py        # Transactional outbox writes and claiming
-│       │   └── producer.py      # Aiven Kafka producer configuration
-│       ├── publishing/
-│       │   ├── router.py
-│       │   └── service.py
+│       │   └── outbox.py        # Transactional outbox writes (FastAPI side only)
+│       │                        # Kafka publishing is handled by apps/hybrid_outbox_streamer (Go daemon)
+│       ├── search/
+│       │   ├── client.py        # Sync opensearch-py singleton, override hook for tests
+│       │   ├── service.py       # Query building, highlight parsing, graceful fallback
+│       │   ├── router.py        # GET /api/search?q= with CurrentUserDep
+│       │   └── schemas.py       # SearchResultItem, SearchResponse Pydantic models
 │       └── utils/
 ```
 
@@ -296,27 +298,46 @@ strict cross-document atomic write. Production outbox mode should therefore use
 MongoDB Atlas or a replica-set deployment. Until then, local development can
 use Kafka-disabled tests plus reconciliation/reindex tooling.
 
-### What the worker is
-The worker is not supplied by MongoDB or Aiven. It is a separately deployed Go
-daemon in the `outbox-streamer` service, running on AlwaysData as a persistent
-service with `Idle time = 0`.
+### What the workers are
+There are two standalone Go daemons. Neither is supplied by MongoDB or Aiven. Both are deployed on AlwaysData as persistent services with `Idle time = 0`.
+
+#### `apps/hybrid_outbox_streamer` — Outbox Publisher
+
+The outbox streamer reads from the `event_outbox` MongoDB collection and publishes events to Aiven Kafka.
 
 ```text
 ./streamer
 ```
 
-It uses MongoDB Change Streams only to generate low-latency candidates. A
-reconciliation loop independently scans pending records, expired publishing
-leases, and replayable failed records. The publisher atomically claims each
-candidate, publishes the complete event envelope to Kafka, updates MongoDB,
-and persists the resume token only after successful delivery.
+| Component | Responsibility |
+|---|---|
+| `changestream.Watcher` | Monitors `event_outbox` inserts via MongoDB Change Streams; persists resume token to `streamer_state._id = "main_streamer"`. Recovers from Error 286 by clearing the saved token and falling back to reconciliation. |
+| `reconcile.Poller` | Runs every 2 minutes scanning bounded batches of overdue `pending` events (`available_at <= now`) and expired publishing leases (`status: "publishing"`, `claimed_at <= now − lease_duration`). |
+| Atomic claim | `FindOneAndUpdate` targeting `status: "pending"` or an expired `"publishing"` record; sets `status: "publishing"`, `claimed_at: now`, `attempts++`. Duplicate candidates from stream + poller collision are safe no-ops. |
+| Publisher | Publishes only the clean event envelope to `jam-note.note-events.v1` using `aggregate_id` as the Kafka key. Marks `published` only after Kafka ack. Transient failures retry with backoff; permanent failures mark `failed + error_reason` (MongoDB is the dead-letter store). |
+| `heartbeat` | Sends `system.heartbeat` at startup (with 1m/5m/15m retry backoff) and every 6h to satisfy Aiven's inactivity eviction policy. |
+| CLI | `streamer replay` resets failed events to `pending`; `streamer reset-token` clears the Change Stream resume token. |
+
+#### `apps/search-indexer` — OpenSearch Consumer
+
+The search indexer consumes Kafka events and maintains the OpenSearch block-level full-text index.
+
+```text
+./indexer
+```
+
+| Component | Responsibility |
+|---|---|
+| Consumer group | `jam-note-search-indexer` (Franz-go `kgo`). Manual offset commits: offset is committed only **after** successful OpenSearch confirmation. |
+| Index schema | Index `notes-blocks-v1` (1 shard, 1 replica) with alias `notes-blocks`. Custom `autocomplete` analyzer (standard tokenizer + `autocomplete_filter` edge_ngram, min:1, max:20). Fields: `user_id` (keyword), `note_id` (keyword), `block_id` (keyword), `note_title` (text + `.autocomplete`), `block_order` (integer), `text` (text), `updated_at` (date). Schema embedded from `schema/notes_blocks_schema.json` (shared with `reindex.py`). |
+| Document IDs | `note_id:block_id` — deterministic, structurally idempotent; a re-index of the same note overwrites existing docs without creating duplicates. |
+| `note.changed` | Fetches note from MongoDB Atlas. If missing or `deleted_at != nil`, runs `DeleteByQuery` for `note_id`. If active, runs `DeleteByQuery` + bulk-indexes all text-bearing blocks (`text`, `header-1/2/3`, `todo`, `list-item`, `code`). |
+| `note.deleted` | Executes `DeleteByQuery` by `note_id` — removes all block docs for that note. |
+| `system.heartbeat` | Skipped; offset committed with no OpenSearch action. |
+| Fault tolerance | Exponential backoff on transient MongoDB or OpenSearch errors; no premature offset advance; graceful SIGTERM drain. |
 
 ### Kafka consumers
-The OpenSearch indexer is a separate consumer process with its own Kafka
-consumer group, for example `jam-note-search-indexer`. Future consumers use
-different groups, allowing the same event stream to independently feed search,
-analytics, notifications, or publishing workflows. Consumers must preserve
-tenant isolation using `user_id`.
+Each consumer daemon uses its own Kafka consumer group, so the same event stream independently feeds search, analytics, notifications, or publishing workflows without one consumer blocking another. Consumers must preserve tenant isolation using `user_id`.
 
 ### Delivery and recovery rules
 
