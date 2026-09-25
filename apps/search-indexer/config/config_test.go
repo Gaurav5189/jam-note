@@ -40,11 +40,23 @@ TEST_SEARCH_VAR3='single quoted'
 }
 
 func TestConfigDefaultsAndValidation(t *testing.T) {
-	// Clear any overrides
+	// Isolate from any repo-level .env files
+	tmpDir := t.TempDir()
+	origDir, _ := os.Getwd()
+	_ = os.Chdir(tmpDir)
+	defer func() { _ = os.Chdir(origDir) }()
+
+	// Clear relevant env vars
 	os.Unsetenv("MONGODB_URL")
 	os.Unsetenv("MONGODB_URI")
+	os.Unsetenv("DATABASE_NAME")
 	os.Unsetenv("KAFKA_BROKERS")
+	os.Unsetenv("KAFKA_TOPIC")
+	os.Unsetenv("KAFKA_GROUP_ID")
 	os.Unsetenv("OPENSEARCH_URL")
+	os.Unsetenv("OPENSEARCH_URI")
+	os.Unsetenv("OPENSEARCH_INDEX")
+	os.Unsetenv("OPENSEARCH_ALIAS")
 
 	cfg, err := LoadFromEnv()
 	if err != nil {
@@ -86,8 +98,15 @@ func TestConfigDefaultsAndValidation(t *testing.T) {
 }
 
 func TestOpenSearchURLCredentialsExtraction(t *testing.T) {
+	// Isolate from any repo-level .env files
+	tmpDir := t.TempDir()
+	origDir, _ := os.Getwd()
+	_ = os.Chdir(tmpDir)
+	defer func() { _ = os.Chdir(origDir) }()
+
 	t.Setenv("OPENSEARCH_URL", "https://alice:secret123@opensearch.example.com:9200")
 	os.Unsetenv("OPENSEARCH_USER")
+	os.Unsetenv("OPENSEARCH_USERNAME")
 	os.Unsetenv("OPENSEARCH_PASSWORD")
 
 	cfg, err := LoadFromEnv()
