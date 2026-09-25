@@ -6,6 +6,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/twmb/franz-go/pkg/kgo"
@@ -45,7 +46,17 @@ func NewFranzProducer(cfg *config.Config) (*FranzProducer, error) {
 		} else {
 			certBytes, err = os.ReadFile(cfg.KafkaCACert)
 			if err != nil {
-				return nil, fmt.Errorf("reading Kafka CA certificate file: %w", err)
+				// Try parent directories in case command is run from a subfolder
+				for _, alt := range []string{filepath.Join("..", cfg.KafkaCACert), filepath.Join("../..", cfg.KafkaCACert)} {
+					if b, readErr := os.ReadFile(alt); readErr == nil {
+						certBytes = b
+						err = nil
+						break
+					}
+				}
+				if err != nil {
+					return nil, fmt.Errorf("reading Kafka CA certificate file: %w", err)
+				}
 			}
 		}
 

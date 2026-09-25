@@ -1,6 +1,8 @@
 package config
 
 import (
+	"bufio"
+	"bytes"
 	"fmt"
 	"os"
 	"strconv"
@@ -34,7 +36,10 @@ type Config struct {
 }
 
 // LoadFromEnv loads configuration from environment variables with production defaults.
+// It automatically attempts to load .env from the current or parent directories if present.
 func LoadFromEnv() (*Config, error) {
+	LoadDotEnv()
+
 	mongoURI := getEnv("MONGODB_URL", getEnv("MONGODB_URI", "mongodb://localhost:27017"))
 	dbName := getEnv("DATABASE_NAME", "jam_note")
 
@@ -123,3 +128,52 @@ func (c *Config) Validate() error {
 	}
 	return nil
 }
+
+// LoadDotEnv searches for a .env file in the current and parent directories,
+// parsing KEY=VALUE pairs and setting them if not already present in the environment.
+func LoadDotEnv(paths ...string) {
+	if len(paths) == 0 {
+		paths = []string{".env", "../.env", "../../.env"}
+	}
+	for _, path := range paths {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+		scanner := bufio.NewScanner(bytes.NewReader(data))
+		for scanner.Scan() {
+			line := strings.TrimSpace(scanner.Text())
+			if line == "" || strings.HasPrefix(line, "#") {
+				continue
+			}
+			if strings.HasPrefix(line, "export ") {
+				line = strings.TrimSpace(strings.TrimPrefix(line, "export "))
+			}
+			parts := strings.SplitN(line, "=", 2)
+			if len(parts) != 2 {
+				continue
+			}
+			key := strings.TrimSpace(parts[0])
+			val := strings.TrimSpace(parts[1])
+
+			// Strip optional inline comments if separated by whitespace
+			if idx := strings.Index(val, " #"); idx != -1 {
+				val = strings.TrimSpace(val[:idx])
+			}
+
+			// Strip surrounding single or double quotes
+			if len(val) >= 2 {
+				if (val[0] == '"' && val[len(val)-1] == '"') || (val[0] == '\'' && val[len(val)-1] == '\'') {
+					val = val[1 : len(val)-1]
+				}
+			}
+
+			// Only set if not already set in the current process environment
+			if _, exists := os.LookupEnv(key); !exists {
+				_ = os.Setenv(key, val)
+			}
+		}
+		break
+	}
+}
+
