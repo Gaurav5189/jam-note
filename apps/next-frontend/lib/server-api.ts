@@ -6,8 +6,7 @@ import { cookies } from "next/headers";
 
 export const SESSION_COOKIE_NAME = "jam_session";
 
-const BACKEND_INTERNAL_URL =
-  process.env.BACKEND_INTERNAL_URL ?? "http://localhost:8000";
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 export class ApiError extends Error {
   status: number;
@@ -28,7 +27,7 @@ export async function serverFetchApi<T>(endpoint: string): Promise<T> {
     headers["Cookie"] = `${SESSION_COOKIE_NAME}=${session}`;
   }
 
-  const response = await fetch(`${BACKEND_INTERNAL_URL}${endpoint}`, {
+  const response = await fetch(`${API_URL}${endpoint}`, {
     headers,
     cache: "no-store",
   });
