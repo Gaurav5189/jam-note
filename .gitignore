@@ -2,10 +2,13 @@
 node_modules/
 .pnpm-store/
 
-# Next.js
+# Next.js & Frontend Build Outputs
 .next/
 out/
 next-env.d.ts
+.turbo/
+*.tsbuildinfo
+.eslintcache
 
 # Production builds
 build/
@@ -43,14 +46,28 @@ ca.pem
 *.log
 *.pid
 *.pid.lock
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
 
-# Test and coverage output
+# Test, coverage and profiling output
 coverage/
+*.test
+*.prof
 
 # Go binaries and build artifacts
-streamer
-/search-indexer
 bin/
+/streamer
+/streamer-*
+/search-indexer
+/search-indexer-*
+apps/hybrid_outbox_streamer/streamer
+apps/hybrid_outbox_streamer/streamer-*
+apps/hybrid_outbox_streamer/cmd/streamer/streamer
+apps/search-indexer/search-indexer
+apps/search-indexer/search-indexer-*
+apps/search-indexer/cmd/indexer/indexer
 
 # IDE and editor files
 .idea/
@@ -72,4 +89,5 @@ Desktop.ini
 *.swo
 *.tmp
 *.temp
+*~
 todo.txt
