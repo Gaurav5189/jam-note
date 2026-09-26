@@ -474,8 +474,23 @@ body.go .profile .p-stage{
 
 /* ── Responsive (design §8) ────────────────────────────────────── */
 
-@media(max-width:760px){
-  .profile .p-stage{padding:7vh 20px 10vh}
+/* Mobile (<768px, same breakpoint as the shell): the stage scrolls
+   independently under the fixed runhead, clears the home-indicator
+   inset at the bottom, and every small control keeps a 44×44 hit
+   area — glyphs stay small, padding grows (design.md §10). */
+@media(max-width:767px){
+  .profile .p-stage{padding:7vh 20px calc(10vh + env(safe-area-inset-bottom))}
+  .profile .p-btn-gold{padding:14px 24px}
+  .profile .p-btn-ghost{padding:12px 18px}
+  .profile .p-btn-text{padding:12px 0}
+  .profile .p-pw-toggle{
+    min-width:44px;min-height:44px;
+    display:inline-flex;align-items:center;justify-content:center;
+  }
+  /* The "?" help toggle keeps its 22px glyph box; the ::after plate
+     pads the hit area around it. */
+  .profile .p-row-help-toggle{position:relative}
+  .profile .p-row-help-toggle::after{content:"";position:absolute;inset:-11px}
 }
 @media(max-width:640px){
   .profile .p-id-row{flex-direction:column;gap:16px}

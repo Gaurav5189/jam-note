@@ -2,11 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Ellipsis, Redo2, Undo2 } from "lucide-react";
+import { Ellipsis, EllipsisVertical, Redo2, Undo2 } from "lucide-react";
 import { useWorkspace } from "@/context/workspace-context";
 import type { Block, BlockConnection, LayoutType, Note } from "@/lib/types";
 import { findNotePath, findFolderPath } from "@/lib/workspace-tree";
+import { useMediaQuery } from "@/lib/use-media-query";
+import { Breadcrumb } from "@/components/breadcrumb";
 import { BlockEditor, type EditorUndoState } from "@/components/editor/block-editor";
+import type { NoteMenuUndoRedo } from "@/components/note-menu";
 import { CanvasView } from "@/components/canvas/canvas-view";
 import { NoteTitleEditor } from "@/components/note-header";
 import { NoteMenu } from "@/components/note-menu";
@@ -58,14 +61,19 @@ const PANE_EXIT_MS = 500;
 
 /** Monospace breadcrumb showing the note's ancestor folders, rooted at
  *  WORKSPACE. Empty/absent when the note lives at the workspace root.
+ *  Breadcrumb truncates the MIDDLE segments first — the leaf of the
+ *  chain (and the note title beside it) is never the thing that gets
+ *  cut (make/design.md §7).
  */
 function FolderPath({ path }: { path: ReturnType<typeof findFolderPath> }) {
-  if (!path || path.length === 0) return null;
-  const label = ["WORKSPACE", ...path.map((f) => f.name)].join(" / ");
+  const names = path ? path.map((f) => f.name) : [];
+  if (names.length === 0) return null;
   return (
-    <span className="folder-path" title={label} aria-label="Folder path">
-      {label}
-    </span>
+    <Breadcrumb
+      segments={["WORKSPACE", ...names]}
+      className="folder-path"
+      ariaLabel="Folder path"
+    />
   );
 }
 
@@ -83,6 +91,10 @@ export function NoteLayoutView({ note }: { note: Note }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuBtnRef = useRef<HTMLButtonElement | null>(null);
   const exitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Below ~360px the undo/redo pill and the ⋯ trigger collapse into
+  // the menu's single ⋮ overflow (design.md §9): the pill is not
+  // rendered and UNDO/REDO ride as rows inside the action menu.
+  const isUltraNarrow = useMediaQuery("(max-width: 359px)");
 
   // Live metadata from the context tree (saveBlocks refreshes the node
   // on every quiet autosave; the menu's pin/lock toggles update it
@@ -93,6 +105,17 @@ export function NoteLayoutView({ note }: { note: Note }) {
   }, [tree, note.id]);
   const menuNote = liveNode ?? note;
   const readOnly = menuNote.read_only;
+  /** UNDO/REDO handed to the action menu below ~360px (else undefined —
+   *  the pill renders inline instead; desktop never passes this). */
+  const undoRedoInMenu: NoteMenuUndoRedo | undefined =
+    isUltraNarrow && layout === "document" && editorUndoState && !readOnly
+      ? {
+          undo: editorUndoState.undo,
+          redo: editorUndoState.redo,
+          canUndo: editorUndoState.canUndo,
+          canRedo: editorUndoState.canRedo,
+        }
+      : undefined;
   // Ancestor chain for the monospace folder-path label in the command bar.
   const folderPath = useMemo(() => {
     if (!note.folder_id) return null;
@@ -224,6 +247,9 @@ export function NoteLayoutView({ note }: { note: Note }) {
           {readOnly && <span className="nb-lock">READ-ONLY</span>}
         </div>
 
+        {/* The segmented DOCUMENT/CANVAS pair, desktop structure intact —
+            on mobile the words drop away (CSS hides .fig-tab-label and
+            the index <i>), leaving icon | icon (design.md §9). */}
         <div className="nb-seg" role="tablist" aria-label="Note surfaces">
           <button
             type="button"
@@ -234,7 +260,7 @@ export function NoteLayoutView({ note }: { note: Note }) {
             title="Switch to vertical document view"
           >
             <span className="ti"><ConstructIcon variant="document" active={docActive} /></span>
-            DOCUMENT <i>01</i>
+            <span className="fig-tab-label">DOCUMENT</span> <i>01</i>
           </button>
           <button
             type="button"
@@ -245,13 +271,15 @@ export function NoteLayoutView({ note }: { note: Note }) {
             title="Switch to spatial canvas view"
           >
             <span className="ti"><ConstructIcon variant="canvas" active={canActive} /></span>
-            CANVAS <i>02</i>
+            <span className="fig-tab-label">CANVAS</span> <i>02</i>
           </button>
         </div>
 
         <div className="nb-right">
-          {/* Document Mode Undo / Redo (canvas has its own in the HUD) */}
-          {docActive && editorUndoState && !readOnly && (
+          {/* Document Mode Undo / Redo (canvas has its own in the HUD).
+              Below ~360px the pill collapses — undo/redo move into the
+              ⋯ action menu instead (design.md §9). */}
+          {docActive && editorUndoState && !readOnly && !isUltraNarrow && (
             <div className="undo-pill">
               <button
                 type="button"
@@ -276,7 +304,9 @@ export function NoteLayoutView({ note }: { note: Note }) {
             </div>
           )}
 
-          {/* Action menu — export, last edited, pin, read-only, trash. */}
+          {/* Action menu — export, last edited, pin, read-only, trash.
+              Below ~360px it IS the single ⋮ overflow (undo/redo ride
+              as rows inside, via the undoRedo slot). */}
           <button
             ref={menuBtnRef}
             type="button"
@@ -287,12 +317,13 @@ export function NoteLayoutView({ note }: { note: Note }) {
             aria-haspopup="menu"
             aria-expanded={menuOpen}
           >
-            <Ellipsis size={15} />
+            {isUltraNarrow ? <EllipsisVertical size={20} /> : <Ellipsis size={15} />}
           </button>
           {menuOpen && (
             <NoteMenu
               anchorRef={menuBtnRef}
               note={menuNote}
+              undoRedo={undoRedoInMenu}
               onClose={() => setMenuOpen(false)}
               onDeleted={() => router.push("/dashboard")}
             />

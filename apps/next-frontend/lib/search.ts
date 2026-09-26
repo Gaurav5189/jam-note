@@ -1,5 +1,11 @@
 import type { SearchResponse, SearchResultItem } from "./types";
 
+/** Window event that opens the global search palette — dispatched by
+ *  the runhead's magic-search trigger, heard by SearchPalette.
+ *  Lives here (not in a component) so triggers never import each
+ *  other to reach it. */
+export const OPEN_SEARCH_EVENT = "jam:open-search";
+
 /**
  * Segment of text with highlight state for safe React rendering.
  * Avoids any need for dangerouslySetInnerHTML.

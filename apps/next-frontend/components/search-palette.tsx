@@ -7,8 +7,12 @@ import { useWorkspace } from "@/context/workspace-context";
 import { fetchApi } from "@/lib/api";
 import { findNotePath } from "@/lib/workspace-tree";
 import { beginNavPending } from "@/lib/pending-bar";
-import { OPEN_SEARCH_EVENT } from "@/components/header";
-import { parseHighlightSegments, type SearchResponse, type SearchResultItem } from "@/lib/search";
+import {
+  OPEN_SEARCH_EVENT,
+  parseHighlightSegments,
+  type SearchResponse,
+  type SearchResultItem,
+} from "@/lib/search";
 
 const DEBOUNCE_MS = 250;
 
@@ -174,7 +178,12 @@ export function SearchPalette() {
           <span>ESC TO CLOSE</span>
         </div>
 
-        <div style={{ position: "relative" }}>
+        {/* Search field with the magic-search beam border: the ring
+            (static hairline) and beam (3s cyan/blue sweep) sit behind
+            the input, which masks all but the outer 1px. */}
+        <div className="pal-search">
+          <span className="pal-search-ring" aria-hidden="true" />
+          <span className="pal-search-beam" aria-hidden="true" />
           <input
             autoFocus
             value={query}

@@ -274,6 +274,11 @@ body.intro-done .desk .ev-title .k{transition:none}
 /* The ⋯ button replaces the stamp's corner on hover (no overlap — the
    stamp slides out; touch devices never see the stamp at all). */
 .desk .dash-li:hover .dash-stamp{opacity:0;transform:translateX(10px)}
+/* Badge + date wrapper (recent-notes.tsx): dissolves on desktop so
+   the row's flex flow and item order are exactly what they were
+   before the wrapper existed; on mobile it becomes the wrapping
+   metadata line(s) under the title (see the ≤767px block). */
+.desk .dash-meta{display:contents}
 .desk .dash-canvas{font-family:var(--font-space-mono),monospace;font-size:8.5px;letter-spacing:.18em;color:var(--gold);flex:0 0 auto}
 .desk .dash-row:hover .dash-canvas{color:var(--red)}
 /* Row container anchors the ⋯ action menu button (a Link sibling —
@@ -336,6 +341,10 @@ body.go .desk .note-bar{opacity:1;transform:none}
 .nm-info{padding:8px 10px;font-size:8.5px;letter-spacing:.14em;color:rgba(243,239,230,.45);border-bottom:1.5px solid var(--hair2);margin-bottom:4px}
 .nm-row{display:block;width:100%;text-align:left;background:transparent;border:0;padding:9px 10px;font-family:var(--font-space-mono),monospace;font-size:9.5px;letter-spacing:.14em;color:var(--paper);cursor:pointer;transition:background .12s,color .12s}
 .nm-row:hover{background:var(--paper);color:var(--ink)}
+/* UNDO/REDO rows (the <360px collapse, design.md §9) disable — never
+   hide — when the stack is empty; a disabled row must not flip ink. */
+.nm-row:disabled{opacity:.3;cursor:default}
+.nm-row:disabled:hover{background:transparent;color:var(--paper)}
 /* Trash row — the reference bin sits before the label as a static
  * mark (no animation on request). */
 .nm-row.nm-danger{display:flex;align-items:center;gap:9px;color:var(--red)}
@@ -618,7 +627,28 @@ body.go .desk .note-bar{opacity:1;transform:none}
 .desk .pal-head-left{display:flex;align-items:center;gap:8px}
 .desk .pal-offline-chip{display:inline-block;padding:2px 6px;border:1px solid #FFB800;background:rgba(255,184,0,.15);color:#FFB800;font-family:var(--font-space-mono),monospace;font-size:7.5px;letter-spacing:.12em;font-weight:700;text-transform:uppercase}
 .desk .pal-head span:last-child{color:var(--red)}
-.desk .pal-input{width:100%;background:transparent;border:0;border-bottom:1.5px solid var(--ink);padding:15px 16px;font-family:var(--font-space-mono),monospace;font-size:14px;letter-spacing:.05em;color:var(--ink);caret-color:var(--red)}
+/* Magic-search beam — the 3s neon sweep that used to live on the
+   header trigger, relocated to the palette's search field (it only
+   animates while the palette is open, never during editing). The
+   input paints over the beam as an opaque paper surface inset 1px,
+   so only the outer 1px ring shows the traveling light — 1s lap +
+   2s idle, the make/magic_search cycle. The angle is a registered
+   custom property so the sweep interpolates smoothly. Tones are
+   deepened (cyan #0090C0 → electric blue #0077FF, the design.md
+   §2 glow color): the pale neon that read on dark chrome washes
+   out on the paper card, these hold ~3.2–3.6:1 contrast on
+   #f3efe6 so the sweep stays noticeable. */
+@property --pal-beam-angle{syntax:"<angle>";inherits:false;initial-value:0deg}
+@keyframes desk-pal-beam{
+  0%{--pal-beam-angle:0deg;opacity:1}
+  33.3333%{--pal-beam-angle:360deg;opacity:1}
+  33.3334%,100%{--pal-beam-angle:360deg;opacity:0}
+}
+.desk .pal-search{position:relative}
+.desk .pal-search-ring,.desk .pal-search-beam{position:absolute;inset:0;pointer-events:none}
+.desk .pal-search-ring{background:rgba(21,19,16,.3)}
+.desk .pal-search-beam{background:conic-gradient(from var(--pal-beam-angle,0deg),transparent 70%,#0090C0 88%,#0077FF 96%,transparent 100%);animation:desk-pal-beam 3s cubic-bezier(.4,0,.2,1) infinite}
+.desk .pal-input{position:relative;width:calc(100% - 2px);margin:1px;background:var(--paper);border:0;padding:15px 16px;font-family:var(--font-space-mono),monospace;font-size:14px;letter-spacing:.05em;color:var(--ink);caret-color:var(--red)}
 .desk .pal-input:focus{outline:none}
 .desk .pal-input::placeholder{color:rgba(21,19,16,.4)}
 .desk .pal-list{max-height:44vh;overflow-y:auto;list-style:none}
@@ -657,31 +687,139 @@ body.go .desk .note-bar{opacity:1;transform:none}
 @media (max-width:960px){
   .desk .u-mail{display:none}
 }
-@media (max-width:820px){
-  .desk .desk-shell{grid-template-columns:1fr;grid-template-rows:auto 1fr}
-  .desk .side{flex-direction:row;align-items:stretch;border-right:0;border-bottom:1.5px solid var(--hair);overflow-x:auto;overflow-y:hidden}
-  .desk .desk-shell.is-side-closed{grid-template-columns:1fr;grid-template-rows:0px 1fr;transition:grid-template-rows .22s ease}
-  .desk .side-sec{padding:12px 14px;border-right:1.5px solid var(--hair2);min-width:190px;flex:0 0 auto}
-  .desk .ns-list{display:flex;gap:8px;border-top:0;margin-top:8px}
-  .desk .ns-item{width:auto;border:1.5px solid var(--hair2);white-space:nowrap}
-  /* The horizontal strip replaces tree depth with grouping — the
-     indent cells collapse away entirely. */
-  .desk .ns-cell{display:none}
-  .desk .side-foot{margin-top:0;margin-left:auto;border-top:0;border-left:1.5px solid var(--hair);padding:12px 14px;flex:0 0 auto}
-}
-@media (max-width:640px){
-  .desk .plate-frame{padding:6vh 18px 5vh}
-  /* Phone gutters — the desktop clamp's 56px floor is far too wide here. */
-  .desk .doc-wrap{padding-left:20px;padding-right:20px}
-  .desk .rh-c{display:none}
-  .desk .runhead{padding:0 14px;gap:12px}
-  .desk .srch .srch-label{display:none}
-  .desk .u-name{display:none}
-  .desk .note-bar{padding:0 12px;gap:10px}
-  .desk .nb-seg .fig-tab{padding:6px 9px;gap:6px;letter-spacing:.1em}
-  .desk .nb-seg .fig-tab i{display:none}
+/* ── Mobile (<768px) — one drawer & reflow system (make/design.md) ──
+   Every rule lives inside this single breakpoint; desktop (≥768px)
+   renders exactly as before. The old 820px/640px strips — the
+   horizontal tab sidebar and the one-line row squeeze — are gone:
+   they WERE the breakage. Tablets 768–1023px ride the desktop shell. */
+@media (max-width:767px){
+  /* The plate clears the notch / home-indicator insets; the runhead
+     grows to 56px inside them (design.md §4). */
+  .desk{padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
+
+  /* RUNHEAD — one 56px row: hamburger / truncated page title /
+     overflow trigger (Search, Account, Disconnect live in the sheet —
+     never as inline siblings). Both triggers are 44×44. */
+  .desk .runhead{flex:0 0 56px;padding:0 6px;gap:8px}
+  .desk .rh-burger,.desk .rh-back-btn,.desk .rh-more{flex:0 0 auto;width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;border:1.5px solid var(--hair);color:rgba(243,239,230,.8);padding:0;transition:border-color .18s,color .18s}
+  .desk .rh-burger:hover,.desk .rh-back-btn:hover,.desk .rh-more:hover{border-color:var(--gold);color:var(--gold)}
+  .desk .rh-burger[aria-expanded="true"],.desk .rh-more[aria-expanded="true"]{border-color:var(--gold);color:var(--gold)}
+  .desk .rh-page{font-size:10.5px}
+  .desk .rh-more-ava{width:26px;height:26px;border:1.5px solid var(--gold);color:var(--gold);display:flex;align-items:center;justify-content:center;font-family:var(--font-archivo),'Helvetica Neue',Helvetica,Arial,sans-serif;font-weight:850;font-size:13px}
+  /* Overflow sheet — the paper index-card treatment (nm-pop family). */
+  .desk .rh-sheet{position:absolute;top:calc(100% + 8px);right:8px;z-index:400;min-width:200px;padding:6px;background:var(--paper);color:var(--ink);border:1.5px solid var(--ink);box-shadow:5px 6px 0 rgba(255,181,17,.4);font-family:var(--font-space-mono),monospace}
+  .desk .rh-sheet-row{display:block;width:100%;text-align:left;padding:15px 14px;font-size:9.5px;letter-spacing:.16em;color:var(--ink);transition:background .12s,color .12s}
+  .desk .rh-sheet-row:hover{background:var(--ink);color:var(--paper)}
+  .desk .rh-sheet-danger{color:var(--red)}
+  .desk .rh-sheet-danger:hover{background:var(--red);color:var(--ink)}
+
+  /* SHELL — the sidebar becomes the slide-in drawer (design.md §5):
+     full tree, full height, ~85vw wide, hamburger-triggered only.
+     Fixed positioning lifts it out of the grid, so the stage owns the
+     whole viewport width; visibility gates focus while off-canvas. */
+  .desk .desk-shell{grid-template-columns:1fr}
+  .desk .desk-shell.is-side-closed{grid-template-columns:1fr}
+  .desk .side{position:fixed;top:0;bottom:0;left:0;width:min(85vw,340px);z-index:400;padding-top:env(safe-area-inset-top);background:var(--ink);border-right:1.5px solid var(--hair);transform:translateX(-100%);visibility:hidden;overflow-y:auto;overflow-x:hidden;will-change:transform;transition:transform .28s var(--ease-slide),visibility 0s linear .28s}
+  .desk .desk-shell.is-mobile-nav-open .side{transform:none;visibility:visible;transition:transform .28s var(--ease-slide)}
+  /* Finger-tracked swipe-to-dismiss (useDrawerSwipe writes --swipe-dx). */
+  .desk .side.is-swiping{transition:none;transform:translateX(var(--swipe-dx,-100%))}
+  .desk .side-backdrop{position:fixed;inset:0;z-index:390;background:rgba(21,19,16,.6);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);opacity:0;visibility:hidden;transition:opacity .28s ease,visibility .28s}
+  .desk .desk-shell.is-mobile-nav-open .side-backdrop{opacity:1;visibility:visible}
+
+  /* Drawer rows — 44px tall; the tiny row-action glyphs keep their
+     size but borrow a full-height hit plate (::after). The plate is
+     asymmetric: +10px toward the row edge, only -6px over the title,
+     so it can't steal taps meant for the row/title itself. Neighbor
+     plates overlap and DOM order resolves the seams — every tap lands
+     on a real button (design.md §10: pad the hit area, never the
+     glyph). The aside clips horizontal overflow (no sideways scroll). */
+  .desk .ns-item{min-height:44px;align-items:center;padding-top:6px;padding-bottom:6px}
+  .desk .row-btn{position:relative}
+  .desk .row-btn::after{content:"";position:absolute;top:-13px;bottom:-13px;left:-6px;right:-10px}
+  .desk .del-chip{display:inline-flex;align-items:center;align-self:stretch}
+  .desk .side-add{min-width:44px;min-height:44px;justify-content:center}
+
+  /* DASHBOARD — rows stack into title + wrapping metadata lines
+     (design.md §6): badges and dates wrap onto their own lines, the
+     stamp survives, the ⋯ menu centers on the whole 56px+ row. */
+  .desk .dash-wrap{padding:4vh 16px calc(12vh + env(safe-area-inset-bottom))}
+  .desk .dash-head{gap:10px}
+  .desk .dash-new{min-height:44px;display:inline-flex;align-items:center;padding:0 16px}
+  .desk .dash-row{min-height:56px;padding:12px 62px 12px 8px}
+  .desk .dash-main{display:block}
+  .desk .dash-meta{display:flex;flex-wrap:wrap;align-items:center;column-gap:12px;row-gap:4px;margin-top:5px;font-family:var(--font-space-mono),monospace}
+  .desk .dash-sub{flex:0 1 auto;min-width:0;white-space:normal;overflow:visible;text-overflow:clip;word-break:break-word}
+  .desk .dash-menu-btn{width:44px;height:44px;right:8px}
+
+  /* NOTE BAR (design.md §9) — a 44px glass row at mobile icon scale.
+     The segmented DOCUMENT/CANVAS pair keeps its desktop structure but
+     drops the words (CSS hides .fig-tab-label + the index <i>):
+     icon | icon in one compact box, ~20px glyphs in 40px tab bodies,
+     44px-wide tap each. Undo/redo/"…" are borderless inline icons in
+     44px tap targets — no per-icon boxes. The breadcrumb keeps its
+     middle-first truncation and the title is never the thing that
+     gets cut (breadcrumb.tsx). The panes ride 44px up under the bar. */
+  .desk .note-bar{flex:0 0 44px;height:44px;padding:0 6px;gap:4px}
+  .desk .pane-stage{margin-top:-44px}
+  .desk .pane-doc{padding-top:44px}
+  .desk .nb-left{gap:8px}
+  .desk .nb-title svg{width:18px;height:18px}
+  .desk .nb-seg .fig-tab{position:relative;min-width:44px;min-height:32px;padding:0 10px}
+  /* 44px vertical tap on the 32px visual body — the plate pads the hit
+     area, the box stays small. */
+  .desk .nb-seg .fig-tab::after{content:"";position:absolute;top:-6px;bottom:-6px;left:0;right:0}
+  .desk .nb-seg .fig-tab-label,.desk .nb-seg .fig-tab i{display:none}
+  .desk .nb-seg .ti svg{width:16px;height:16px}
+  /* The constructs are stroke-draw figures: .built draws them, and
+     deactivation removes .built (desktop's replay choreography). With
+     the words gone, that would blank the inactive tab on mobile — so
+     the inactive figure stays fully drawn at all times here. */
+  .desk .nb-seg .fig-tab:not(.is-active) .p{stroke-dashoffset:0}
+  .desk .nb-seg .fig-tab:not(.is-active) .pdots circle{transform:scale(1)}
+  .desk .undo-pill{border:0}
+  .desk .undo-btn{width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;padding:0}
+  .desk .undo-btn svg{width:18px;height:18px}
+  .desk .nb-menu-btn{width:44px;height:44px;border:0;background:transparent;color:rgba(243,239,230,.8)}
+  .desk .nb-menu-btn svg{width:18px;height:18px}
+  .desk .doc-wrap{padding:2.5vh 20px calc(12vh + env(safe-area-inset-bottom))}
+  /* Drag grips are hover affordances — touch has the block handles. */
   .desk .editor-grip{display:none}
-  .desk .dash-stamp{display:none}
+  /* Checkbox blocks get a padded hit plate — asymmetric, the right
+     edge stays clear so the plate can't steal taps that place the
+     caret in the text beside it. */
+  .desk .eb-check{position:relative}
+  .desk .eb-check::after{content:"";position:absolute;top:-12px;bottom:-12px;left:-12px;right:-4px}
+  /* Command surfaces — 44px minimum rows everywhere. */
+  .desk .slash-item{min-height:44px}
+  .nm-row{min-height:44px;display:flex;align-items:center}
+  .nm-pop{max-width:calc(100vw - 24px)}
+
+  /* Canvas HUD — 44×44 controls; card headers grow to 44px so their
+     buttons stretch full height (hit plates widen, not the glyphs). */
+  .desk .cn-head{height:44px}
+  .desk .cn-btn{position:relative;align-self:stretch}
+  .desk .cn-btn::after{content:"";position:absolute;top:0;bottom:0;left:-9px;right:-9px}
+  .desk .ct-btn{min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center;padding:0}
+  .desk .ct-scale{min-height:44px;display:flex;align-items:center}
+  .desk .tool-btn{width:44px;height:44px}
+  .desk .tool-pal{right:10px}
+  .desk .canvas-toolbar{right:16px;bottom:calc(16px + env(safe-area-inset-bottom))}
+  .desk .canvas-status{left:12px;bottom:calc(12px + env(safe-area-inset-bottom))}
+
+  /* Accent swatch popover — dotted hit plates (seams resolved by DOM
+     order, same as the drawer rows); CLEAR grows to 44px. */
+  .sw-dot{position:relative}
+  .sw-dot::after{content:"";position:absolute;inset:-12px}
+  .sw-clear{min-height:44px;display:inline-flex;align-items:center;padding:0 10px}
+
+  /* Chrome overlays clear the home indicator; the palette loses its
+     desktop gutters. */
+  .desk .save-chip{right:12px;bottom:calc(16px + env(safe-area-inset-bottom));max-width:calc(100vw - 24px)}
+  .desk .toast{left:12px;right:12px;bottom:calc(20px + env(safe-area-inset-bottom));max-width:none}
+  .desk .palette{padding:10vh 12px 0}
+  .desk .pal-list{max-height:48svh}
+  /* Phone gutters — the desktop clamp's 56px floor is far too wide here. */
+  .desk .plate-frame{padding:6vh 18px 5vh}
 }
 
 /* ── Top pending bar ─────────────────────────────────────────────────────
@@ -695,4 +833,5 @@ body.go .desk .note-bar{opacity:1;transform:none}
 @keyframes pend-sweep{to{left:100%}}
 @media (prefers-reduced-motion: reduce){
   .desk .pend-bar::before{animation:none;left:35%;width:30%}
+  .desk .pal-search-beam{animation:none;opacity:0}
 }

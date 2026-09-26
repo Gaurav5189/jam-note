@@ -1,0 +1,182 @@
+/* ==========================================================================
+   Landing Modes Specimen — specimen-scoped styles.
+   Scoped to this component (CSS module) so the global landing.css monograph
+   sheet (paper shell, kinetic hero, rack, coupon, colophon) is left untouched.
+   The specimen inherits the .landing token context from page.tsx: paper
+   #F3EFE6, ink #151310, and the --font-archivo / --font-newsreader /
+   --font-space-mono variables.
+   ========================================================================== */
+
+/* Outer tactical specimen frame */
+.viewportFrame {
+  position: relative;
+  border: 1.5px solid #151310;
+  background-color: #0d0e11;
+  box-shadow: 6px 6px 0 #151310;
+  overflow: hidden;
+}
+
+/* Specimen header bar */
+.specimenHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.625rem 1rem;
+  background-color: #14161c;
+  border-bottom: 1.5px solid #2a2f3d;
+}
+
+/* Segmented mode tabs switcher */
+.tabsRail {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  background-color: #0d0e11;
+  border: 1px solid #2a2f3d;
+  padding: 2px;
+}
+
+/* Fixed stage so the canvas grid + scaled world never reflow as text flips */
+.viewportBody {
+  position: relative;
+  height: 420px;
+  background-color: #0d0e11;
+  overflow: hidden;
+}
+
+/* Specimen footer telemetry bar */
+.specimenFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 1rem;
+  background-color: #14161c;
+  border-top: 1.5px solid #2a2f3d;
+  font-family: var(--font-space-mono), monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: #8a94a6;
+}
+
+/* A pane always occupies the full stage; hidden panes crossfade smoothly */
+.pane {
+  position: absolute;
+  inset: 0;
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 170ms ease, transform 170ms ease;
+  pointer-events: auto;
+  background-color: #0d0e11;
+}
+
+.paneHidden {
+  opacity: 0;
+  transform: translateY(8px);
+  pointer-events: none;
+}
+
+/* Canvas paper: 20px dot lattice, sub-pixel nodes (#2A2F3D on #0D0E11) */
+.canvasGrid {
+  position: absolute;
+  inset: 0;
+  background-color: #0d0e11;
+  background-image: radial-gradient(#2a2f3d 1.5px, transparent 1.5px);
+  background-size: 20px 20px;
+  overflow: hidden;
+  user-select: none;
+}
+
+/* The scaled world — cards + SVG wires move together on zoom */
+.canvasWorld {
+  position: absolute;
+  inset: 0;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+
+/* Floating node card — cream cardstock, hard rule, hard offset shadow */
+.nodeCard {
+  position: absolute;
+  border: 1.5px solid #151310;
+  background: #faf7ef;
+  color: #151310;
+  box-shadow: 4px 4px 0 #151310;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  user-select: none;
+}
+
+/* Card header strip */
+.nodeHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 3px 8px;
+  font-family: var(--font-space-mono), monospace;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #ffffff;
+}
+
+/* Document block gutter handle — reveals on row hover */
+.docRow {
+  position: relative;
+}
+
+.docHandle {
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.docRow:hover .docHandle {
+  opacity: 1;
+}
+
+/* Tiny pulse on the canvas LIVE / status indicator */
+@keyframes specimenBounce {
+  50% {
+    transform: translateY(3px);
+  }
+}
+
+.dotPulse {
+  animation: specimenBounce 1.8s ease-in-out infinite;
+}
+
+/* Custom scrollbar for dark document view */
+.docScroll {
+  height: 100%;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #2a2f3d #0d0e11;
+}
+
+.docScroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.docScroll::-webkit-scrollbar-track {
+  background: #0d0e11;
+}
+
+.docScroll::-webkit-scrollbar-thumb {
+  background-color: #2a2f3d;
+  border-radius: 3px;
+}
+
+/* Respect the OS reduced-motion switch — no entrance animation */
+@media (prefers-reduced-motion: reduce) {
+  .pane,
+  .paneHidden,
+  .docHandle,
+  .dotPulse {
+    transition: none !important;
+    animation-duration: 0.01ms !important;
+  }
+}

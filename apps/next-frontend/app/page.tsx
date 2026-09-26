@@ -4,7 +4,7 @@ import "./landing.css";
 import { LandingChrome } from "@/components/landing/landing-chrome";
 import { LandingHeader } from "@/components/landing/landing-header";
 import { HeroSection } from "@/components/landing/hero-section";
-import { FeatureShowcase } from "@/components/landing/feature-showcase";
+import { LandingModesSpecimen } from "@/components/landing/landing-modes-specimen";
 import { FeatureGrid } from "@/components/landing/feature-grid";
 import { PricingSection } from "@/components/landing/pricing-section";
 import { LandingFooter } from "@/components/landing/landing-footer";
@@ -21,4 +21,4 @@ export const viewport: Viewport = { themeColor: "#f3efe6" };
 
 const structuredData = { "@context": "https://schema.org", "@type": "WebApplication", name: "Jam Notes", url: SITE_URL, description: DESCRIPTION, applicationCategory: "ProductivityApplication", operatingSystem: "Any", offers: { "@type": "Offer", price: "0", priceCurrency: "USD" }, featureList: ["Block editor with slash commands", "Spatial Jam Canvas", "Crash-safe autosave", "Command palette search", "Infinite note nesting", "Self-publishing"] };
 
-export default function LandingPage() { return <div className={`landing ${archivo.variable} ${newsreader.variable} ${spaceMono.variable}`}><LandingChrome /><script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }} /><LandingHeader /><main><HeroSection /><FeatureShowcase /><FeatureGrid /><PricingSection /></main><LandingFooter /></div>; }
+export default function LandingPage() { return <div className={`landing ${archivo.variable} ${newsreader.variable} ${spaceMono.variable}`}><LandingChrome /><script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }} /><LandingHeader /><main><HeroSection /><LandingModesSpecimen /><FeatureGrid /><PricingSection /></main><LandingFooter /></div>; }

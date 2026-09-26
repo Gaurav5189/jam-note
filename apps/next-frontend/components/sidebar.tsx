@@ -26,6 +26,8 @@ import {
 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useWorkspace } from "@/context/workspace-context";
+import { useShell } from "@/context/shell-context";
+import { useMediaQuery } from "@/lib/use-media-query";
 import { findNotePath } from "@/lib/workspace-tree";
 import { NS_COLOR_KEYS, NS_COLORS } from "@/lib/ns-colors";
 import {
@@ -228,6 +230,56 @@ function ColorSwatchPop({
   );
 }
 
+/**
+ * Swipe-left dismiss for the mobile drawer (design.md §5). Tracks the
+ * finger horizontally while the drawer is open — the live offset rides
+ * a --swipe-dx custom property (with transitions off, via .is-swiping)
+ * — then commits: past -56px closes, anything less springs back. All
+ * writes are imperative DOM/class mutations inside touch listeners
+ * (event-driven, never render-phase ref writes).
+ */
+function useDrawerSwipe(active: boolean, onClose: () => void) {
+  const ref = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (!active) return;
+    const el = ref.current;
+    if (!el) return;
+    let startX: number | null = null;
+    let dx = 0;
+    const onTouchStart = (e: TouchEvent) => {
+      startX = e.touches[0].clientX;
+    };
+    const onTouchMove = (e: TouchEvent) => {
+      if (startX === null) return;
+      // Leftward only — the drawer opens from the left edge.
+      dx = Math.min(0, e.touches[0].clientX - startX);
+      el.classList.add("is-swiping");
+      el.style.setProperty("--swipe-dx", `${dx}px`);
+    };
+    const onTouchEnd = () => {
+      if (startX === null) return;
+      startX = null;
+      el.classList.remove("is-swiping");
+      el.style.removeProperty("--swipe-dx");
+      if (dx < -56) onClose();
+      dx = 0;
+    };
+    el.addEventListener("touchstart", onTouchStart, { passive: true });
+    el.addEventListener("touchmove", onTouchMove, { passive: true });
+    el.addEventListener("touchend", onTouchEnd);
+    el.addEventListener("touchcancel", onTouchEnd);
+    return () => {
+      el.removeEventListener("touchstart", onTouchStart);
+      el.removeEventListener("touchmove", onTouchMove);
+      el.removeEventListener("touchend", onTouchEnd);
+      el.removeEventListener("touchcancel", onTouchEnd);
+    };
+  }, [active, onClose]);
+
+  return ref;
+}
+
 export function Sidebar() {
   const {
     tree,
@@ -243,6 +295,10 @@ export function Sidebar() {
     setNoteColor,
     error,
   } = useWorkspace();
+  const { mobileNavOpen, closeMobileNav } = useShell();
+  const isMobile = useMediaQuery("(max-width: 767px)");
+  // Swipe-to-dismiss only while the drawer is open.
+  const drawerSwipeRef = useDrawerSwipe(isMobile && mobileNavOpen, closeMobileNav);
   // Collapse state lives in a persisted store (lib/sidebar-collapse):
   // refreshes keep the exact open/collapsed folders the user left.
   // The effect write-through is what persists — render only mutates
@@ -481,7 +537,7 @@ export function Sidebar() {
   const rootNotes = tree.notes;
 
   return (
-    <aside className="side chrome">
+    <aside className="side chrome" id="desk-side-drawer" ref={drawerSwipeRef}>
       <div className="side-sec">
         <div
           className={`side-head${dropTarget === ROOT_DROP_ID ? " is-drop" : ""}`}

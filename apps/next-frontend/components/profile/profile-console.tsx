@@ -7,6 +7,7 @@ import { useWorkspace } from "@/context/workspace-context";
 import { fetchApi } from "@/lib/api";
 import { flattenNotes } from "@/lib/workspace-tree";
 import { useOnlineStatus } from "@/lib/use-online-status";
+import { formatUtcDate } from "@/lib/time";
 import type { ImportCommit, ImportPreview, TrashItem, User, WorkspaceTree } from "@/lib/types";
 import { ExportModal } from "./export-modal";
 
@@ -461,7 +462,11 @@ export function ProfileConsole({
   const noteCount = flattenNotes(tree).length;
   const folderCount = useMemo(() => countFolders(tree.folders), [tree.folders]);
   const displayName = user.profile.display_name || user.username;
-  const memberSince = user.created_at.slice(0, 10);
+  // UTC-normalized date slice (lib/time.ts) — the same YYYY-MM-DD on
+  // every device. The raw string slice read as a different year on
+  // some mobile clients (make/design.md §12); routing the timestamp
+  // through the UTC parse pins the render to the stored instant.
+  const memberSince = formatUtcDate(user.created_at);
 
   const pickFile = async (file: File) => {
     if (!file.name.toLowerCase().endsWith(".json")) {

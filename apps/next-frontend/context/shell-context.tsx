@@ -16,12 +16,20 @@ const STORAGE_KEY = "jamnote:sidebar-open";
 interface ShellContextType {
   sidebarOpen: boolean;
   toggleSidebar: () => void;
+  /** Mobile slide-in drawer (<768px, make/design.md §5). Never
+   *  persisted — it defaults closed on every load and only the
+   *  header hamburger opens it, so it never fights the persisted
+   *  desktop sidebar preference. */
+  mobileNavOpen: boolean;
+  openMobileNav: () => void;
+  closeMobileNav: () => void;
 }
 
 const ShellContext = createContext<ShellContextType | undefined>(undefined);
 
 export function ShellProvider({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   // Restore the persisted preference after mount via a scheduled
   // callback (never a synchronous setState in the effect body — and
@@ -50,8 +58,13 @@ export function ShellProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const openMobileNav = useCallback(() => setMobileNavOpen(true), []);
+  const closeMobileNav = useCallback(() => setMobileNavOpen(false), []);
+
   return (
-    <ShellContext.Provider value={{ sidebarOpen, toggleSidebar }}>
+    <ShellContext.Provider
+      value={{ sidebarOpen, toggleSidebar, mobileNavOpen, openMobileNav, closeMobileNav }}
+    >
       {children}
     </ShellContext.Provider>
   );

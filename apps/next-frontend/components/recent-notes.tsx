@@ -218,11 +218,18 @@ function RecentNoteRow({
             )}
             {note.title}
           </span>
-          {parentPath && <span className="dash-sub">{parentPath}</span>}
+          {/* Badges + date ride a contents-wrapper: on desktop it
+              dissolves (display:contents), so the row's flex flow and
+              order are exactly what they were; on mobile it becomes
+              the wrapping metadata line(s) under the title
+              (design.md §6 — badges and dates wrap, never clip). */}
+          <span className="dash-meta">
+            {parentPath && <span className="dash-sub">{parentPath}</span>}
+            {note.read_only && <span className="dash-ro">READ-ONLY</span>}
+            {note.layout_type === "canvas" && <span className="dash-canvas">CANVAS</span>}
+            <span className="dash-stamp">{formatStamp(note.updated_at, local)}</span>
+          </span>
         </span>
-        {note.read_only && <span className="dash-ro">READ-ONLY</span>}
-        {note.layout_type === "canvas" && <span className="dash-canvas">CANVAS</span>}
-        <span className="dash-stamp">{formatStamp(note.updated_at, local)}</span>
       </Link>
       {/* Sibling of the Link (never nested inside it) — same action
           menu as the note bar: export, pin, read-only, trash. */}

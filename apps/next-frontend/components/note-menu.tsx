@@ -24,15 +24,30 @@ const TRASH_CAN_PATH =
  * TRASH?, auto-resets after 2.5s; on confirm the note flies to the
  * runhead profile chip). All actions hit the live workspace tree, so
  * both views re-render optimistically.
+ *
+ * `undoRedo` (optional, mobile <360px only — design.md §9): UNDO/REDO
+ * ride as menu rows while the inline pill is collapsed. They stay
+ * instant (menu stays open — users tap repeatedly) and disable rather
+ * than hide when the stack is empty.
  */
+export interface NoteMenuUndoRedo {
+  undo: () => void;
+  redo: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
+}
+
 export function NoteMenu({
   anchorRef,
   note,
+  undoRedo,
   onClose,
   onDeleted,
 }: {
   anchorRef: React.RefObject<HTMLElement | null>;
   note: NoteListItem;
+  /** UNDO/REDO rows (mobile <360px collapse of the inline pill). */
+  undoRedo?: NoteMenuUndoRedo;
   onClose: () => void;
   /** Called after a confirmed delete — the note view navigates home. */
   onDeleted?: () => void;
@@ -153,6 +168,28 @@ export function NoteMenu({
       <div className="nm-info">
         LAST EDITED — {formatLocalDateTime(note.updated_at)}
       </div>
+      {undoRedo && (
+        <>
+          <button
+            type="button"
+            role="menuitem"
+            className="nm-row"
+            disabled={!undoRedo.canUndo}
+            onClick={undoRedo.undo}
+          >
+            UNDO
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            className="nm-row"
+            disabled={!undoRedo.canRedo}
+            onClick={undoRedo.redo}
+          >
+            REDO
+          </button>
+        </>
+      )}
       <button type="button" role="menuitem" className="nm-row" onClick={handleExport}>
         EXPORT — .MD
       </button>

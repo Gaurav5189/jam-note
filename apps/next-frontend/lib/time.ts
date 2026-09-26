@@ -43,6 +43,17 @@ export function formatRelativeStamp(iso: string, now: number): string {
 }
 
 /**
+ * Deterministic UTC date slice (YYYY-MM-DD) — the same string on every
+ * device, SSR-safe. Normalized through parseApiDate first so a naive
+ * API timestamp can never drift through a device-local parse (the
+ * "Member since" mobile/desktop mismatch, make/design.md §12).
+ */
+export function formatUtcDate(iso: string): string {
+  const t = parseApiDate(iso);
+  return Number.isNaN(t.getTime()) ? iso.slice(0, 10) : t.toISOString().slice(0, 10);
+}
+
+/**
  * Full local date + time (e.g. "21 Sep 2026, 14:32") in the browser's
  * locale and timezone. Only call this after mount: the server can't
  * know the visitor's timezone, so SSR must stick to UTC slices and the
