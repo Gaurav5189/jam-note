@@ -58,12 +58,12 @@ coverage/
 
 # Go binaries and build artifacts
 bin/
-/streamer
-/streamer-*
+# /streamer
+# /streamer-*
 /search-indexer
 /search-indexer-*
-apps/hybrid_outbox_streamer/streamer
-apps/hybrid_outbox_streamer/streamer-*
+# apps/hybrid_outbox_streamer/streamer
+# apps/hybrid_outbox_streamer/streamer-*
 apps/hybrid_outbox_streamer/cmd/streamer/streamer
 apps/search-indexer/search-indexer
 apps/search-indexer/search-indexer-*
