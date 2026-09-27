@@ -1,16 +1,16 @@
-# jam-note
+# Jam Notes
 
-Welcome to **jam-note**, a tactile, ultra-fast, block-based note-taking application designed for developers and creators who find traditional tools (like Notion) too clinical, rigid, or slow.
+Welcome to **Jam Notes**, a tactile, ultra-fast, block-based note-taking application designed for developers and creators who find traditional tools (like Notion) too clinical, rigid, or slow.
 
-The user-facing product brand is **"Jam Notes"** — shown in metadata titles, the in-app header, the landing page, and auth screens — while `jam-note` remains the repository and package name.
+The user-facing product brand is **"Jam Notes"** — shown in metadata titles, the in-app header, the landing page, and auth screens — while `Jam Note` remains the repository and package name.
 
-With a custom slash-command block editor, an infinite spatial canvas, recursive workspace hierarchies, and a durable event pipeline, jam-note bridges the gap between high-end physical journals, audio synthesizers, and modern documentation wikis.
+With a custom slash-command block editor, an infinite spatial canvas, recursive workspace hierarchies, and a durable event pipeline, Jam Note bridges the gap between high-end physical journals, audio synthesizers, and modern documentation wikis.
 
 ---
 
 ## High-Level Architecture
 
-![jam-note v1 architecture](assets/Jam_note_v1.png)
+![Jam Note v1 architecture](assets/Jam_note_v1.png)
 
 *(Editable source: [`assets/Jam_note_architecture.excalidraw`](assets/Jam_note_architecture.excalidraw))*
 
@@ -20,7 +20,7 @@ The system is a polyglot monorepo with four deployables:
 |---|---|---|
 | **Next.js frontend** | `apps/next-frontend` | App Router UI — landing page, auth, the "Desk" workspace shell, block editor, spatial canvas, profile console, public publishing pages. Proxies `/api/*` to the backend. |
 | **FastAPI backend** | `apps/fastapi-backend` | The API surface — auth (JWT in HTTP-only cookies), notes & folders CRUD, trash/restore, export/import, search, and the transactional outbox writer. |
-| **Outbox streamer** | `apps/hybrid_outbox_streamer` | Go daemon: tails the `event_outbox` collection via MongoDB Change Streams (plus a reconcile poller) and publishes clean event envelopes to the `jam-note.note-events.v1` Kafka topic. |
+| **Outbox streamer** | `apps/hybrid_outbox_streamer` | Go daemon: tails the `event_outbox` collection via MongoDB Change Streams (plus a reconcile poller) and publishes clean event envelopes to the `Jam Note.note-events.v1` Kafka topic. |
 | **Search indexer** | `apps/search-indexer` | Go daemon: consumes Kafka events and maintains the block-level full-text index in OpenSearch (deterministic `note_id:block_id` doc IDs, idempotent writes). |
 
 Backing stores: **MongoDB** (authoritative data — users, notes, folders, outbox), **Kafka** (Aiven; durable async domain events), and **OpenSearch** (full-text "magic search" index). Notes remain authoritative in MongoDB — a Kafka outage never loses an accepted note update.
@@ -64,7 +64,7 @@ A custom visual identity — no templated cream-and-terracotta or generic dark m
 ## Project Structure & Blueprints
 
 ```
-jam-note/
+Jam Note/
 ├── apps/
 │   ├── fastapi-backend/       # FastAPI API server (uv, Pydantic v2, motor)
 │   ├── next-frontend/         # Next.js App Router frontend (pnpm)
@@ -88,7 +88,7 @@ All blueprints, requirements, and structural rules live in `/DOCS`:
 
 ## Getting Started
 
-Installation, local development, and running the Docker image (`gaurav0s/jam-note-fastapi:latest`) are documented in **[INSTALLATION.md](INSTALLATION.md)**.
+Installation, local development, and running the Docker image (`gaurav0s/Jam Note-fastapi:latest`) are documented in **[INSTALLATION.md](INSTALLATION.md)**.
 
 Quick reference for daily work:
 
