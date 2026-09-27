@@ -15,6 +15,10 @@ import "./desk.css";
 export const metadata: Metadata = {
   title: "Jam Notes",
   description: "Your workspace. Write fast. Think in space.",
+  // User-scoped workspace — must never appear in search results. Merges
+  // into every child route (dashboard, notes, profile) that doesn't set
+  // its own robots policy.
+  robots: { index: false, follow: false },
 };
 
 export const viewport: Viewport = {

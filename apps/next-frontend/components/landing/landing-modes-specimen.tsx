@@ -302,12 +302,12 @@ function DocumentModeView() {
                 >
                   :::
                 </span>
-                <h1
+                <div
                   className="text-2xl font-extrabold leading-snug tracking-tight text-[#ffffff] sm:text-3xl"
                   style={{ fontFamily: "var(--font-archivo)" }}
                 >
                   {block.text}
-                </h1>
+                </div>
                 <p
                   className="mt-2 text-xs text-[#8a94a6] font-mono"
                   style={{ fontFamily: "var(--font-space-mono)" }}
@@ -512,13 +512,13 @@ function CanvasSpecimenView({
             </div>
           </div>
           <div className="p-2.5">
-            <h1
+            <div
               className="text-xs font-extrabold leading-tight text-[#151310]"
               style={{ fontFamily: "var(--font-archivo)" }}
             >
               P ≠ NP: The Fifty-Year Wall, Fine-Grained Science,
               Cryptography&apos;s Foundation, and the World After a Collapse
-            </h1>
+            </div>
           </div>
 
           {/* Connection edge port dots */}
@@ -859,13 +859,13 @@ function PublishSpecimenView({
           [ 00 AUTHOR ATTRIBUTION ]
         </div>
 
-        <h1
+        <div
           className="text-2xl font-extrabold text-[#151310] leading-snug tracking-tight"
           style={{ fontFamily: "var(--font-archivo)" }}
         >
           P ≠ NP: The Fifty-Year Wall, Fine-Grained Science, Cryptography&apos;s
           Foundation, and the World After a Collapse
-        </h1>
+        </div>
 
         <p
           className="text-xs text-[#151310]/70"

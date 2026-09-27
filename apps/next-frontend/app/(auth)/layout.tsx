@@ -13,6 +13,9 @@ const spaceMono = Space_Mono({ variable: "--font-space-mono", subsets: ["latin"]
 export const metadata: Metadata = {
   title: "Jam Notes",
   description: "System access. Write fast. Think in space.",
+  // Auth screens are thin pages with zero search intent — keep them out of
+  // the index (robots.ts also disallows them; this is belt-and-suspenders).
+  robots: { index: false, follow: false },
 };
 
 // Session context is scoped to the unauthenticated auth flows (login,

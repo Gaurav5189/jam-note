@@ -3,6 +3,9 @@ import { ReconnectButton } from "./reconnect-button";
 
 export const metadata: Metadata = {
   title: "Jam Notes — Offline",
+  // Functional service-worker fallback, not a content page — keep it out of
+  // the index (robots.ts disallows it too).
+  robots: { index: false },
 };
 
 const HEADING = "You're working offline.";

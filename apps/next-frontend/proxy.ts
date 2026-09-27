@@ -47,7 +47,10 @@ export const config = {
      * - opengraph-image (generated OG image route, incl. hashed variants)
      * - sw.js (the service worker must be fetchable by the browser itself,
      *   regardless of session state)
+     * - manifest.webmanifest / llms.txt (PWA manifest + AI-search overview —
+     *   crawlers and browsers fetch both without sessions; without the
+     *   exemption the proxy would 307 them to /login)
      */
-    "/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|opengraph-image|sw.js).*)",
+    "/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|opengraph-image|sw.js|manifest.webmanifest|llms.txt).*)",
   ],
 };
