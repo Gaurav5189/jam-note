@@ -149,7 +149,7 @@ export function Header({ user }: { user: User }) {
                 window.dispatchEvent(new CustomEvent(OPEN_SEARCH_EVENT));
               }}
             >
-              SEARCH
+              MAGIC SEARCH
             </button>
             <Link
               role="menuitem"
