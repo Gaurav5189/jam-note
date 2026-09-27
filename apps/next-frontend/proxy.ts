@@ -6,9 +6,12 @@ export function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const isAuthPage = pathname === "/login" || pathname === "/signup";
   const isLanding = pathname === "/";
-  // Public, unauthenticated surfaces: the Phase 5 marketing landing and the
-  // Phase 6 publishing hub routes.
-  const isPublicPage = isLanding || pathname.startsWith("/pub/");
+  // Public, unauthenticated surfaces: the Phase 5 marketing landing, the
+  // Phase 6 publishing hub routes, and the offline fallback page (the
+  // service worker precaches it at install time — it must 200 for both
+  // signed-in and signed-out states, never a redirect).
+  const isPublicPage =
+    isLanding || pathname.startsWith("/pub/") || pathname === "/offline";
 
   // Allow API routes to be handled by FastAPI backend via rewrites
   if (request.nextUrl.pathname.startsWith("/api/")) {
@@ -42,7 +45,9 @@ export const config = {
      * - favicon.ico (favicon file)
      * - robots.txt / sitemap.xml (SEO routes must stay crawlable, no session)
      * - opengraph-image (generated OG image route, incl. hashed variants)
+     * - sw.js (the service worker must be fetchable by the browser itself,
+     *   regardless of session state)
      */
-    "/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|opengraph-image).*)",
+    "/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|opengraph-image|sw.js).*)",
   ],
 };

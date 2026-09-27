@@ -15,6 +15,23 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+
+  async headers() {
+    return [
+      {
+        // The service worker script must always be revalidated so deploys
+        // propagate (browsers otherwise pin the worker per HTTP cache
+        // semantics, up to 24 hours).
+        source: "/sw.js",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "no-cache, no-store, must-revalidate",
+          },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;

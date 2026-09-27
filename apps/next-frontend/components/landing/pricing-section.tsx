@@ -42,17 +42,17 @@ export function PricingSection() {
   return <section className="spread beta" id="beta">
     <span className="folio-n">04</span>
     <div className="wrap">
-      <div data-reveal data-drift><p className="kicker">SPREAD 04 — TERMS</p><h2 className="h-xl">FREE WHILE<br />IT IS IN BETA<span className="acc">.</span></h2></div>
+      <div data-reveal data-drift><p className="kicker">SPREAD 04 — TERMS</p><h2 className="h-xl">FREE.<br />YOURS TO KEEP<span className="acc">.</span></h2></div>
       <div className="beta-grid" data-reveal>
-        <div><div className="price"><span className="big">FREE</span><sup className="ast">*</sup></div><p className="price-note">While the beta lasts. No card, no clock, no drip pricing. When beta ends you keep every note — and the price stays honest.</p></div>
+        <div><div className="price"><span className="big">FREE</span><sup className="ast">*</sup></div><p className="price-note">No card, no clock, no drip pricing. Every note stays yours — export anytime</p></div>
         <div>
           <ul className="terms">{terms.map(([title, note], index) => <li className="term" key={title}><i>{String(index + 1).padStart(2, "0")}</i><b>{title}</b><span>{note}</span></li>)}</ul>
           <button className={`coupon ${clipped ? "is-clipped" : ""}`} aria-disabled={clipped} onClick={claim}>
-            <span className="cp-cut"><Scissors />NO. 000042 — VALID WHILE β</span>
+            <span className="cp-cut"><Scissors />NO. 000042 — LIFETIME</span>
             <span className="cp-row"><span className="cp-main"><span className="cp-claim">CLIP THIS COUPON —<br />START WRITING</span>{clipped && <span className="cp-said" role="status" aria-live="polite">CLIPPED — REDIRECTING TO<br />SIGNUP {countdown}..</span>}</span><span className="cp-code"><Barcode /><span>8 4JAM2 βETA9</span></span></span>
             <strong className="cp-stamp">CLAIMED</strong>
           </button>
-          <p className="after-line">AFTER BETA — HONEST PRICING · EVERY NOTE STAYS YOURS · EXPORT ANYTIME</p>
+          <p className="after-line">HONEST PRICING · EVERY NOTE STAYS YOURS · EXPORT ANYTIME</p>
         </div>
       </div>
     </div>

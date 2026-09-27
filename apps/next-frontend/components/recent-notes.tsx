@@ -205,9 +205,14 @@ function RecentNoteRow({
 
   return (
     <li className="dash-li">
+      {/* prefetch={false}: note blocks are mutable server state. A
+       * prefetch={true} full-route payload is stored in the Client Cache
+       * with the STATIC staleTime (5 min default) — revisits within that
+       * window served pre-edit blocks with no server roundtrip (edits
+       * "missing until refresh"). */}
       <Link
         href={`/notes/${note.id}`}
-        prefetch={true}
+        prefetch={false}
         className="dash-row"
       >
         <i>{String(index + 1).padStart(2, "0")}</i>
@@ -218,13 +223,9 @@ function RecentNoteRow({
             )}
             {note.title}
           </span>
-          {/* Badges + date ride a contents-wrapper: on desktop it
-              dissolves (display:contents), so the row's flex flow and
-              order are exactly what they were; on mobile it becomes
-              the wrapping metadata line(s) under the title
-              (design.md §6 — badges and dates wrap, never clip). */}
+          {parentPath && <span className="dash-sub">{parentPath}</span>}
+          {/* Badges and date wrap cleanly beneath the title and folder path */}
           <span className="dash-meta">
-            {parentPath && <span className="dash-sub">{parentPath}</span>}
             {note.read_only && <span className="dash-ro">READ-ONLY</span>}
             {note.layout_type === "canvas" && <span className="dash-canvas">CANVAS</span>}
             <span className="dash-stamp">{formatStamp(note.updated_at, local)}</span>

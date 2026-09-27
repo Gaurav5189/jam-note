@@ -945,9 +945,14 @@ function NoteLeaf({
           {depth === 0 && <i>{String(index + 1).padStart(2, "0")}</i>}
 
           <FileText size={12} className="ns-icon" />
+          {/* prefetch={false}: note blocks are mutable server state. A
+           * prefetch={true} full-route payload is stored in the Client
+           * Cache with the STATIC staleTime (5 min default) — revisits
+           * within that window served pre-edit blocks with no server
+           * roundtrip (edits "missing until refresh"). */}
           <Link
             href={`/notes/${note.id}`}
-            prefetch={true}
+            prefetch={false}
             className="ns-title"
             title={note.title}
             onDragStart={(e) => e.preventDefault()}

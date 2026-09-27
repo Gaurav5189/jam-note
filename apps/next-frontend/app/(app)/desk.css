@@ -278,7 +278,7 @@ body.intro-done .desk .ev-title .k{transition:none}
    the row's flex flow and item order are exactly what they were
    before the wrapper existed; on mobile it becomes the wrapping
    metadata line(s) under the title (see the ≤767px block). */
-.desk .dash-meta{display:contents}
+.desk .dash-meta{display:flex;flex-wrap:wrap;align-items:center;column-gap:12px;row-gap:4px;margin-top:4px;font-family:var(--font-space-mono),monospace}
 .desk .dash-canvas{font-family:var(--font-space-mono),monospace;font-size:8.5px;letter-spacing:.18em;color:var(--gold);flex:0 0 auto}
 .desk .dash-row:hover .dash-canvas{color:var(--red)}
 /* Row container anchors the ⋯ action menu button (a Link sibling —

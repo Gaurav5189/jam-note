@@ -19,12 +19,12 @@ const modules: Module[] = [
   { id: "M-01", tag: "/block-editor", category: "EDITOR", icon: "▤", title: "BLOCK EDITOR", description: "Type / for headings, todos, code, drawings.", scale: 1, x: 25, y: 30 },
   { id: "M-02", tag: "/jam-canvas", category: "CANVAS", icon: "✻", title: "JAM CANVAS", description: "Arrange every block in an infinite field.", scale: 1, x: 65, y: 40 },
   { id: "M-03", tag: "/autosave", category: "SYNC", icon: "↺", title: "AUTOSAVE", description: "Crash-safe saves with a local draft mirror.", scale: 2, x: 45, y: 70 },
-  { id: "M-04", tag: "/palette", category: "PALETTE", icon: "⊕", title: "⌘K PALETTE", description: "Search the whole workspace instantly.", scale: 1, x: 75, y: 20 },
+  { id: "M-04", tag: "/magic-search", category: "SEARCH", icon: "⌕", title: "MAGIC SEARCH", description: "Jump to notes, folders, and blocks from one fast global command bar.", scale: 1, x: 75, y: 20 },
   { id: "M-05", tag: "/note-tree", category: "TREE", icon: "⎘", title: "NOTE TREE", description: "Nest notes to any depth; lose nothing.", scale: 2, x: 15, y: 65 },
   { id: "M-06", tag: "/publishing", category: "PUBLISH", icon: "✶", title: "PUBLISHING", description: "A public URL for the draft that is ready.", scale: 1, x: 35, y: 80, badge: "SOON" },
-  { id: "M-07", tag: "/multiplayer", category: "SYNC", icon: "⧉", title: "MULTIPLAYER", description: "Real-time sync with your team.", scale: 3, x: 85, y: 55 },
+  { id: "M-07", tag: "/import", category: "IMPORT", icon: "⇪", title: "IMPORT", description: "Restore a full JSON backup with notes, folders, and metadata intact — no data loss in the round trip.", scale: 3, x: 85, y: 55 },
   { id: "M-08", tag: "/export", category: "EXPORT", icon: "⎚", title: "PDF EXPORT", description: "Document rendering for JSON and Markdown.", scale: 3, x: 50, y: 15 },
-  { id: "M-09", tag: "/api-access", category: "DEV", icon: "⏣", title: "REST API", description: "Headless access to all workspace nodes.", scale: 2, x: 80, y: 80 },
+  { id: "M-09", tag: "/trash", category: "RECOVERY", icon: "⌫", title: "TRASH + RESTORE", description: "Soft-deleted notes stay recoverable for 30 days, with safe restore and permanent purge controls.", scale: 2, x: 80, y: 80 },
   { id: "M-10", tag: "/dark-mode", category: "THEME", icon: "◐", title: "DARK MODE", description: "Toggle the physical environment stock.", scale: 3, x: 10, y: 20 },
 ];
 
