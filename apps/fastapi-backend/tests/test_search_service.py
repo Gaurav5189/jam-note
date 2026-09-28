@@ -1,7 +1,9 @@
 from unittest.mock import MagicMock
 
+from fastapi_backend.search.schemas import SearchResultItem
 from fastapi_backend.search.service import (
     build_search_query,
+    merge_mongo_title_hits,
     parse_search_hits,
     search,
 )
@@ -88,6 +90,7 @@ def test_parse_search_hits_ranking_and_deduplication():
     assert results[0].note_id == "note-2"
     assert results[0].note_title == "Docker Setup Guide"
     assert results[0].snippet == "<em>Docker</em> Setup Guide"
+    assert results[0].block_id is None  # title hits open the note, not a block
     assert results[0].rank == 0
 
     # 2. Content matches follow
@@ -152,3 +155,39 @@ def test_search_executes_against_client():
     call_args = mock_client.search.call_args
     assert call_args.kwargs["index"] == "test-alias"
     assert call_args.kwargs["body"]["query"]["bool"]["filter"][0]["term"]["user_id"] == "u123"
+
+
+def test_merge_mongo_title_hits_dedupe_and_ranking():
+    os_results = [
+        # OpenSearch title hit (block_id None) — must win over the Mongo hit
+        SearchResultItem(note_id="n1", block_id=None, note_title="Alpha", snippet="<em>al</em>pha", rank=0),
+        # OpenSearch content hit for another note
+        SearchResultItem(note_id="n2", block_id="b2", note_title="Beta", snippet="beta content", rank=1),
+    ]
+    title_notes = [
+        {"_id": "n1", "title": "Alpha"},  # duplicate of the OS title hit — dropped
+        {"_id": "n3", "title": "Gamma"},  # blockless note — merged
+        {"_id": "n2", "title": "Beta"},  # note already present as a content hit — also kept as a title hit
+    ]
+
+    merged = merge_mongo_title_hits(os_results, title_notes)
+
+    # Title section first (OS title hit, then merged title hits), content last.
+    assert [r.note_id for r in merged] == ["n1", "n3", "n2", "n2"]
+    assert merged[0].block_id is None
+    assert merged[1].block_id is None
+    assert merged[1].note_title == "Gamma"
+    assert merged[2].block_id is None  # the merged title entry for n2
+    assert merged[3].block_id == "b2"  # the original OS content entry
+    assert [r.rank for r in merged] == [0, 1, 2, 3]
+
+
+def test_merge_mongo_title_hits_noop_without_extras():
+    os_results = [
+        SearchResultItem(note_id="n1", block_id=None, note_title="Alpha", snippet="Alpha", rank=0),
+        SearchResultItem(note_id="n2", block_id="b2", note_title="Beta", snippet="beta", rank=1),
+    ]
+
+    # All Mongo hits are duplicates — results returned unchanged.
+    assert merge_mongo_title_hits(os_results, [{"_id": "n1", "title": "Alpha"}]) is os_results
+    assert merge_mongo_title_hits(os_results, []) is os_results

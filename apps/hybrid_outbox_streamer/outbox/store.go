@@ -20,6 +20,13 @@ type Store interface {
 	// MarkFailed marks the record as failed with the given reason and clears claimed_at.
 	MarkFailed(ctx context.Context, eventID string, failedAt time.Time, reason string) error
 
+	// MarkRetry returns a still-retryable claimed record to pending with a
+	// future available_at (exponential backoff), recording the last error.
+	// The update is scoped to this worker's own claim (status=publishing,
+	// claimed_at as returned by Claim) so a record whose expired lease was
+	// reclaimed by another worker is left untouched — a safe no-op.
+	MarkRetry(ctx context.Context, eventID string, claimedAt *time.Time, availableAt time.Time, reason string) error
+
 	// GetReconcileCandidates finds pending/due or expired publishing records.
 	GetReconcileCandidates(ctx context.Context, leaseDuration time.Duration, limit int64) ([]*OutboxRecord, error)
 

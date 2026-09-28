@@ -28,6 +28,7 @@ type Config struct {
 	ReconcileInterval time.Duration
 	BatchLimit        int64
 	MaxPublishRetries int
+	MaxPublishAttempts int
 	DrainTimeout      time.Duration
 
 	// Heartbeat configuration
@@ -58,6 +59,7 @@ func LoadFromEnv() (*Config, error) {
 	reconcileInterval := getDurationEnv("RECONCILE_INTERVAL", 2*time.Minute)
 	batchLimit := getInt64Env("BATCH_LIMIT", 100)
 	maxPublishRetries := getIntEnv("MAX_PUBLISH_RETRIES", 3)
+	maxPublishAttempts := getIntEnv("MAX_PUBLISH_ATTEMPTS", 8)
 	drainTimeout := getDurationEnv("DRAIN_TIMEOUT", 15*time.Second)
 
 	heartbeatInterval := getDurationEnv("HEARTBEAT_INTERVAL", 6*time.Hour)
@@ -74,6 +76,7 @@ func LoadFromEnv() (*Config, error) {
 		ReconcileInterval:     reconcileInterval,
 		BatchLimit:            batchLimit,
 		MaxPublishRetries:     maxPublishRetries,
+		MaxPublishAttempts:    maxPublishAttempts,
 		DrainTimeout:          drainTimeout,
 		HeartbeatInterval:     heartbeatInterval,
 		HeartbeatRetryDelays: []time.Duration{

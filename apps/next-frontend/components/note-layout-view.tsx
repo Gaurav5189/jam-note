@@ -163,8 +163,8 @@ export function NoteLayoutView({ note }: { note: Note }) {
    */
   const handleOpenInDocument = useCallback(
     (blockId: string) => {
+      // handleToggle persists the layout switch itself — no separate PUT.
       if (layout !== "document") handleToggle("document");
-      updateNote(note.id, { layout_type: "document" }).catch(() => {});
       // Two rAFs: first lets React commit the BlockEditor to the DOM;
       // second ensures layout has been calculated before we query positions.
       requestAnimationFrame(() => {
@@ -179,7 +179,7 @@ export function NoteLayoutView({ note }: { note: Note }) {
         });
       });
     },
-    [handleToggle, layout, note.id, updateNote]
+    [handleToggle, layout]
   );
 
   /**
@@ -189,9 +189,9 @@ export function NoteLayoutView({ note }: { note: Note }) {
    */
   const scrollToBlock = useCallback(
     (targetBlockId: string) => {
+      // handleToggle persists the layout switch itself — no separate PUT.
       if (layout !== "document") {
         handleToggle("document");
-        updateNote(note.id, { layout_type: "document" }).catch(() => {});
       }
 
       let attempts = 0;
@@ -211,15 +211,24 @@ export function NoteLayoutView({ note }: { note: Note }) {
         requestAnimationFrame(tryScroll);
       });
     },
-    [handleToggle, layout, note.id, updateNote]
+    [handleToggle, layout]
   );
+
+  // Latest-callback ref: the deep-link effect below runs only on mount, but
+  // hashchange events after mount must reach the CURRENT scrollToBlock (it
+  // depends on `layout`). React flushes passive effects before the next
+  // discrete browser event, so the ref is always fresh when the listener
+  // fires. Ref writes happen in an effect, never during render.
+  const scrollToBlockRef = useRef(scrollToBlock);
+  useEffect(() => {
+    scrollToBlockRef.current = scrollToBlock;
+  }, [scrollToBlock]);
 
   useEffect(() => {
     const handleHash = () => {
-      if (typeof window === "undefined") return;
       const targetBlockId = parseBlockIdFromHash(window.location.hash);
       if (targetBlockId) {
-        scrollToBlock(targetBlockId);
+        scrollToBlockRef.current(targetBlockId);
       }
     };
 
@@ -228,7 +237,11 @@ export function NoteLayoutView({ note }: { note: Note }) {
     return () => {
       window.removeEventListener("hashchange", handleHash);
     };
-  }, [scrollToBlock]);
+    // Mount-only on purpose: re-running whenever scrollToBlock's identity
+    // changes (i.e. on every layout switch) would re-scroll AND force the
+    // user back to document mode whenever a #block-… hash is still in the
+    // URL — making the canvas unreachable after a palette deep-link.
+  }, []);
 
   const docActive = layout === "document";
   const canActive = layout === "canvas";

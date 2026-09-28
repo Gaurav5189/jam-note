@@ -24,6 +24,9 @@ func (m *MockReconcileStore) MarkPublished(ctx context.Context, eventID string, 
 func (m *MockReconcileStore) MarkFailed(ctx context.Context, eventID string, failedAt time.Time, reason string) error {
 	return nil
 }
+func (m *MockReconcileStore) MarkRetry(ctx context.Context, eventID string, claimedAt *time.Time, availableAt time.Time, reason string) error {
+	return nil
+}
 func (m *MockReconcileStore) GetReconcileCandidates(ctx context.Context, leaseDuration time.Duration, limit int64) ([]*outbox.OutboxRecord, error) {
 	now := time.Now().UTC()
 	var res []*outbox.OutboxRecord

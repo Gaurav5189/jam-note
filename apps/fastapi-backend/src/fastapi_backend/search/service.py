@@ -78,7 +78,11 @@ def parse_search_hits(hits: list[dict[str, Any]], query: str = "") -> list[Searc
             title_matches.append(
                 SearchResultItem(
                     note_id=note_id,
-                    block_id=block_id or None,
+                    # Title hits open the note itself, never a block. The
+                    # palette distinguishes title vs block matches via
+                    # block_id — a block's id here would deep-link to an
+                    # unrelated block and render the wrong row type.
+                    block_id=None,
                     note_title=note_title,
                     snippet=title_snippet,
                     rank=0,  # Will be assigned after combining
@@ -127,3 +131,51 @@ def search(
     response = client.search(index=target_alias, body=body)
     raw_hits = response.get("hits", {}).get("hits", [])
     return parse_search_hits(raw_hits, query=q)
+
+
+def merge_mongo_title_hits(
+    results: list[SearchResultItem], title_notes: list[dict[str, Any]]
+) -> list[SearchResultItem]:
+    """Fold MongoDB title matches into the magic-search results.
+
+    The OpenSearch index holds one document per text-bearing block, so
+    notes with no text-bearing blocks (fresh "Untitled" notes, image/
+    drawing-only notes) can never match there — yet the pre-Phase-8 title
+    search found them. Title-regex hits from MongoDB fill that gap.
+
+    OpenSearch results win (deduplicated by note_id within the title
+    section — they carry highlight snippets); merged hits are inserted
+    after OpenSearch title hits and before the first block-content hit,
+    then ranks are reassigned so title matches still lead.
+    """
+    if not title_notes:
+        return results
+
+    seen = {r.note_id for r in results if r.block_id is None}
+    extras: list[SearchResultItem] = []
+    for doc in title_notes:
+        note_id = str(doc["_id"])
+        if note_id in seen:
+            continue
+        seen.add(note_id)
+        title = str(doc.get("title", ""))
+        extras.append(
+            SearchResultItem(
+                note_id=note_id,
+                block_id=None,
+                note_title=title,
+                snippet=title,
+                rank=0,  # Will be assigned after combining
+            )
+        )
+    if not extras:
+        return results
+
+    insert_at = next(
+        (i for i, r in enumerate(results) if r.block_id is not None),
+        len(results),
+    )
+    merged = results[:insert_at] + extras + results[insert_at:]
+    for i, item in enumerate(merged):
+        item.rank = i
+    return merged

@@ -13,7 +13,7 @@ import (
 func TestWorkerPoolGracefulDrain(t *testing.T) {
 	store := NewMockStore()
 	producer := NewMockProducer()
-	pub := outbox.NewPublisher(store, producer, 30*time.Second, 1)
+	pub := outbox.NewPublisher(store, producer, 30*time.Second, 1, 8)
 
 	// Prepopulate 10 records
 	totalEvents := 10
@@ -51,4 +51,14 @@ func TestWorkerPoolGracefulDrain(t *testing.T) {
 	if producer.Count() != totalEvents {
 		t.Fatalf("expected %d messages published after drain, got %d", totalEvents, producer.Count())
 	}
+
+	// Enqueue after Stop must be a safe no-op (the watcher/poller goroutines
+	// can still be draining candidate lists after context cancellation — a
+	// send on the closed channel used to panic here).
+	if wp.Enqueue(outbox.Candidate{EventID: "post-stop"}) {
+		t.Fatal("Enqueue after Stop must return false")
+	}
+
+	// Double Stop must not panic on a second channel close.
+	wp.Stop(1 * time.Second)
 }

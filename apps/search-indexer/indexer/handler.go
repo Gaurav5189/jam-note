@@ -42,14 +42,12 @@ func (h *EventHandler) HandleEvent(ctx context.Context, value []byte) error {
 	}
 
 	switch env.EventType {
-	case "note.deleted":
-		if err := h.searchClient.DeleteByNoteID(ctx, noteID); err != nil {
-			return fmt.Errorf("deleting note %s from search: %w", noteID, err)
-		}
-		log.Printf("[handler] processed note.deleted for note %s", noteID)
-		return nil
-
-	case "note.changed":
+	case "note.deleted", "note.changed":
+		// Both event types reconcile against MongoDB's CURRENT state, so
+		// out-of-order delivery is harmless: the streamer publishes with
+		// concurrent workers, so a delete event can arrive after a
+		// restore's note.changed — purging blindly would wipe an active
+		// note from the index.
 		note, err := h.mongoReader.GetNote(ctx, noteID)
 		if err != nil {
 			return fmt.Errorf("querying mongo for note %s: %w", noteID, err)

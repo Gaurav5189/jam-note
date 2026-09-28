@@ -20,7 +20,9 @@ type MockStore struct {
 	claims      int
 	publishes   int
 	failures    int
+	retries     int
 	failMarkPub bool
+	failMarkRty bool
 }
 
 func NewMockStore() *MockStore {
@@ -88,6 +90,33 @@ func (m *MockStore) MarkFailed(ctx context.Context, eventID string, failedAt tim
 	rec.ErrorReason = &reason
 	rec.ClaimedAt = nil
 	m.failures++
+	return nil
+}
+
+// MarkRetry mirrors MongoStore.MarkRetry: the update is scoped to the
+// caller's own claim, so it is a no-op once the record was reclaimed.
+func (m *MockStore) MarkRetry(ctx context.Context, eventID string, claimedAt *time.Time, availableAt time.Time, reason string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.failMarkRty {
+		return errors.New("simulated store failure during MarkRetry")
+	}
+	m.retries++
+	rec, ok := m.records[eventID]
+	if !ok {
+		return errors.New("not found")
+	}
+	if rec.Status != outbox.StatusPublishing {
+		return nil // no longer ours — safe no-op
+	}
+	if claimedAt != nil && rec.ClaimedAt != nil && !rec.ClaimedAt.Equal(*claimedAt) {
+		return nil // lease was reclaimed by another worker — do not stomp
+	}
+	rec.Status = outbox.StatusPending
+	rec.AvailableAt = availableAt
+	rec.ErrorReason = &reason
+	rec.ClaimedAt = nil
+	rec.FailedAt = nil
 	return nil
 }
 
@@ -198,7 +227,7 @@ func (p *MockProducer) Count() int {
 func TestDuplicateChangeStreamAndReconcileCandidates(t *testing.T) {
 	store := NewMockStore()
 	producer := NewMockProducer()
-	pub := outbox.NewPublisher(store, producer, 30*time.Second, 3)
+	pub := outbox.NewPublisher(store, producer, 30*time.Second, 3, 8)
 
 	eventID := "evt-123"
 	aggregateID := "note-456"
@@ -260,7 +289,7 @@ func TestCrashAfterKafkaAckBeforeMongoStatusUpdate(t *testing.T) {
 	store := NewMockStore()
 	producer := NewMockProducer()
 	leaseDuration := 50 * time.Millisecond
-	pub := outbox.NewPublisher(store, producer, leaseDuration, 1)
+	pub := outbox.NewPublisher(store, producer, leaseDuration, 1, 8)
 	pub.SetRetryBaseDelay(1 * time.Millisecond)
 
 	eventID := "evt-crash-1"
@@ -320,7 +349,9 @@ func TestKafkaOutageRetryAndPermanentFailure(t *testing.T) {
 	producer.produceErr = errors.New("kafka broker unavailable (connection refused)")
 	producer.failAttempts = -1 // all fail
 
-	pub := outbox.NewPublisher(store, producer, 30*time.Second, 2) // 2 retries (total 3 attempts)
+	// Retry budget of 1: the first failed claim already exhausts the
+	// scheduled-retry budget, so the record must be dead-lettered.
+	pub := outbox.NewPublisher(store, producer, 30*time.Second, 2, 1) // 2 in-process retries (total 3 attempts)
 	pub.SetRetryBaseDelay(2 * time.Millisecond)
 
 	eventID := "evt-outage-1"
@@ -351,6 +382,117 @@ func TestKafkaOutageRetryAndPermanentFailure(t *testing.T) {
 	}
 	if rec.ErrorReason == nil || *rec.ErrorReason == "" {
 		t.Fatal("expected ErrorReason to be set")
+	}
+}
+
+// TestKafkaOutageSchedulesRetryBackoff verifies that a transient outage below
+// the attempt budget returns the record to pending with a future available_at
+// instead of dead-lettering it — reconciliation then re-offers the event
+// (ARCHITECTURE §6 rule 4).
+func TestKafkaOutageSchedulesRetryBackoff(t *testing.T) {
+	store := NewMockStore()
+	producer := NewMockProducer()
+	producer.produceErr = errors.New("kafka broker unavailable (connection refused)")
+	producer.failAttempts = -1 // all fail
+
+	pub := outbox.NewPublisher(store, producer, 30*time.Second, 2, 8)
+	pub.SetRetryBaseDelay(2 * time.Millisecond)
+
+	eventID := "evt-outage-retry-1"
+	store.AddRecord(&outbox.OutboxRecord{
+		EventID:       eventID,
+		EventType:     "note.changed",
+		SchemaVersion: 1,
+		AggregateType: "note",
+		AggregateID:   "note-outage-retry-1",
+		UserID:        "user-1",
+		Status:        outbox.StatusPending,
+		AvailableAt:   time.Now().Add(-1 * time.Minute),
+	})
+
+	ctx := context.Background()
+	err := pub.ProcessCandidate(ctx, outbox.Candidate{EventID: eventID})
+	if err == nil {
+		t.Fatal("expected error from kafka outage")
+	}
+
+	rec := store.records[eventID]
+	if rec.Status != outbox.StatusPending {
+		t.Fatalf("expected status %s (scheduled retry), got %s", outbox.StatusPending, rec.Status)
+	}
+	if rec.FailedAt != nil {
+		t.Fatal("expected FailedAt to be nil for a retryable failure")
+	}
+	if !rec.AvailableAt.After(time.Now()) {
+		t.Fatalf("expected future available_at for scheduled retry, got %v", rec.AvailableAt)
+	}
+	if rec.ErrorReason == nil || *rec.ErrorReason == "" {
+		t.Fatal("expected ErrorReason to record the last produce failure")
+	}
+	if rec.Attempts != 1 {
+		t.Fatalf("expected attempts 1 after first claim, got %d", rec.Attempts)
+	}
+
+	// The scheduled record must be invisible to reconciliation until
+	// available_at is due.
+	cands, err := store.GetReconcileCandidates(ctx, 30*time.Second, 100)
+	if err != nil {
+		t.Fatalf("GetReconcileCandidates: %v", err)
+	}
+	for _, c := range cands {
+		if c.EventID == eventID {
+			t.Fatal("record scheduled for retry must not be a reconcile candidate until available_at")
+		}
+	}
+}
+
+// TestMarkRetryStoreErrorKeepsLease verifies that when the MarkRetry write
+// itself fails, the record is left claimed (status=publishing) so lease
+// expiry re-offers it — it must NOT fall through to the unscoped MarkFailed,
+// which could dead-letter a record that still has retry budget or stomp one
+// reclaimed by another worker.
+func TestMarkRetryStoreErrorKeepsLease(t *testing.T) {
+	store := NewMockStore()
+	producer := NewMockProducer()
+	producer.produceErr = errors.New("kafka broker unavailable (connection refused)")
+	producer.failAttempts = -1 // all fail
+	store.failMarkRty = true    // the retry-scheduling write also fails
+
+	pub := outbox.NewPublisher(store, producer, 30*time.Second, 2, 8)
+	pub.SetRetryBaseDelay(2 * time.Millisecond)
+
+	eventID := "evt-markretry-storeerr"
+	store.AddRecord(&outbox.OutboxRecord{
+		EventID:       eventID,
+		EventType:     "note.changed",
+		SchemaVersion: 1,
+		AggregateType: "note",
+		AggregateID:   "note-markretry-storeerr",
+		UserID:        "user-1",
+		Status:        outbox.StatusPending,
+		AvailableAt:   time.Now().Add(-1 * time.Minute),
+	})
+
+	ctx := context.Background()
+	err := pub.ProcessCandidate(ctx, outbox.Candidate{EventID: eventID})
+	if err == nil {
+		t.Fatal("expected error when both publish and MarkRetry fail")
+	}
+
+	rec := store.records[eventID]
+	// Still claimed by this worker: lease expiry is the recovery path.
+	if rec.Status != outbox.StatusPublishing {
+		t.Fatalf("expected status %s (lease held for recovery), got %s", outbox.StatusPublishing, rec.Status)
+	}
+	if rec.ClaimedAt == nil {
+		t.Fatal("expected the claim to be kept so lease expiry can reclaim")
+	}
+	// Must NOT have been dead-lettered below the retry budget.
+	if rec.FailedAt != nil {
+		t.Fatal("record with retry budget must not be marked failed when MarkRetry errors")
+	}
+	if store.failures != 0 {
+		t.Fatalf("MarkFailed must not run when MarkRetry fails, got %d failures", store.failures)
 	}
 }
 

@@ -2,6 +2,7 @@ from unittest.mock import MagicMock, patch
 from bson import ObjectId
 
 from scripts.reindex import (
+    build_opensearch_client,
     generate_block_docs,
     is_text_bearing,
     reindex,
@@ -103,3 +104,66 @@ def test_reindex_flow_with_user_filter():
         bulk_docs = mock_bulk.call_args[0][1]
         assert len(bulk_docs) == 1
         assert bulk_docs[0]["_id"] == "507f1f77bcf86cd799439011:bk1"
+
+
+def _capture_client_kwargs(monkeypatch):
+    """Patch scripts.reindex.OpenSearch so construction kwargs are recorded.
+
+    settings is also neutralized: on this dev machine it loads the real
+    .env (with live Aiven credentials), which would make the fallback
+    path environment-dependent. With settings=None the env vars are the
+    only source besides the URL, matching the standalone-script mode.
+    """
+    from scripts import reindex
+
+    captured = {}
+
+    class FakeOpenSearch:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+    monkeypatch.setattr(reindex, "OpenSearch", FakeOpenSearch)
+    monkeypatch.setattr(reindex, "settings", None)
+    return captured
+
+
+def test_build_opensearch_client_env_credentials(monkeypatch):
+    captured = _capture_client_kwargs(monkeypatch)
+    monkeypatch.setenv("OPENSEARCH_USER", "admin")
+    monkeypatch.setenv("OPENSEARCH_PASSWORD", "secret")
+
+    build_opensearch_client("https://os.example.com:9200")
+
+    # Aiven-style setup: separate OPENSEARCH_USER/OPENSEARCH_PASSWORD env
+    # vars must reach the client, and https must enable TLS.
+    assert captured["http_auth"] == ("admin", "secret")
+    assert captured["use_ssl"] is True
+    assert captured["hosts"] == ["https://os.example.com:9200"]
+
+
+def test_build_opensearch_client_embedded_credentials(monkeypatch):
+    captured = _capture_client_kwargs(monkeypatch)
+    monkeypatch.delenv("OPENSEARCH_USER", raising=False)
+    monkeypatch.delenv("OPENSEARCH_PASSWORD", raising=False)
+
+    build_opensearch_client("https://svc:svcpass@os.example.com:9200")
+
+    # Aiven "Service URI" with embedded credentials (env vars unset): creds
+    # are extracted for http_auth and stripped out of the hosts parameter —
+    # same precedence rule as the API client (explicit env creds, when set,
+    # win; the URL is the fallback).
+    assert captured["http_auth"] == ("svc", "svcpass")
+    assert captured["hosts"] == ["https://os.example.com:9200"]
+    assert captured["use_ssl"] is True
+
+
+def test_build_opensearch_client_no_credentials(monkeypatch):
+    captured = _capture_client_kwargs(monkeypatch)
+    monkeypatch.delenv("OPENSEARCH_USER", raising=False)
+    monkeypatch.delenv("OPENSEARCH_PASSWORD", raising=False)
+
+    build_opensearch_client("http://localhost:9200")
+
+    # Local plaintext setup — no auth, no TLS.
+    assert captured["http_auth"] is None
+    assert captured["use_ssl"] is False

@@ -105,6 +105,58 @@ async def test_search_graceful_degradation_fallback(client: AsyncClient):
 
 
 @pytest.mark.asyncio
+async def test_search_magic_merges_blockless_note(client: AsyncClient):
+    """Notes with no text-bearing blocks have no docs in the block-level
+    index; their MongoDB title hits must still surface on the magic path."""
+    await signup_and_authenticate(client, "merge_user")
+
+    # A fresh note with zero blocks — invisible to OpenSearch by construction.
+    create_resp = await client.post(
+        "/api/notes",
+        json={"title": "Hidden Machine Learning"},
+    )
+    assert create_resp.status_code == 201
+    created_note = create_resp.json()
+
+    # Magic path returns an unrelated content hit for a different note.
+    mock_os = MagicMock()
+    mock_os.search.return_value = {
+        "hits": {
+            "hits": [
+                {
+                    "_source": {
+                        "note_id": "note-77",
+                        "block_id": "b-9",
+                        "note_title": "Another Note",
+                        "text": "Machine learning models overview.",
+                    },
+                    "highlight": {"text": ["<em>Machine</em> learning models overview."]},
+                }
+            ]
+        }
+    }
+    override_opensearch_client(mock_os)
+    try:
+        response = await client.get("/api/search?q=Machine")
+        assert response.status_code == 200
+        data = response.json()
+
+        assert data["magic"] is True
+        # Title hits rank first: the merged blockless note leads, then the
+        # OpenSearch content hit.
+        assert len(data["results"]) == 2
+        assert data["results"][0]["note_id"] == created_note["id"]
+        assert data["results"][0]["block_id"] is None
+        assert data["results"][0]["note_title"] == "Hidden Machine Learning"
+        assert data["results"][0]["rank"] == 0
+        assert data["results"][1]["note_id"] == "note-77"
+        assert data["results"][1]["block_id"] == "b-9"
+        assert data["results"][1]["rank"] == 1
+    finally:
+        override_opensearch_client(None)
+
+
+@pytest.mark.asyncio
 async def test_search_empty_query_returns_empty(client: AsyncClient):
     await signup_and_authenticate(client, "empty_q_user")
     response = await client.get("/api/search?q=   ")

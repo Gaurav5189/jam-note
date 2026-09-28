@@ -17,6 +17,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 from bson import ObjectId
 from opensearchpy import OpenSearch, helpers
@@ -241,6 +242,47 @@ def reindex(
     }
 
 
+def build_opensearch_client(os_url: str) -> OpenSearch:
+    """Construct the OpenSearch client for a backfill run.
+
+    Credentials follow the same precedence as the API's client
+    (fastapi_backend.search.client.create_opensearch_client): explicit
+    OPENSEARCH_USER / OPENSEARCH_PASSWORD (env, then application settings)
+    win when set; a user:pass embedded in the Aiven "Service URI" is the
+    fallback and is stripped out of the hosts parameter. Unlike the API
+    client, the script keeps its own backfill-friendly timeout/retry
+    profile.
+    """
+    user = os.getenv("OPENSEARCH_USER", settings.opensearch_user if settings else None)
+    password = os.getenv("OPENSEARCH_PASSWORD", settings.opensearch_password if settings else None)
+
+    parsed = urlparse(os_url)
+    if not user and parsed.username:
+        user = parsed.username
+    if not password and parsed.password:
+        password = parsed.password
+
+    # Clean host without embedded credentials for the hosts parameter
+    if parsed.username or parsed.password:
+        netloc = parsed.hostname or "localhost"
+        if parsed.port:
+            netloc = f"{netloc}:{parsed.port}"
+        clean_url = f"{parsed.scheme}://{netloc}"
+    else:
+        clean_url = os_url
+
+    http_auth = (user, password) if user and password else None
+    return OpenSearch(
+        hosts=[clean_url],
+        http_auth=http_auth,
+        use_ssl=parsed.scheme == "https",
+        verify_certs=True,
+        timeout=30,
+        max_retries=3,
+        retry_on_timeout=True,
+    )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Backfill MongoDB notes into OpenSearch")
     parser.add_argument(
@@ -267,13 +309,7 @@ def main() -> None:
     db = mongo_client[db_name]
 
     logger.info("Connecting to OpenSearch at %s", os_url)
-    os_client = OpenSearch(
-        hosts=[os_url],
-        verify_certs=True,
-        timeout=30,
-        max_retries=3,
-        retry_on_timeout=True,
-    )
+    os_client = build_opensearch_client(os_url)
 
     reindex(
         mongo_db=db,

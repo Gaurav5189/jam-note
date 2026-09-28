@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -173,24 +172,36 @@ func (c *Consumer) Run(ctx context.Context) error {
 		}
 
 		fetches := c.client.PollFetches(ctx)
-		if err := fetches.Err(); err != nil {
-			if ctx.Err() != nil || errors.Is(err, context.Canceled) {
-				return ctx.Err()
-			}
-			log.Printf("[consumer] poll fetch error: %v", err)
-			continue
+		if ctx.Err() != nil || fetches.IsClientClosed() {
+			return ctx.Err()
 		}
+
+		// Log per-partition fetch errors, then process whatever records this
+		// poll returned from healthy partitions. franz-go has already
+		// buffered the batch and advanced its fetch position — dropping the
+		// whole batch because one partition errored would permanently lose
+		// those records once later offsets are committed.
+		fetches.EachError(func(topic string, partition int32, err error) {
+			log.Printf("[consumer] fetch error (t:%s p:%d): %v", topic, partition, err)
+		})
 
 		iter := fetches.RecordIter()
 		for !iter.Done() {
 			record := iter.Next()
 			if err := c.ProcessRecord(ctx, record); err != nil {
 				if ctx.Err() != nil {
+					// Release the rebalance block before exiting.
+					c.client.AllowRebalance()
 					return ctx.Err()
 				}
 				log.Printf("[consumer] error processing record: %v", err)
 			}
 		}
+
+		// BlockRebalanceOnPoll holds group rebalances while a polled batch is
+		// being processed; they must be released after every batch or the
+		// member stalls the group and is eventually kicked out.
+		c.client.AllowRebalance()
 	}
 }
 

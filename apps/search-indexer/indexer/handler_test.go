@@ -105,7 +105,11 @@ func TestHandleEvent_SkipHeartbeat(t *testing.T) {
 
 func TestHandleEvent_NoteDeleted(t *testing.T) {
 	mockSearch := &MockSearchClient{}
-	mockMongo := &MockNoteReader{}
+	// note.deleted reconciles against MongoDB's current state: a missing
+	// (or soft-deleted) note is purged from the index.
+	mockMongo := &MockNoteReader{
+		notes: make(map[string]*MongoNote),
+	}
 	handler := NewEventHandler(mockMongo, mockSearch)
 
 	event := EventEnvelope{
@@ -132,8 +136,55 @@ func TestHandleEvent_NoteDeleted(t *testing.T) {
 	if len(mockSearch.bulkDocs) != 0 {
 		t.Errorf("expected 0 bulk docs on delete, got %d", len(mockSearch.bulkDocs))
 	}
-	if len(mockMongo.getCalls) != 0 {
-		t.Errorf("expected 0 mongo reads on delete, got %d", len(mockMongo.getCalls))
+	if len(mockMongo.getCalls) != 1 {
+		t.Errorf("expected 1 mongo read on delete (state check), got %d", len(mockMongo.getCalls))
+	}
+}
+
+// TestHandleEvent_NoteDeleted_ActiveNoteReindexes covers out-of-order
+// delivery: the user trashes a note and restores it, but the note.deleted
+// event is processed after the restore's note.changed. The delete must NOT
+// wipe an active note from the index — it re-reconciles MongoDB's state.
+func TestHandleEvent_NoteDeleted_ActiveNoteReindexes(t *testing.T) {
+	mockSearch := &MockSearchClient{}
+	noteID := "note-restored"
+	mockMongo := &MockNoteReader{
+		notes: map[string]*MongoNote{
+			noteID: {
+				ID:     noteID,
+				UserID: "user-xyz",
+				Title:  "Restored Note",
+				Blocks: []Block{
+					{ID: "b1", Type: "text", Properties: BlockProperties{Text: ptrString("Still active")}},
+				},
+			},
+		},
+	}
+	handler := NewEventHandler(mockMongo, mockSearch)
+
+	event := EventEnvelope{
+		EventID:       "evt-124",
+		EventType:     "note.deleted",
+		SchemaVersion: 1,
+		AggregateType: "note",
+		AggregateID:   noteID,
+		UserID:        "user-xyz",
+	}
+	data, _ := json.Marshal(event)
+
+	if err := handler.HandleEvent(context.Background(), data); err != nil {
+		t.Fatalf("expected nil error, got %v", err)
+	}
+
+	// Purge-then-reindex: the active note must be re-indexed, not dropped.
+	if len(mockSearch.deletedNotes) != 1 || mockSearch.deletedNotes[0] != noteID {
+		t.Fatalf("expected DeleteByNoteID(%s) before re-index, got %v", noteID, mockSearch.deletedNotes)
+	}
+	if len(mockSearch.bulkDocs) != 1 {
+		t.Fatalf("expected 1 bulk batch re-indexing the active note, got %d", len(mockSearch.bulkDocs))
+	}
+	if len(mockSearch.bulkDocs[0]) != 1 || mockSearch.bulkDocs[0][0].BlockID != "b1" {
+		t.Fatalf("expected the note's text block re-indexed, got %v", mockSearch.bulkDocs)
 	}
 }
 

@@ -42,6 +42,24 @@ async def search(
         results = await asyncio.to_thread(
             search_service.search, client, clean_q, current_user.id
         )
+
+        # The block-level index cannot contain notes with no text-bearing
+        # blocks (fresh "Untitled" notes, image/drawing-only notes), so
+        # MongoDB title hits are merged in to keep them findable — the
+        # pre-Phase-8 title search found them. A MongoDB hiccup here must
+        # not take the magic path down.
+        try:
+            mongo_title_notes = await notes_service.search_notes(
+                db, current_user.id, clean_q
+            )
+        except Exception:
+            logger.warning(
+                "MongoDB title-merge lookup failed; returning OpenSearch results only",
+                exc_info=True,
+            )
+            mongo_title_notes = []
+
+        results = search_service.merge_mongo_title_hits(results, mongo_title_notes)
         return SearchResponse(magic=True, results=results)
     except Exception as exc:
         try:

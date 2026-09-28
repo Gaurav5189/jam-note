@@ -9,7 +9,7 @@ How to install and run **jam-note** locally (development) and via the prebuilt D
 - **Python 3.14+** with [`uv`](https://docs.astral.sh/uv/) (or Docker for the backend image)
 - **Node.js 20+** with `pnpm 12`
 - **MongoDB** — local instance ([Community Server](https://www.mongodb.com/try/download/community)) or an Atlas cluster (`mongodb+srv://…` works; TLS via `certifi` is handled automatically)
-- Optional (event pipeline / magic search): **Kafka** (e.g. Aiven), **OpenSearch**, **Go 1.23+** for the two worker daemons. The app runs fine without them — search falls back to MongoDB and outbox events simply accumulate.
+- Optional (event pipeline / magic search): **Kafka** (e.g. Aiven), **OpenSearch**, **Go 1.27.1+** for the two worker daemons. The app runs fine without them — search falls back to MongoDB and outbox events simply accumulate.
 
 ---
 

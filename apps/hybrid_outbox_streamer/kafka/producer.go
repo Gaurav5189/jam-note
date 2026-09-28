@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/twmb/franz-go/pkg/kgo"
 	"github.com/twmb/franz-go/pkg/sasl/scram"
@@ -28,10 +29,20 @@ type FranzProducer struct {
 
 // NewFranzProducer initializes a new franz-go Kafka producer with SASL/TLS as configured.
 func NewFranzProducer(cfg *config.Config) (*FranzProducer, error) {
+	// A record stuck in produce retries must never outlive its outbox lease:
+	// franz-go retries failed records indefinitely unless a delivery timeout
+	// is configured, which would wedge every worker on an unreachable broker.
+	// Half the lease keeps the bound correct even if LEASE_DURATION changes.
+	deliveryTimeout := cfg.LeaseDuration / 2
+	if deliveryTimeout <= 0 {
+		deliveryTimeout = 30 * time.Second
+	}
+
 	opts := []kgo.Opt{
 		kgo.SeedBrokers(cfg.KafkaBrokers...),
 		kgo.DefaultProduceTopic(cfg.KafkaTopic),
 		kgo.RequiredAcks(kgo.AllISRAcks()),
+		kgo.RecordDeliveryTimeout(deliveryTimeout),
 	}
 
 	// Configure TLS if CA certificate is provided or requested

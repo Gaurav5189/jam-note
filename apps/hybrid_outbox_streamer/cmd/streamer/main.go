@@ -117,7 +117,7 @@ func runDaemon() {
 	log.Printf("[main] connected to Kafka (topic: %s)", cfg.KafkaTopic)
 
 	// 3. Initialize Publisher & Worker Pool
-	publisher := outbox.NewPublisher(store, producer, cfg.LeaseDuration, cfg.MaxPublishRetries)
+	publisher := outbox.NewPublisher(store, producer, cfg.LeaseDuration, cfg.MaxPublishRetries, cfg.MaxPublishAttempts)
 	numWorkers := 4
 	workerPool := outbox.NewWorkerPool(publisher, numWorkers, int(cfg.BatchLimit*2))
 

@@ -138,6 +138,32 @@ func (m *MongoStore) MarkFailed(ctx context.Context, eventID string, failedAt ti
 	return err
 }
 
+// MarkRetry returns a claimed record to pending with a future available_at.
+// The filter matches this worker's own claim so a record reclaimed by another
+// worker after lease expiry is never stomped.
+func (m *MongoStore) MarkRetry(ctx context.Context, eventID string, claimedAt *time.Time, availableAt time.Time, reason string) error {
+	filter := bson.D{
+		{Key: "event_id", Value: eventID},
+		{Key: "status", Value: StatusPublishing},
+	}
+	if claimedAt != nil {
+		filter = append(filter, bson.E{Key: "claimed_at", Value: *claimedAt})
+	}
+	update := bson.D{
+		{Key: "$set", Value: bson.D{
+			{Key: "status", Value: StatusPending},
+			{Key: "available_at", Value: availableAt},
+			{Key: "error_reason", Value: reason},
+		}},
+		{Key: "$unset", Value: bson.D{
+			{Key: "claimed_at", Value: ""},
+			{Key: "failed_at", Value: ""},
+		}},
+	}
+	_, err := m.outboxColl.UpdateOne(ctx, filter, update)
+	return err
+}
+
 // GetReconcileCandidates finds pending/due or expired publishing records.
 func (m *MongoStore) GetReconcileCandidates(ctx context.Context, leaseDuration time.Duration, limit int64) ([]*OutboxRecord, error) {
 	now := time.Now().UTC()
