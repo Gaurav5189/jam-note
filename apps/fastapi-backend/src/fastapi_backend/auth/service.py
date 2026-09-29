@@ -33,7 +33,9 @@ def create_access_token(data: dict[str, Any], expires_delta: timedelta | None = 
 
 def decode_access_token(token: str) -> dict[str, Any] | None:
     try:
-        decoded_data = jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
+        # Pin to HS256 to prevent algorithm confusion attacks.
+        # The secret is a symmetric key; RS256 would require a public key.
+        decoded_data = jwt.decode(token, settings.jwt_secret, algorithms=["HS256"])
         return decoded_data
     except jwt.InvalidTokenError:
         return None

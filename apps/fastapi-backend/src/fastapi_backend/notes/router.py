@@ -16,6 +16,7 @@ from fastapi_backend.notes.models import (
 from fastapi_backend.notes import service
 from fastapi_backend.folders import service as folders_service
 from fastapi_backend.exporting import service as export_service
+from fastapi_backend.auth.csrf import CSRFDep
 
 router = APIRouter(
     prefix="/notes",
@@ -31,6 +32,7 @@ async def create_note(
     note_data: NoteCreate,
     current_user: CurrentUserDep,
     db: DbDep,
+    _csrf: CSRFDep,
 ) -> NoteOut:
     created_doc = await service.create_note(db, current_user.id, note_data)
     return NoteOut.from_mongo(created_doc)
@@ -109,6 +111,7 @@ async def update_note(
     note_data: NoteUpdate,
     note_doc: OwnedNoteDep,
     db: DbDep,
+    _csrf: CSRFDep,
 ) -> NoteOut:
     updated_doc = await service.update_note(db, note_doc, note_data)
     return NoteOut.from_mongo(updated_doc)
@@ -118,6 +121,7 @@ async def update_note(
 async def delete_note(
     note_doc: OwnedNoteDep,
     db: DbDep,
+    _csrf: CSRFDep,
 ) -> dict[str, Any]:
     """File the note into the trash (30-day retention) — unless it is
     empty: notes with no meaningful content are deleted permanently
@@ -167,6 +171,7 @@ async def export_note(
 async def restore_note(
     note_doc: TrashedNoteDep,
     db: DbDep,
+    _csrf: CSRFDep,
 ) -> NoteOut:
     """Pull a trashed note back into the workspace."""
     restored_doc = await service.restore_note(db, note_doc)
@@ -177,6 +182,7 @@ async def restore_note(
 async def purge_note(
     note_doc: TrashedNoteDep,
     db: DbDep,
+    _csrf: CSRFDep,
 ) -> None:
     """Permanently delete a trashed note (immediate, irrecoverable)."""
     await service.purge_note(db, note_doc)

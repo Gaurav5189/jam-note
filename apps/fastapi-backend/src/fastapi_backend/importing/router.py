@@ -6,6 +6,7 @@ from fastapi_backend.auth.dependencies import CurrentUserDep
 from fastapi_backend.importing import models, service
 from fastapi_backend.importing.models import ImportCommitOut, ImportPreviewOut
 from fastapi_backend.notes.dependencies import DbDep
+from fastapi_backend.auth.csrf import CSRFDep
 
 router = APIRouter(
     prefix="/import",
@@ -36,6 +37,7 @@ async def import_preview(
     request: Request,
     current_user: CurrentUserDep,
     db: DbDep,
+    _csrf: CSRFDep,
 ) -> ImportPreviewOut:
     """Validate a backup and return its counts — "47 notes, 12
     folders — confirm?" Nothing is committed."""
@@ -50,6 +52,7 @@ async def import_commit(
     request: Request,
     current_user: CurrentUserDep,
     db: DbDep,
+    _csrf: CSRFDep,
     import_token: Annotated[
         str | None,
         Query(

@@ -1,10 +1,52 @@
 import { beginPending, endPending } from "@/lib/pending-bar";
 
 /**
+ * Get the CSRF token from the cookie. The cookie is not HttpOnly, so
+ * JavaScript can read it. Returns null outside the browser (SSR/tests).
+ */
+function getCsrfToken(): string | null {
+  if (typeof document === "undefined") return null;
+  const cookies = document.cookie.split("; ");
+  for (const cookie of cookies) {
+    const [name, ...rest] = cookie.split("=");
+    if (name === "csrf_token") return rest.join("=");
+  }
+  return null;
+}
+
+/** HTTP methods that mutate state and therefore require the CSRF header. */
+function isStateChangingMethod(method?: string): boolean {
+  const m = (method ?? "GET").toUpperCase();
+  return m === "POST" || m === "PUT" || m === "PATCH" || m === "DELETE";
+}
+
+/**
+ * Fetch (or refresh) the CSRF token cookie. Sessions created before the
+ * CSRF rollout have no token yet — this self-heals them.
+ */
+async function refreshCsrfToken(): Promise<string | null> {
+  if (typeof document === "undefined") return null;
+  try {
+    const response = await fetch("/api/auth/csrf", { credentials: "include" });
+    if (!response.ok) return null;
+    const data: { csrf_token?: string } = await response.json();
+    return data.csrf_token ?? getCsrfToken();
+  } catch {
+    return null;
+  }
+}
+
+/**
  * The app's fetch wrapper. Every call tracks the top loading bar so a
  * pressed button visibly works on throttled networks — except quiet
  * background saves (editor/canvas autosave, tracked by their own save
  * chips), which pass `trackPending: false`.
+ *
+ * State-changing requests automatically carry the double-submit CSRF
+ * token (X-CSRF-Token header mirroring the csrf_token cookie). If the
+ * server rejects with "CSRF token missing" — e.g. an old session
+ * predating the CSRF rollout — the token is refreshed once and the
+ * request retried.
  */
 export async function fetchApi<T>(
   endpoint: string,
@@ -18,13 +60,38 @@ export async function fetchApi<T>(
     headers.set("Content-Type", "application/json");
   }
 
+  // Attach the CSRF token on state-changing requests.
+  if (isStateChangingMethod(options?.method)) {
+    const csrfToken = getCsrfToken();
+    if (csrfToken) headers.set("X-CSRF-Token", csrfToken);
+  }
+
   if (trackPending) beginPending();
   try {
-    const response = await fetch(url, {
+    let response = await fetch(url, {
       ...options,
       headers,
       credentials: "include",
     });
+
+    // Self-heal: a 403 "CSRF token missing" on an unsafe method means
+    // the session cookie predates the CSRF rollout — mint a fresh
+    // token and retry the request once.
+    if (
+      response.status === 403 &&
+      isStateChangingMethod(options?.method) &&
+      !headers.has("X-CSRF-Token")
+    ) {
+      const freshToken = await refreshCsrfToken();
+      if (freshToken) {
+        headers.set("X-CSRF-Token", freshToken);
+        response = await fetch(url, {
+          ...options,
+          headers,
+          credentials: "include",
+        });
+      }
+    }
 
     if (!response.ok) {
       let errorMessage = `API error: ${response.status} ${response.statusText}`;

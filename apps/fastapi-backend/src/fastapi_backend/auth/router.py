@@ -21,6 +21,18 @@ from fastapi_backend.auth.service import (
     verify_password,
 )
 from fastapi_backend.auth.dependencies import CurrentUserDep
+from fastapi_backend.auth.csrf import (
+    CSRF_COOKIE_NAME,
+    set_csrf_cookie,
+    verify_csrf_token,
+    CSRFDep,
+    OriginDep,
+)
+from fastapi_backend.auth.rate_limit import (
+    rate_limit_password_check,
+    RateLimitLoginDep,
+    RateLimitSignupDep,
+)
 
 router = APIRouter(
     prefix="/auth",
@@ -32,7 +44,9 @@ router = APIRouter(
 async def signup(
     user_data: UserSignUp,
     response: Response,
-    db: Annotated[AsyncIOMotorDatabase, Depends(get_db)]
+    db: Annotated[AsyncIOMotorDatabase, Depends(get_db)],
+    _rate_limit: RateLimitSignupDep,
+    _origin: OriginDep,
 ) -> UserOut:
     # Check if email or username already exists
     existing_user = await db.users.find_one({
@@ -75,9 +89,13 @@ async def signup(
         key=settings.cookie_name,
         value=token,
         httponly=True,
+        secure=settings.environment == "production",
         max_age=settings.jwt_expire_minutes * 60,
         samesite="lax",
     )
+    
+    # Set CSRF token cookie for subsequent requests
+    set_csrf_cookie(response)
     
     user_doc = await db.users.find_one({"_id": result.inserted_id})
     if not user_doc:
@@ -90,7 +108,9 @@ async def signup(
 async def login(
     user_data: UserLogin,
     response: Response,
-    db: Annotated[AsyncIOMotorDatabase, Depends(get_db)]
+    db: Annotated[AsyncIOMotorDatabase, Depends(get_db)],
+    _rate_limit: RateLimitLoginDep,
+    _origin: OriginDep,
 ) -> UserOut:
     user_doc = await db.users.find_one({
         "$or": [{"email": user_data.email_or_username}, {"username": user_data.email_or_username}]
@@ -108,16 +128,39 @@ async def login(
         key=settings.cookie_name,
         value=token,
         httponly=True,
+        secure=settings.environment == "production",
         max_age=settings.jwt_expire_minutes * 60,
         samesite="lax",
     )
     
+    # Set CSRF token cookie for subsequent requests
+    set_csrf_cookie(response)
+    
     return UserOut.from_mongo(user_doc)
 
 
+@router.get("/csrf")
+async def get_csrf(
+    current_user: CurrentUserDep,
+    response: Response,
+) -> dict[str, str]:
+    """Issue (or refresh) the CSRF token cookie.
+
+    The frontend calls this lazily when a state-changing request is
+    rejected with "CSRF token missing" — sessions created before the
+    CSRF rollout self-heal on their first mutation instead of failing.
+    """
+    token = set_csrf_cookie(response)
+    return {"csrf_token": token}
+
+
 @router.post("/logout")
-async def logout(response: Response) -> MessageResponse:
+async def logout(
+    response: Response,
+    _csrf: CSRFDep,
+) -> MessageResponse:
     response.delete_cookie(key=settings.cookie_name)
+    response.delete_cookie(key=CSRF_COOKIE_NAME)
     return MessageResponse(message="Successfully logged out")
 
 
@@ -131,6 +174,7 @@ async def update_me(
     update_data: UserUpdateMe,
     current_user: CurrentUserDep,
     db: Annotated[AsyncIOMotorDatabase, Depends(get_db)],
+    _csrf: CSRFDep,
 ) -> UserOut:
     """Profile identity card — update the display name."""
     now = datetime.now(timezone.utc)
@@ -162,6 +206,7 @@ async def update_password(
     password_data: PasswordUpdate,
     current_user: CurrentUserDep,
     db: Annotated[AsyncIOMotorDatabase, Depends(get_db)],
+    _csrf: CSRFDep,
 ) -> MessageResponse:
     """Profile security form — rotate the password.
 
@@ -171,6 +216,10 @@ async def update_password(
     stays valid (no session revoke — noted as deferred scope); users
     log in with the new password next time.
     """
+    # Per-user rate limit (3 attempts per hour) — must run inside the
+    # body because it needs the authenticated user id.
+    rate_limit_password_check(current_user.id)
+
     user_doc = await db.users.find_one(
         {"_id": ObjectId(current_user.id)}, {"password_hash": 1}
     )

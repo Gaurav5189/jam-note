@@ -15,6 +15,7 @@ from fastapi_backend.folders.models import (
 from fastapi_backend.folders import service
 from fastapi_backend.notes import service as notes_service
 from fastapi_backend.exporting import service as export_service
+from fastapi_backend.auth.csrf import CSRFDep
 
 router = APIRouter(
     prefix="/folders",
@@ -31,6 +32,7 @@ async def create_folder(
     folder_data: FolderCreate,
     current_user: CurrentUserDep,
     db: DbDep,
+    _csrf: CSRFDep,
 ) -> FolderOut:
     created_doc = await service.create_folder(db, current_user.id, folder_data)
     return FolderOut.from_mongo(created_doc)
@@ -55,6 +57,7 @@ async def update_folder(
     folder_data: FolderUpdate,
     folder_doc: OwnedFolderDep,
     db: DbDep,
+    _csrf: CSRFDep,
 ) -> FolderOut:
     updated_doc = await service.update_folder(db, folder_doc, folder_data)
     return FolderOut.from_mongo(updated_doc)
@@ -64,6 +67,7 @@ async def update_folder(
 async def delete_folder(
     folder_doc: OwnedFolderDep,
     db: DbDep,
+    _csrf: CSRFDep,
 ) -> None:
     await service.delete_folder(db, folder_doc)
 

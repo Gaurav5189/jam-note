@@ -12,6 +12,7 @@ from fastapi_backend.folders.models import (
     WorkspaceOut,
 )
 from fastapi_backend.notes.models import NoteListItem
+from fastapi_backend.events.outbox import transaction_or_fallback
 
 # Fields returned for list/tree reads — mirrors notes.LIST_PROJECTION.
 FOLDER_LIST_PROJECTION = {
@@ -187,31 +188,34 @@ async def delete_folder(db: AsyncIOMotorDatabase, folder_doc: dict[str, Any]) ->
     """Delete a folder, lifting its contents to its own parent.
 
     Notes and sub-folders are lifted BEFORE the delete so nothing is ever
-    orphaned, even if the delete fails midway (standalone MongoDB
-    deployments do not support multi-document transactions). Folder
-    deletion never cascades.
+    orphaned. Uses a MongoDB transaction when available (replica set/Atlas)
+    so the three writes are atomic.
     """
-    await db.notes.update_many(
-        {"folder_id": folder_doc["_id"], "user_id": folder_doc["user_id"]},
-        {
-            "$set": {
-                "folder_id": folder_doc.get("parent_folder_id"),
-                "updated_at": utc_now(),
-            }
-        },
-    )
-    await db.folders.update_many(
-        {"parent_folder_id": folder_doc["_id"], "user_id": folder_doc["user_id"]},
-        {
-            "$set": {
-                "parent_folder_id": folder_doc.get("parent_folder_id"),
-                "updated_at": utc_now(),
-            }
-        },
-    )
-    await db.folders.delete_one(
-        {"_id": folder_doc["_id"], "user_id": folder_doc["user_id"]}
-    )
+    async with transaction_or_fallback(db) as session:
+        await db.notes.update_many(
+            {"folder_id": folder_doc["_id"], "user_id": folder_doc["user_id"]},
+            {
+                "$set": {
+                    "folder_id": folder_doc.get("parent_folder_id"),
+                    "updated_at": utc_now(),
+                }
+            },
+            session=session,
+        )
+        await db.folders.update_many(
+            {"parent_folder_id": folder_doc["_id"], "user_id": folder_doc["user_id"]},
+            {
+                "$set": {
+                    "parent_folder_id": folder_doc.get("parent_folder_id"),
+                    "updated_at": utc_now(),
+                }
+            },
+            session=session,
+        )
+        await db.folders.delete_one(
+            {"_id": folder_doc["_id"], "user_id": folder_doc["user_id"]},
+            session=session,
+        )
 
 
 def build_workspace_tree(
