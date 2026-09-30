@@ -78,6 +78,7 @@ apps/search-indexer/cmd/indexer/indexer
 !.vscode/extensions.json
 !.vscode/*.code-snippets
 .agent/
+graph.json
 
 # Operating system files
 .DS_Store
