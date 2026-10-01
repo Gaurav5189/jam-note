@@ -18,6 +18,10 @@ const FORM_DEFS: Record<FormKey, { label: string; ghost: string; title: string }
 };
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// Emoji detection regex (Unicode ranges, u flag, no g flag so .test() works reliably)
+const EMOJI_REGEX = /[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F900}-\u{1F9FF}\u{1F180}-\u{1F1FF}\u{238C}-\u{2454}\u{2B50}-\u{2B55}\u{1F000}-\u{1F02F}\u{1F030}-\u{1F09F}\u{1F0A0}-\u{1F0FF}\u{1F100}-\u{1F2FF}\u{1F650}-\u{1F67F}\u{1F700}-\u{1F77F}\u{1F780}-\u{1F7FF}\u{1F800}-\u{1F8FF}]/u;
+const USERNAME_REGEX = /^[a-z0-9_]+$/;
+const DISPLAY_NAME_REGEX = /^[a-zA-Z0-9 ]+$/;
 const NETWORK_HINTS = ["failed to fetch", "networkerror", "load failed", "fetch failed"];
 const BASE_ROTATION = -0.4;
 
@@ -252,7 +256,9 @@ export function AuthSlips({ initialForm }: { initialForm: "login" | "signup" }) 
     if (busyFor || stampedFor) return;
     const marks: Array<[string, string]> = [];
     if (!loginId.trim()) marks.push(["loginId", "REQUIRED"]);
+    else if (EMOJI_REGEX.test(loginId)) marks.push(["loginId", "NO EMOJI"]);
     if (!loginPw) marks.push(["loginPw", "REQUIRED"]);
+    else if (EMOJI_REGEX.test(loginPw)) marks.push(["loginPw", "NO EMOJI"]);
     if (marks.length) {
       setErrors(Object.fromEntries(marks));
       shake();
@@ -295,10 +301,19 @@ export function AuthSlips({ initialForm }: { initialForm: "login" | "signup" }) 
     const marks: Array<[string, string]> = [];
     if (!email) marks.push(["suEmail", "REQUIRED"]);
     else if (!EMAIL_RE.test(email)) marks.push(["suEmail", "NOT AN EMAIL"]);
+    else if (EMOJI_REGEX.test(email)) marks.push(["suEmail", "NO EMOJI"]);
     if (!username) marks.push(["suUser", "REQUIRED"]);
     else if (username.length < 3) marks.push(["suUser", "TOO SHORT"]);
+    else if (EMOJI_REGEX.test(username)) marks.push(["suUser", "NO EMOJI"]);
+    else if (!USERNAME_REGEX.test(username)) marks.push(["suUser", "ALPHANUMERIC ONLY"]);
+    const displayNameValue = suName.trim();
+    if (displayNameValue) {
+      if (EMOJI_REGEX.test(displayNameValue)) marks.push(["suName", "NO EMOJI"]);
+      else if (!DISPLAY_NAME_REGEX.test(displayNameValue)) marks.push(["suName", "ALPHANUMERIC ONLY"]);
+    }
     if (!suPw) marks.push(["suPw", "REQUIRED"]);
     else if (suPw.length < 8) marks.push(["suPw", "MIN 8 CHARACTERS"]);
+    else if (EMOJI_REGEX.test(suPw)) marks.push(["suPw", "NO EMOJI"]);
     if (marks.length) {
       setErrors(Object.fromEntries(marks));
       shake();
@@ -660,7 +675,7 @@ export function AuthSlips({ initialForm }: { initialForm: "login" | "signup" }) 
                   <Field
                     id="suName" name="display" label="DISPLAY NAME (OPTIONAL)" number="03" delay={0.66}
                     type="text" autoComplete="nickname"
-                    value={suName} onChange={setSuName} error={null}
+                    value={suName} onChange={(value) => { setSuName(value); clearError("suName"); }} error={errors.suName ?? null}
                   />
                   <Field
                     id="suPw" name="new-password" label="PASSWORD" number="04" delay={0.74}
