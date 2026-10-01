@@ -1,8 +1,9 @@
 from datetime import datetime, timezone
 from typing import Annotated
+import uuid
 
 from bson import ObjectId
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status, Request
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from fastapi_backend.config import settings
@@ -17,6 +18,7 @@ from fastapi_backend.auth.models import (
 )
 from fastapi_backend.auth.service import (
     create_access_token,
+    decode_access_token,
     get_password_hash,
     verify_password,
 )
@@ -28,6 +30,7 @@ from fastapi_backend.auth.csrf import (
     CSRFDep,
     OriginDep,
 )
+from fastapi_backend.auth.session_store import create_session, revoke_session, is_session_valid
 from fastapi_backend.auth.rate_limit import (
     rate_limit_password_check,
     RateLimitLoginDep,
@@ -83,7 +86,9 @@ async def signup(
     result = await db.users.insert_one(new_user)
     
     # Authenticate immediately
-    token = create_access_token(data={"sub": str(result.inserted_id)})
+    jti = str(uuid.uuid4())
+    token = create_access_token(data={"sub": str(result.inserted_id), "jti": jti})
+    await create_session(db, str(result.inserted_id), jti)
     
     response.set_cookie(
         key=settings.cookie_name,
@@ -122,7 +127,9 @@ async def login(
             detail="Incorrect username or password",
         )
 
-    token = create_access_token(data={"sub": str(user_doc["_id"])})
+    jti = str(uuid.uuid4())
+    token = create_access_token(data={"sub": str(user_doc["_id"]), "jti": jti})
+    await create_session(db, str(user_doc["_id"]), jti)
     
     response.set_cookie(
         key=settings.cookie_name,
@@ -156,9 +163,16 @@ async def get_csrf(
 
 @router.post("/logout")
 async def logout(
+    request: Request,
     response: Response,
+    db: Annotated[AsyncIOMotorDatabase, Depends(get_db)],
     _csrf: CSRFDep,
 ) -> MessageResponse:
+    token = request.cookies.get(settings.cookie_name)
+    if token:
+        payload = decode_access_token(token)
+        if payload and payload.get("jti"):
+            await revoke_session(db, payload["jti"])
     response.delete_cookie(key=settings.cookie_name)
     response.delete_cookie(key=CSRF_COOKIE_NAME)
     return MessageResponse(message="Successfully logged out")

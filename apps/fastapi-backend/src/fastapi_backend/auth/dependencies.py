@@ -7,6 +7,7 @@ from fastapi_backend.config import settings
 from fastapi_backend.database import get_db
 from fastapi_backend.auth.models import UserOut
 from fastapi_backend.auth.service import decode_access_token
+from fastapi_backend.auth.session_store import is_session_valid
 
 
 async def get_current_user(
@@ -33,6 +34,15 @@ async def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token",
         )
+
+    jti = payload.get("jti")
+    if jti:
+        valid = await is_session_valid(db, jti)
+        if not valid:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Session revoked",
+            )
 
     user_id = payload.get("sub")
     if not user_id:

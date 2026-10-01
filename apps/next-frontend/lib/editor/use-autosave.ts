@@ -109,12 +109,15 @@ export function useAutosave<T>(options: UseAutosaveOptions<T>) {
       cancelMaxWait();
 
       const payload = getPayloadRef.current();
+      // Capture payload, then clear dirty so only new notifyChange events
+      // during the await re-mark dirty.
+      dirty.current = false;
       inFlight.current = true;
       setSafeStatus("saving");
       try {
         await saveRef.current(payload, flushOptions);
-        dirty.current = false;
-        setSafeStatus("saved");
+        // After save, use the dirty state accumulated during the await.
+        setSafeStatus(dirty.current ? "dirty" : "saved");
         cancelHold();
         holdTimer.current = setTimeout(() => {
           holdTimer.current = null;
@@ -125,6 +128,8 @@ export function useAutosave<T>(options: UseAutosaveOptions<T>) {
           }
         }, savedHoldMs);
       } catch {
+        // Restore dirty so retry/re-flush can fire; the payload was not saved.
+        dirty.current = true;
         // The payload stays dirty — the next edit, keystroke or explicit
         // retry re-arms the debounce and tries again.
         setSafeStatus("error");

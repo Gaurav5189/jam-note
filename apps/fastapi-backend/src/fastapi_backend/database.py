@@ -57,6 +57,9 @@ class Database:
         await users.create_index("email", unique=True)
         await users.create_index("username", unique=True)
 
+        sessions = cls.db.user_sessions
+        await sessions.create_index("user_id")
+
         folders = cls.db.folders
         await folders.create_index("user_id")
         await folders.create_index("parent_folder_id")
