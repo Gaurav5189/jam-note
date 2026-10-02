@@ -50,6 +50,17 @@ Backing stores: **MongoDB** (authoritative data — users, notes, folders, outbo
 
 ---
 
+## AWS Connection & Deployment Proof
+
+Jam Notes was co-engineered using **Antigravity**, Google DeepMind's AGY coding agent, connected to the local development environment and configured for deployment to AWS Amplify and AWS ECS Fargate.
+
+The following checked-in proof images document the active agent session, AWS console connection, deployment configuration, and AWS build logs:
+
+- **Active agent session and AWS console:** [Agent AWS Split Proof](DOCS/Proofs/agent-aws-console-split.png)
+- **Agent deployment configuration and AWS build logs:** [Agent Build Log Proof](DOCS/Proofs/agent-aws-build-logs.png)
+
+---
+
 ## Design Philosophy (Neo-Industrial / Audio-Rack / Tactile Terminal)
 
 A custom visual identity — no templated cream-and-terracotta or generic dark mode:
