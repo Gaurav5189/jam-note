@@ -35,7 +35,7 @@ The frontend needs one variable when the backend is not at `http://localhost:800
 NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
 
-**SEO / deployment env vars** (set these on the hosting platform, e.g. Amplify build environment):
+**SEO / deployment env vars** (set these in the hosting platform's project settings):
 
 ```bash
 # Canonical public origin — drives canonical URLs, sitemap.xml, robots.txt,

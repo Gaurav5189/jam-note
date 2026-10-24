@@ -1,6 +1,7 @@
 // Canonical site origin for SEO routes (sitemap.ts, robots.ts, llms.txt) and
 // absolute OpenGraph URLs. Set NEXT_PUBLIC_SITE_URL in production deployments
-// (e.g. Amplify build env); the fallback keeps local builds self-consistent.
+// (for example, in the Vercel project settings); the fallback keeps local
+// builds self-consistent.
 export const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
