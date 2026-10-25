@@ -3,7 +3,8 @@ builder = "DOCKERFILE"
 dockerfilePath = "Containerfile"
 
 [deploy]
-healthcheckPath = "/health"
-healthcheckTimeout = 100
+# healthcheck disabled so Railway serverless can scale to zero
+# healthcheckPath = "/health"
+# healthcheckTimeout = 100
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 10
