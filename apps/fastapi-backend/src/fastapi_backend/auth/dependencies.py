@@ -1,4 +1,5 @@
 from typing import Annotated, Any
+import logging
 
 import jwt as pyjwt
 from bson import ObjectId
@@ -11,6 +12,8 @@ from fastapi_backend.database import get_db
 from fastapi_backend.auth.models import UserOut
 from fastapi_backend.auth.service import decode_access_token
 from fastapi_backend.auth.session_store import is_session_valid
+
+logger = logging.getLogger(__name__)
 
 _jwks_client: pyjwt.PyJWKClient | None = None
 
@@ -75,6 +78,19 @@ def _decode_better_auth_token(token: str) -> dict[str, Any]:
             },
         )
     except pyjwt.PyJWTError as exc:
+        # Never log the token itself. The message distinguishes an invalid
+        # token from an unreachable JWKS endpoint or a missing crypto extra,
+        # which all surface to the client as the same 401.
+        logger.warning(
+            "BetterAuth token verification failed (%s): %s "
+            "(jwks=%s issuer=%s audience=%s alg=%s)",
+            type(exc).__name__,
+            exc,
+            settings.better_auth_jwks_url,
+            settings.better_auth_issuer,
+            settings.better_auth_audience,
+            settings.better_auth_jwt_algorithm,
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token",
