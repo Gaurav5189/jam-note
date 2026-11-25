@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
-import { fetchApi } from "@/lib/api";
+import { clearAuthToken } from "@/lib/api";
+import { authClient } from "@/lib/auth-client";
 
 type FormKey = "login" | "signup";
 
@@ -24,6 +25,31 @@ const USERNAME_REGEX = /^[a-z0-9_]+$/;
 const DISPLAY_NAME_REGEX = /^[a-zA-Z0-9 ]+$/;
 const NETWORK_HINTS = ["failed to fetch", "networkerror", "load failed", "fetch failed"];
 const BASE_ROTATION = -0.4;
+
+/**
+ * Map BetterAuth error payloads onto the copy the slips already render.
+ * The legacy FastAPI messages are the contract `applyServerError` keys
+ * off, so the user-facing wording stays identical across the migration.
+ */
+function authErrorMessage(error: { code?: string; message?: string }): string {
+  switch (error.code) {
+    case "INVALID_EMAIL_OR_PASSWORD":
+    case "INVALID_USERNAME_OR_PASSWORD":
+      return "Incorrect username or password";
+    case "USER_ALREADY_EXISTS":
+    case "USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL":
+    case "USERNAME_IS_ALREADY_TAKEN":
+      return "Email or username already registered";
+    case "USERNAME_TOO_SHORT":
+      return "Username must be at least 3 characters";
+    case "USERNAME_TOO_LONG":
+      return "Username must be at most 50 characters";
+    case "INVALID_USERNAME":
+      return "Username must contain only alphanumeric characters and underscores";
+    default:
+      return error.message || "Authentication failed";
+  }
+}
 
 // Split display glyphs with the per-letter kinetic delay — the same timing
 // ramp the concept builds at runtime (.32s base + .035s per letter). Spaces
@@ -269,10 +295,13 @@ export function AuthSlips({ initialForm }: { initialForm: "login" | "signup" }) 
     setBusyFor("login");
     const startedAt = Date.now();
     try {
-      await fetchApi("/api/auth/login", {
-        method: "POST",
-        body: JSON.stringify({ email_or_username: loginId, password: loginPw }),
-      });
+      const { error } = loginId.includes("@")
+        ? await authClient.signIn.email({ email: loginId, password: loginPw })
+        : await authClient.signIn.username({ username: loginId, password: loginPw });
+      if (error) throw new Error(authErrorMessage(error));
+      // A sign-in can replace a previous session in this tab — drop the
+      // cached JWT so refreshUser mints one for the new session.
+      clearAuthToken();
       await refreshUser();
       if (!mountedRef.current) return;
       // Minimum busy window so fast responses don't flicker the button.
@@ -324,15 +353,15 @@ export function AuthSlips({ initialForm }: { initialForm: "login" | "signup" }) 
     setBusyFor("signup");
     const startedAt = Date.now();
     try {
-      await fetchApi("/api/auth/signup", {
-        method: "POST",
-        body: JSON.stringify({
-          email,
-          username,
-          password: suPw,
-          display_name: suName.trim() || undefined,
-        }),
+      const { error } = await authClient.signUp.email({
+        email,
+        password: suPw,
+        name: displayNameValue || username,
+        username,
+        displayUsername: username,
       });
+      if (error) throw new Error(authErrorMessage(error));
+      clearAuthToken();
       await refreshUser();
       if (!mountedRef.current) return;
       window.setTimeout(() => {

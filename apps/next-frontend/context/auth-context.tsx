@@ -2,7 +2,8 @@
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { fetchApi } from "@/lib/api";
+import { clearAuthToken, fetchApi } from "@/lib/api";
+import { authClient } from "@/lib/auth-client";
 import type { User } from "@/lib/types";
 
 interface AuthContextType {
@@ -25,7 +26,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setLoading(true);
       setError(null);
-      const userData = await fetchApi<User>("/api/auth/me");
+      const userData = await fetchApi<User>("/api/account/me");
       setUser(userData);
     } catch {
       setUser(null);
@@ -36,7 +37,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(async () => {
     try {
-      await fetchApi("/api/auth/logout", { method: "POST" });
+      await authClient.signOut();
+      clearAuthToken();
       setUser(null);
       router.push("/login");
     } catch (err) {
@@ -51,7 +53,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let cancelled = false;
     (async () => {
       try {
-        const userData = await fetchApi<User>("/api/auth/me");
+        const userData = await fetchApi<User>("/api/account/me");
         if (!cancelled) setUser(userData);
       } catch {
         if (!cancelled) setUser(null);

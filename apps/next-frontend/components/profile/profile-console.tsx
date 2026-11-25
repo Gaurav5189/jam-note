@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { useWorkspace } from "@/context/workspace-context";
 import { fetchApi } from "@/lib/api";
+import { authClient } from "@/lib/auth-client";
 import { flattenNotes } from "@/lib/workspace-tree";
 import { useOnlineStatus } from "@/lib/use-online-status";
 import { formatUtcDate } from "@/lib/time";
@@ -80,10 +81,8 @@ function DisplayNameRow({
     }
     setSaving(true);
     try {
-      await fetchApi("/api/auth/me", {
-        method: "PATCH",
-        body: JSON.stringify({ display_name: value }),
-      });
+      const { error } = await authClient.updateUser({ name: value });
+      if (error) throw new Error(error.message || "Save failed");
       setEditing(false);
       // The runhead reads the user from the server layout — a refresh
       // re-renders it with the new name (and this row's prop).
@@ -190,14 +189,18 @@ function PasswordForm({
     }
     setBusy(true);
     try {
-      await fetchApi("/api/auth/password", {
-        method: "PUT",
-        body: JSON.stringify({
-          current_password: pw0,
-          new_password: pw1,
-          confirm_password: pw2,
-        }),
+      const { error } = await authClient.changePassword({
+        currentPassword: pw0,
+        newPassword: pw1,
+        revokeOtherSessions: true,
       });
+      if (error) {
+        throw new Error(
+          error.code === "INVALID_PASSWORD"
+            ? "Current password is incorrect"
+            : error.message || "Update failed — try again",
+        );
+      }
       setStatus({ ok: true, text: "Password updated" });
       notify("PASSWORD UPDATED.");
       setPw0("");

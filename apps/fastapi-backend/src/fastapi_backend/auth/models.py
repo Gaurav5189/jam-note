@@ -197,6 +197,40 @@ class UserOut(BaseModel):
             updated_at=data["updated_at"],
         )
 
+    @classmethod
+    def from_auth(
+        cls,
+        user_doc: dict[str, Any],
+        profile_doc: dict[str, Any] | None = None,
+    ) -> "UserOut":
+        """Compose a UserOut from a BetterAuth `user` doc + `profiles` doc.
+
+        BetterAuth owns identity (`user`), while the app-specific nested
+        `profile`/`settings` document lives in the FastAPI-owned `profiles`
+        collection. `user.name` is the canonical display name; the profile
+        document is the fallback for rows created before the hook existed.
+        """
+        profile_doc = profile_doc or {}
+
+        created_at = user_doc.get("createdAt") or user_doc.get("created_at")
+        updated_at = user_doc.get("updatedAt") or user_doc.get("updated_at")
+
+        return cls(
+            id=str(user_doc["_id"]),
+            email=user_doc["email"],
+            username=user_doc.get("username")
+            or user_doc.get("displayUsername")
+            or user_doc["email"].split("@", 1)[0],
+            profile=UserProfile(
+                display_name=user_doc.get("name")
+                or profile_doc.get("display_name"),
+                avatar_url=user_doc.get("image") or profile_doc.get("avatar_url"),
+            ),
+            settings=UserSettings(**(profile_doc.get("settings") or {})),
+            created_at=created_at,
+            updated_at=updated_at,
+        )
+
 
 class MessageResponse(BaseModel):
     message: str

@@ -18,8 +18,8 @@ The system is a polyglot monorepo with four deployables:
 
 | Deployable | Path | Role |
 |---|---|---|
-| **Next.js frontend** | `apps/next-frontend` | App Router UI — landing page, auth, the "Desk" workspace shell, block editor, spatial canvas, profile console, public publishing pages. Proxies `/api/*` to the backend. |
-| **FastAPI backend** | `apps/fastapi-backend` | The API surface — auth (JWT in HTTP-only cookies), notes & folders CRUD, trash/restore, export/import, search, and the transactional outbox writer. |
+| **Next.js frontend** | `apps/next-frontend` | App Router UI — landing page, auth, the "Desk" workspace shell, block editor, spatial canvas, profile console, public publishing pages. Owns `/api/auth/*` via BetterAuth and proxies the remaining `/api/*` prefixes to the backend. |
+| **FastAPI backend** | `apps/fastapi-backend` | The API surface — BetterAuth JWT verification (Bearer + JWKS), notes & folders CRUD, trash/restore, export/import, search, and the transactional outbox writer. |
 | **Outbox streamer** | `apps/hybrid_outbox_streamer` | Go daemon: tails the `event_outbox` collection via MongoDB Change Streams (plus a reconcile poller) and publishes clean event envelopes to the `jam-note.note-events.v1` Kafka topic. |
 | **Search indexer** | `apps/search-indexer` | Go daemon: consumes Kafka events and maintains the block-level full-text index in OpenSearch (deterministic `note_id:block_id` doc IDs, idempotent writes). |
 
@@ -46,7 +46,7 @@ Backing stores: **MongoDB** (authoritative data — users, notes, folders, outbo
 * **Backend:** FastAPI, Python 3.14, Pydantic v2, `uv` package manager
 * **Workers:** Go 1.27.1+ (franz-go Kafka client, mongo-driver v2, opensearch-go)
 * **Data:** MongoDB (async `motor` driver), Kafka (Aiven), OpenSearch
-* **Auth:** JWT in HTTP-only cookies, bcrypt password hashing, strict per-user data isolation (every query filters by `user_id`)
+* **Auth:** BetterAuth (email/password + username, HttpOnly session cookie) in Next.js, issuing 15-minute EdDSA JWTs that FastAPI verifies against `/api/auth/jwks`; bcrypt password hashing; strict per-user data isolation (every query filters by `user_id`)
 
 ---
 

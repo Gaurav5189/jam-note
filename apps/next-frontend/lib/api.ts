@@ -1,39 +1,72 @@
 import { beginPending, endPending } from "@/lib/pending-bar";
 
 /**
- * Get the CSRF token from the cookie. The cookie is not HttpOnly, so
- * JavaScript can read it. Returns null outside the browser (SSR/tests).
+ * BetterAuth issues short-lived JWTs (15 minutes) that FastAPI verifies
+ * against `/api/auth/jwks`. The browser gets one from `/api/auth/token`
+ * (authenticated by the HttpOnly BetterAuth session cookie) and this
+ * module caches it until shortly before expiry.
  */
-function getCsrfToken(): string | null {
-  if (typeof document === "undefined") return null;
-  const cookies = document.cookie.split("; ");
-  for (const cookie of cookies) {
-    const [name, ...rest] = cookie.split("=");
-    if (name === "csrf_token") return rest.join("=");
-  }
-  return null;
-}
+let cachedToken: { token: string; expiresAt: number } | null = null;
 
-/** HTTP methods that mutate state and therefore require the CSRF header. */
-function isStateChangingMethod(method?: string): boolean {
-  const m = (method ?? "GET").toUpperCase();
-  return m === "POST" || m === "PUT" || m === "PATCH" || m === "DELETE";
+/** Refresh this many milliseconds before the token actually expires. */
+const TOKEN_EXPIRY_SKEW_MS = 30_000;
+
+function decodeExpiry(token: string): number {
+  try {
+    const payload = token.split(".")[1];
+    if (!payload) return 0;
+    const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const json = atob(normalized.padEnd(normalized.length + ((4 - (normalized.length % 4)) % 4), "="));
+    const parsed = JSON.parse(json) as { exp?: number };
+    return typeof parsed.exp === "number" ? parsed.exp * 1000 : 0;
+  } catch {
+    return 0;
+  }
 }
 
 /**
- * Fetch (or refresh) the CSRF token cookie. Sessions created before the
- * CSRF rollout have no token yet — this self-heals them.
+ * Return a valid BetterAuth JWT, fetching a new one when the cache is
+ * empty, expired, or `force` is set. Returns null when there is no
+ * session (or the server can't be reached) — callers then send an
+ * unauthenticated request and surface the 401 as usual.
  */
-async function refreshCsrfToken(): Promise<string | null> {
+export async function getAuthToken(force = false): Promise<string | null> {
   if (typeof document === "undefined") return null;
+  if (
+    !force &&
+    cachedToken &&
+    cachedToken.expiresAt > Date.now() + TOKEN_EXPIRY_SKEW_MS
+  ) {
+    return cachedToken.token;
+  }
   try {
-    const response = await fetch("/api/auth/csrf", { credentials: "include" });
-    if (!response.ok) return null;
-    const data: { csrf_token?: string } = await response.json();
-    return data.csrf_token ?? getCsrfToken();
+    const response = await fetch("/api/auth/token", {
+      credentials: "include",
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      cachedToken = null;
+      return null;
+    }
+    const data = (await response.json()) as { token?: string };
+    if (!data.token) {
+      cachedToken = null;
+      return null;
+    }
+    cachedToken = {
+      token: data.token,
+      expiresAt: decodeExpiry(data.token) || Date.now() + 60_000,
+    };
+    return data.token;
   } catch {
+    cachedToken = null;
     return null;
   }
+}
+
+/** Drop the cached token — call after sign-in, sign-out, or a 401. */
+export function clearAuthToken(): void {
+  cachedToken = null;
 }
 
 /**
@@ -42,11 +75,9 @@ async function refreshCsrfToken(): Promise<string | null> {
  * background saves (editor/canvas autosave, tracked by their own save
  * chips), which pass `trackPending: false`.
  *
- * State-changing requests automatically carry the double-submit CSRF
- * token (X-CSRF-Token header mirroring the csrf_token cookie). If the
- * server rejects with "CSRF token missing" — e.g. an old session
- * predating the CSRF rollout — the token is refreshed once and the
- * request retried.
+ * Every request carries `Authorization: Bearer <BetterAuth JWT>`. A 401
+ * means the token expired or the session ended: the token is refreshed
+ * once and the request retried, then the error surfaces.
  */
 export async function fetchApi<T>(
   endpoint: string,
@@ -60,11 +91,8 @@ export async function fetchApi<T>(
     headers.set("Content-Type", "application/json");
   }
 
-  // Attach the CSRF token on state-changing requests.
-  if (isStateChangingMethod(options?.method)) {
-    const csrfToken = getCsrfToken();
-    if (csrfToken) headers.set("X-CSRF-Token", csrfToken);
-  }
+  const token = await getAuthToken();
+  if (token) headers.set("Authorization", `Bearer ${token}`);
 
   if (trackPending) beginPending();
   try {
@@ -74,17 +102,11 @@ export async function fetchApi<T>(
       credentials: "include",
     });
 
-    // Self-heal: a 403 "CSRF token missing" on an unsafe method means
-    // the session cookie predates the CSRF rollout — mint a fresh
-    // token and retry the request once.
-    if (
-      response.status === 403 &&
-      isStateChangingMethod(options?.method) &&
-      !headers.has("X-CSRF-Token")
-    ) {
-      const freshToken = await refreshCsrfToken();
-      if (freshToken) {
-        headers.set("X-CSRF-Token", freshToken);
+    // Expired/invalid token — force one refresh and retry.
+    if (response.status === 401 && token) {
+      const refreshed = await getAuthToken(true);
+      if (refreshed) {
+        headers.set("Authorization", `Bearer ${refreshed}`);
         response = await fetch(url, {
           ...options,
           headers,
@@ -118,7 +140,7 @@ export async function fetchApi<T>(
 
 /**
  * Download a file endpoint (export routes) through the same-origin
- * browser proxy so the session cookie rides along. Parses the
+ * browser proxy so the auth header rides along. Parses the
  * Content-Disposition filename (RFC 6266 `filename*` UTF-8 name first,
  * ASCII fallback second), hands the blob to the browser via an object
  * URL + transient anchor click, and returns the saved filename. The
@@ -130,9 +152,13 @@ export async function downloadFile(
   fallbackFilename: string
 ): Promise<string> {
   const url = endpoint.startsWith("/api") ? endpoint : `/api${endpoint}`;
+  const token = await getAuthToken();
   beginPending();
   try {
-    const response = await fetch(url, { credentials: "include" });
+    const response = await fetch(url, {
+      credentials: "include",
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    });
     return await _consumeDownloadResponse(response, fallbackFilename);
   } finally {
     endPending();

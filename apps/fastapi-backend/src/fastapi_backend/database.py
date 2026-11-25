@@ -57,6 +57,13 @@ class Database:
         await users.create_index("email", unique=True)
         await users.create_index("username", unique=True)
 
+        # FastAPI-owned `profiles` collection: app-specific nested
+        # profile/settings data, keyed by the auth user id. Kept separate
+        # from BetterAuth's `user` collection because its additionalFields
+        # cannot express nested JSON documents.
+        profiles = cls.db.profiles
+        await profiles.create_index("user_id", unique=True)
+
         sessions = cls.db.user_sessions
         await sessions.create_index("user_id")
 

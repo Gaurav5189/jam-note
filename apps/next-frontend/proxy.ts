@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { getSessionCookie } from "better-auth/cookies";
 
 export function proxy(request: NextRequest) {
-  const token = request.cookies.get("jam_session")?.value;
+  const token = getSessionCookie(request);
   const pathname = request.nextUrl.pathname;
   const isAuthPage = pathname === "/login" || pathname === "/signup";
   const isLanding = pathname === "/";
@@ -25,9 +26,9 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(dashboardUrl);
   }
 
-  // Redirect to login if accessing a protected route without a token.
-  // This guard only checks presence; the (app) layout re-verifies the
-  // session server-side and redirects stale cookies to /login itself.
+  // Redirect to login if accessing a protected route without a session.
+  // This guard only checks cookie presence; the (app) layout re-verifies
+  // the session server-side and redirects stale cookies to /login itself.
   if (!token && !isAuthPage && !isPublicPage) {
     const loginUrl = new URL("/login", request.url);
     return NextResponse.redirect(loginUrl);
