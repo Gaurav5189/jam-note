@@ -14,10 +14,11 @@ This document maps out a structured, eight-phase build order to take `jam-note` 
 2. **FastAPI & MongoDB Setup:**
    - Initialize MongoDB client with `motor` inside `src/fastapi_backend/database.py`.
    - Setup basic error handling and verification routes.
-3. **Authentication Core:**
-   - Create Pydantic auth models (`UserSignUp`, `UserLogin`, `UserOut`).
-   - Implement route `POST /api/auth/signup` and `POST /api/auth/login`.
-   - Implement HTTP-only Cookie JWT issuing mechanism and verify via curl or Swagger UI.
+3. **Authentication Core (BetterAuth):**
+   - `apps/next-frontend/lib/auth.ts` owns credentials, sessions, and the JWT plugin; `app/api/auth/[...all]/route.ts` serves `/api/auth/*`.
+   - FastAPI verifies BetterAuth Bearer JWTs against `/api/auth/jwks` (`auth/dependencies.py`) when `AUTH_MODE=betterauth`.
+   - User IDs remain MongoDB `ObjectId`s (`advanced.database.generateId: false`); app-specific `profile`/`settings` live in the FastAPI-owned `profiles` collection.
+   - The legacy FastAPI auth stack (`users`, `user_sessions`, `jam_session`, CSRF) stays available behind `AUTH_MODE=legacy`. Full decision record: `DOCS/BETTERAUTH_MIGRATION_PLAN.md`.
 4. **Next.js Auth Integration:**
    - Build a clean, minimal, non-cliché Login/Signup page utilizing CSS/tailwind theme.
    - Implement client session context providers (`AuthContext`) and secure Route Guards.
@@ -155,7 +156,7 @@ This document maps out a structured, eight-phase build order to take `jam-note` 
 2. **Profile Page — the Operator Console (`/profile`):**
    - Implement per `make/dashboard_profile/design.md` (concept: `make/dashboard_profile/concept_profile.html`): paper-on-ink inverted ground, crop marks, runhead, section panels (Account / Security / Workspace data / Trash), data-row paper-flood hover, export index-card modal with the download fill animation.
    - Account panel: username + email locked (dimmed, no affordance), display name inline edit.
-   - Backend: `PATCH /api/auth/me` (display name), `PUT /api/auth/password` (new + confirm password, live validation).
+   - Backend: `GET /api/account/me` composes the profile; display name is updated through BetterAuth's `authClient.updateUser({ name })` and password rotation through `authClient.changePassword({ currentPassword, newPassword, revokeOtherSessions: true })`.
    - Wire the app runhead profile chip to `/profile` (currently dead), plus `← DASHBOARD` back-link.
    - Import (JSON-only, per `make/import_export_DESIGN.md`) and Export picker live here as Workspace data rows; Open Trash row links to the trash view (M3).
 3. **Trash / Soft Delete (30-day TTL):**

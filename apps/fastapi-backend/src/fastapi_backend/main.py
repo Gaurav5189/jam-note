@@ -6,6 +6,7 @@ from pydantic import BaseModel
 
 from fastapi_backend.config import settings
 from fastapi_backend.database import Database
+from fastapi_backend.account.router import router as account_router
 from fastapi_backend.auth.router import router as auth_router
 from fastapi_backend.notes.router import router as notes_router
 from fastapi_backend.folders.router import router as folders_router
@@ -84,7 +85,12 @@ async def liveness_check() -> HealthResponse:
     return HealthResponse(status="ok", database=db_status)
 
 
-app.include_router(auth_router, prefix="/api")
+app.include_router(account_router, prefix="/api")
+# Legacy auth routes stay mounted only in legacy mode. In `betterauth`
+# mode BetterAuth owns /api/auth/* in the Next.js layer, and FastAPI's
+# cookie/session endpoints must not be reachable.
+if settings.auth_mode == "legacy":
+    app.include_router(auth_router, prefix="/api")
 app.include_router(notes_router, prefix="/api")
 app.include_router(folders_router, prefix="/api")
 app.include_router(workspace_router, prefix="/api")

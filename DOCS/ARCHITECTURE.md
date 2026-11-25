@@ -36,8 +36,8 @@ This document details the software architecture, database design, and technical 
 ```
 
 ### Stack Components
-1. **Frontend:** Next.js (v16.3+), React 19, TypeScript, TailwindCSS, and pnpm. Utilizes the App Router with Partial Prefetching (PPR) and Cache Components.
-2. **Backend:** FastAPI, Python 3.14, Pydantic v2. Fully asynchronous MongoDB connection via motor/pymongo.
+1. **Frontend:** Next.js (v16.3+), React 19, TypeScript, TailwindCSS, and pnpm. Utilizes the App Router with Partial Prefetching (PPR) and Cache Components. **BetterAuth owns authentication here** (`/api/auth/*`, native `user`/`session`/`account`/`verification`/`jwks` collections) and issues short-lived EdDSA JWTs via its JWT plugin.
+2. **Backend:** FastAPI, Python 3.14, Pydantic v2. Fully asynchronous MongoDB connection via motor/pymongo. In `AUTH_MODE=betterauth` it verifies BetterAuth Bearer JWTs against `/api/auth/jwks` and never reads the legacy `jam_session` cookie.
 3. **Database:** MongoDB (using motor async driver). A document-based DB is perfect for storing block hierarchies, nested trees, and flexible custom block configurations.
 4. **Event stream:** Aiven Kafka, used for durable asynchronous domain events. Kafka is not the source of truth for notes.
 5. **Workers:** Standalone Go daemons (`apps/hybrid_outbox_streamer` and `apps/search-indexer`) deployed as AlwaysData persistent services (`Idle time = 0`). MongoDB and Aiven do not provide these workers — they are application-owned processes that run continuously alongside the FastAPI backend.
@@ -48,18 +48,29 @@ This document details the software architecture, database design, and technical 
 
 Since MongoDB uses flexible BSON schemas, we will model our data carefully to balance performance (read/write speed) and structural querying (backlink tracking, infinite nesting).
 
-### A. Users Collection (`users`)
-Stores credential hashes, profile configurations, and custom visual settings.
+### A. Auth Collections (BetterAuth) + `profiles`
+
+BetterAuth owns identity and session state in its native collections. IDs
+remain MongoDB `ObjectId`s (`advanced.database.generateId: false`) so every
+`ObjectId(user_id)` tenant filter in FastAPI keeps working.
+
+| Collection | Contents |
+|---|---|
+| `user` | `_id: ObjectId`, `name`, `email` (unique), `emailVerified`, `image`, `username` (unique), `displayUsername`, `createdAt`, `updatedAt` |
+| `session` | Active sessions (`userId`, `token`, `expiresAt`, IP/user agent) |
+| `account` | Credentials (`providerId: "credential"`, bcrypt `password`) and OAuth links |
+| `verification` | Email verification / password-reset tokens |
+| `jwks` | JWT-plugin signing keys (EdDSA) |
+
+App-specific nested data lives in a FastAPI-owned `profiles` collection,
+because BetterAuth's `additionalFields` cannot express nested JSON:
+
 ```json
 {
   "_id": "ObjectId",
-  "email": "string (unique)",
-  "password_hash": "string",
-  "username": "string (unique)",
-  "profile": {
-    "display_name": "string",
-    "avatar_url": "string"
-  },
+  "user_id": "ObjectId (unique)",
+  "display_name": "string",
+  "avatar_url": "string",
   "settings": {
     "theme": "dark-mono | retro-amber | industrial-steel",
     "editor_preferences": {
@@ -72,6 +83,16 @@ Stores credential hashes, profile configurations, and custom visual settings.
   "updated_at": "ISODate"
 }
 ```
+
+`user.name` is the canonical display name. FastAPI composes `UserOut` from
+`user` + `profiles` in `UserOut.from_auth`.
+
+#### Legacy collections (rollback only)
+
+`users` (old `password_hash`/`profile`/`settings`) and `user_sessions` (old
+JWT `jti` revocation) are **never mutated** by the migration. They stay in
+place until the bake period ends, so rollback is `AUTH_MODE=legacy` plus a
+frontend redeploy.
 
 ### B. Notes & Canvas Documents Collection (`notes`)
 Notes are content leaves (Phase 6, "Folders in Denial"): each note lives in zero or one folder via `folder_id`; nesting is owned by the `folders` collection below. Dev data was wiped at cutover (user decision — disposable), so no legacy `parent_id` migration ran; any stale `parent_id` still stored in Mongo is ignored by the API and never returned.
@@ -190,9 +211,13 @@ fastapi-backend/
 │       ├── main.py
 │       ├── config.py
 │       ├── database.py
+│       ├── account/
+│       │   └── router.py        # GET /api/account/me (BetterAuth JWT)
 │       ├── auth/
-│       │   ├── router.py
-│       │   ├── dependencies.py
+│       │   ├── router.py        # legacy only (mounted when AUTH_MODE=legacy)
+│       │   ├── dependencies.py  # Bearer+JWKS or legacy cookie branch
+│       │   ├── models.py        # UserOut.from_mongo / UserOut.from_auth
+│       │   ├── csrf.py          # legacy double-submit (bypassed in betterauth)
 │       │   └── service.py
 │       ├── notes/
 │       │   ├── router.py
@@ -215,13 +240,15 @@ fastapi-backend/
 ```
 
 ### Key API Routes
-* **Auth Endpoint (`/api/auth`)**:
-  * `POST /signup` - Registers a new user.
-  * `POST /login` - Issues HTTP-Only JWT tokens.
-  * `POST /logout` - Clears the session.
-  * `GET /me` - Returns logged-in user profile.
-  * `PATCH /me` - Updates the logged-in user's display name.
-  * `PUT /password` - Rotates the logged-in user's password after confirmation.
+* **Auth (BetterAuth, `/api/auth/*` in Next.js)**:
+  * Owned by `apps/next-frontend/app/api/auth/[...all]/route.ts`.
+  * `POST /sign-up/email`, `POST /sign-in/email`, `POST /sign-in/username` — credentials + session cookie.
+  * `GET /token` — short-lived (15 min) EdDSA JWT for FastAPI.
+  * `GET /jwks` — public keys FastAPI verifies against.
+  * `POST /sign-out`, `POST /update-user`, `POST /change-password`.
+  * **Legacy FastAPI auth routes** (`/api/auth/signup|login|logout|me|password|csrf`) are mounted only when `AUTH_MODE=legacy`.
+* **Account (`/api/account`)**:
+  * `GET /me` - Returns the composed `UserOut` (BetterAuth `user` + `profiles`).
 * **Notes Engine (`/api/notes`)**:
   * `GET /` - Fetches the flat index of the user's notes (leaves; nesting lives in folders).
   * `POST /` - Creates a new note (as document or canvas, optionally inside a folder via `folder_id`).
@@ -278,8 +305,11 @@ Leverages a hybrid rendering model where UI skeleton frames are generated instan
 
 ## 5. Security Design & Key Policies
 
-1. **JWT in HTTP-Only Cookies:** 
-   - No direct localStorage/sessionStorage access to JWTs to prevent XSS-based credential theft.
+1. **Session in HTTP-Only Cookies, JWT between services:**
+   - BetterAuth's session cookie is HttpOnly/SameSite=Lax — no localStorage or `document.cookie` access, so XSS cannot steal the session.
+   - FastAPI never sees the session cookie. The browser/Server Component mints a 15-minute EdDSA JWT from `/api/auth/token` and sends it as `Authorization: Bearer`.
+   - FastAPI pins `EdDSA`, validates `iss`/`aud`/`exp`/`iat` against the JWKS, and rejects the legacy `jam_session` cookie in `betterauth` mode. Algorithm confusion (e.g. an `HS256` token) is rejected.
+   - CSRF is not applicable to Bearer auth; BetterAuth enforces `trustedOrigins` on its own endpoints, and the legacy double-submit check is bypassed only in `betterauth` mode.
 2. **Strict DB Owner Filters:**
    - Every DB operation implicitly appends the `user_id` context resolved from the auth dependency. No user can ever query, update, or read notes belonging to another user.
 3. **CORS Configuration:**

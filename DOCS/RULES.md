@@ -51,10 +51,15 @@ This document establishes absolute code quality standards, naming conventions, a
    - Every database query returning or writing notes MUST append or filter by `user_id` context. No exceptions.
 2. **Indexing:**
    - Ensure the following indices are configured in MongoDB:
-     * `users.email` (Unique)
+     * `user.email` (Unique — BetterAuth collection)
+     * `user.username` (Unique — BetterAuth collection)
+     * `profiles.user_id` (Unique — FastAPI-owned profile/settings doc)
+     * `session.token` (Unique — BetterAuth collection)
+     * `account.userId` (Standard — BetterAuth credential lookup)
      * `notes.user_id` (Standard index for lightning-fast sidebar listing)
-     * `notes.parent_id` (Standard index for tree hierarchy parsing)
+     * `notes.folder_id` (Standard index for folder listing)
      * `notes.published_metadata.slug` (Unique, sparse index)
+   - The legacy `users.email`/`users.username` indexes stay during the bake period for rollback.
 3. **Data Integrity:**
    - When deleting a note, recursively update or handle children to prevent dangling tree pointer bugs.
 

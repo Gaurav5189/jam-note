@@ -21,19 +21,37 @@ The backend reads its settings from environment variables or an `apps/fastapi-ba
 # apps/fastapi-backend/.env
 MONGODB_URL=mongodb://localhost:27017          # or mongodb+srv://… (Atlas)
 DATABASE_NAME=jam_note
-JWT_SECRET=change-me-in-production
+# Auth authority: "legacy" (FastAPI cookie JWT) or "betterauth" (Next.js).
+# Keep "legacy" until the frontend is deployed with BetterAuth, then flip.
+AUTH_MODE=legacy
+BETTER_AUTH_JWKS_URL=http://localhost:3000/api/auth/jwks
+BETTER_AUTH_ISSUER=http://localhost:3000
+BETTER_AUTH_AUDIENCE=http://localhost:3000
+JWT_SECRET=change-me-in-production            # legacy mode only
 # Optional — magic search (falls back to MongoDB title search when unreachable)
 OPENSEARCH_URL=http://localhost:9200
 OPENSEARCH_USER=
 OPENSEARCH_PASSWORD=
 ```
 
-The frontend needs one variable when the backend is not at `http://localhost:8000` (it drives both the browser `/api` rewrites and Server Component fetches):
+The frontend needs the FastAPI origin plus its BetterAuth settings (it drives
+the browser `/api` rewrites, Server Component fetches, and BetterAuth itself):
 
 ```bash
 # apps/next-frontend/.env.local
 NEXT_PUBLIC_API_URL=http://localhost:8000
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
+MONGODB_URL=mongodb://localhost:27017          # same cluster as the backend
+DATABASE_NAME=jam_note
+BETTER_AUTH_SECRET=$(openssl rand -hex 32)     # required; 32+ chars
+BETTER_AUTH_URL=http://localhost:3000          # public origin, no trailing slash
+MONGODB_TRANSACTIONS=false                     # true only on a replica set / Atlas
 ```
+
+`BETTER_AUTH_URL` and `BETTER_AUTH_SECRET` must be set on the frontend
+deployment too. BetterAuth writes its own collections (`user`, `session`,
+`account`, `verification`, `jwks`) and seeds the FastAPI-owned `profiles`
+collection on signup, so the Next.js server is a second MongoDB client.
 
 **SEO / deployment env vars** (set these in the hosting platform's project settings):
 
@@ -81,7 +99,19 @@ pnpm install
 pnpm dev
 ```
 
-Open `http://localhost:3000`. The frontend proxies `/api/*` to the backend for same-origin cookies.
+Open `http://localhost:3000`. Next.js serves `/api/auth/*` itself (BetterAuth) and proxies every other `/api/*` prefix to FastAPI.
+
+**Migrating existing users (once, before flipping `AUTH_MODE`):**
+
+```bash
+cd apps/fastapi-backend
+uv run python scripts/migrate_auth_to_betterauth.py --dry-run
+uv run python scripts/migrate_auth_to_betterauth.py
+uv run python scripts/migrate_auth_to_betterauth.py --verify
+```
+
+The script copies `users` → `user`/`account`/`profiles` without touching the
+legacy collections, so `AUTH_MODE=legacy` remains a working rollback.
 
 **Tests:**
 

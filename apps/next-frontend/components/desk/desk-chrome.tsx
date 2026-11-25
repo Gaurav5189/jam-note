@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { fetchApi } from "@/lib/api";
+import { clearAuthToken } from "@/lib/api";
+import { authClient } from "@/lib/auth-client";
 
 export const DESK_TOAST_EVENT = "jam:desk-toast";
 export const DESK_BURST_EVENT = "jam:desk-burst";
@@ -213,7 +214,8 @@ export function DeskChrome() {
   const signOut = async () => {
     setSigningOut(true);
     try {
-      await fetchApi("/api/auth/logout", { method: "POST" });
+      await authClient.signOut();
+      clearAuthToken();
       if (!mountedRef.current) return;
       router.push("/login");
     } catch (err) {

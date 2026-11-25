@@ -1,4 +1,5 @@
 import secrets as _secrets
+from typing import Literal
 
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -22,6 +23,20 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 60 * 24 * 7  # 7 days
     cookie_name: str = "jam_session"
+    # "legacy" = FastAPI issues/verifies the jam_session JWT (pre-migration).
+    # "betterauth" = Next.js/BetterAuth owns auth; FastAPI only accepts a
+    # BetterAuth-issued Bearer JWT verified against the JWKS endpoint.
+    # Defaults to "legacy" so the backend can ship before the cutover and
+    # rollback is an env change.
+    auth_mode: Literal["legacy", "betterauth"] = "legacy"
+    better_auth_jwks_url: str = "http://localhost:3000/api/auth/jwks"
+    better_auth_issuer: str = "http://localhost:3000"
+    better_auth_audience: str = "http://localhost:3000"
+    # Pinned algorithm — never trust the token header's `alg`.
+    better_auth_jwt_algorithm: str = "EdDSA"
+    better_auth_jwks_cache_seconds: float = 300.0
+    better_auth_jwks_timeout_seconds: float = 10.0
+    better_auth_clock_skew_seconds: int = 10
     cors_origins: list[str] = ["http://localhost:3000"]
     # "production" enables Secure cookie flag, HSTS, CSP, and the
     # mandatory JWT_SECRET check.
@@ -29,6 +44,13 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _validate_jwt_secret(self) -> "Settings":
+        if self.auth_mode == "betterauth":
+            # FastAPI no longer signs tokens; BetterAuth owns the secret.
+            # Keep a per-process value so nothing accidentally signs with
+            # an empty key.
+            if not self.jwt_secret:
+                self.jwt_secret = _secrets.token_hex(32)
+            return self
         if self.environment == "production":
             if (
                 not self.jwt_secret

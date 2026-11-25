@@ -57,6 +57,13 @@ def verify_csrf_token(
     if request.method in ("GET", "HEAD", "OPTIONS", "TRACE"):
         return
 
+    # BetterAuth mode is Bearer-only. A Bearer token is attached
+    # explicitly by the client, never sent ambiently by the browser, so
+    # CSRF does not apply. The legacy cookie is not accepted at all in
+    # that mode (see auth/dependencies.py).
+    if settings.auth_mode == "betterauth":
+        return
+
     # All unsafe methods (POST, PUT, PATCH, DELETE) require the token.
     if not csrf_cookie or not csrf_header:
         raise HTTPException(
