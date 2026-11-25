@@ -289,6 +289,17 @@ async def test_legacy_cookie_is_not_accepted_in_betterauth_mode(
     assert response.status_code == 401
 
 
+def test_eddsa_algorithm_is_available() -> None:
+    """Guards the `pyjwt[crypto]` dependency (and requirements.txt pin).
+
+    Without the `cryptography` package PyJWT cannot register EdDSA, and the
+    deployed image would reject every BetterAuth token.
+    """
+    from jwt.algorithms import get_default_algorithms
+
+    assert "EdDSA" in get_default_algorithms()
+
+
 def test_from_auth_prefers_betterauth_identity_fields() -> None:
     user_id = ObjectId()
     now = datetime.now(timezone.utc)
