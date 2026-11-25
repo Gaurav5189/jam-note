@@ -72,6 +72,27 @@ const trustedOrigins = [
  * would interrupt the fire-and-forget index creation).
  */
 function createAuth() {
+  // A misconfigured database name would make BetterAuth write auth users to
+  // a different database than FastAPI reads — signups would "succeed" and
+  // then every API call would 404 the user. Fail loudly instead of falling
+  // back to the default. (Deferred to request time so `next build` still
+  // works without database configuration.)
+  if (process.env.NODE_ENV === "production") {
+    const required = [
+      "MONGODB_URL",
+      "DATABASE_NAME",
+      "BETTER_AUTH_SECRET",
+      "BETTER_AUTH_URL",
+    ];
+    const missing = required.filter((key) => !process.env[key]);
+    if (missing.length > 0) {
+      throw new Error(
+        `BetterAuth is misconfigured — missing env: ${missing.join(", ")}. ` +
+          "DATABASE_NAME must match the FastAPI backend's DATABASE_NAME.",
+      );
+    }
+  }
+
   return betterAuth({
     database: mongodbAdapter(db, {
       client: mongoClient,

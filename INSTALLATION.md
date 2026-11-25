@@ -42,7 +42,7 @@ the browser `/api` rewrites, Server Component fetches, and BetterAuth itself):
 NEXT_PUBLIC_API_URL=http://localhost:8000
 NEXT_PUBLIC_SITE_URL=http://localhost:3000
 MONGODB_URL=mongodb://localhost:27017          # same cluster as the backend
-DATABASE_NAME=jam_note
+DATABASE_NAME=jam_note                         # MUST equal the backend's DATABASE_NAME
 BETTER_AUTH_SECRET=$(openssl rand -hex 32)     # required; 32+ chars
 BETTER_AUTH_URL=http://localhost:3000          # public origin, no trailing slash
 MONGODB_TRANSACTIONS=false                     # true only on a replica set / Atlas
