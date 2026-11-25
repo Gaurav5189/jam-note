@@ -10,7 +10,7 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   error: string | null;
-  refreshUser: () => Promise<void>;
+  refreshUser: () => Promise<{ user: User | null; error: string | null }>;
   logout: () => Promise<void>;
 }
 
@@ -22,14 +22,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
-  const refreshUser = useCallback(async () => {
+  const refreshUser = useCallback(async (): Promise<{
+    user: User | null;
+    error: string | null;
+  }> => {
     try {
       setLoading(true);
       setError(null);
       const userData = await fetchApi<User>("/api/account/me");
       setUser(userData);
-    } catch {
+      return { user: userData, error: null };
+    } catch (err) {
+      // Surface the API's reason to the caller: a successful sign-in is not
+      // enough if FastAPI rejects the resulting token (wrong AUTH_MODE,
+      // issuer/audience mismatch, database mismatch). Swallowing this made
+      // the login slip claim success and then bounce off /dashboard.
+      const message =
+        err instanceof Error ? err.message : "Failed to load session";
       setUser(null);
+      setError(message);
+      return { user: null, error: message };
     } finally {
       setLoading(false);
     }

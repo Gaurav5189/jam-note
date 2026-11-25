@@ -302,7 +302,14 @@ export function AuthSlips({ initialForm }: { initialForm: "login" | "signup" }) 
       // A sign-in can replace a previous session in this tab — drop the
       // cached JWT so refreshUser mints one for the new session.
       clearAuthToken();
-      await refreshUser();
+      const { user: sessionUser, error: sessionError } = await refreshUser();
+      if (!sessionUser) {
+        throw new Error(
+          sessionError
+            ? `Signed in, but the API rejected the session: ${sessionError}`
+            : "Signed in, but the API rejected the session",
+        );
+      }
       if (!mountedRef.current) return;
       // Minimum busy window so fast responses don't flicker the button.
       window.setTimeout(() => {
@@ -362,7 +369,14 @@ export function AuthSlips({ initialForm }: { initialForm: "login" | "signup" }) 
       });
       if (error) throw new Error(authErrorMessage(error));
       clearAuthToken();
-      await refreshUser();
+      const { user: sessionUser, error: sessionError } = await refreshUser();
+      if (!sessionUser) {
+        throw new Error(
+          sessionError
+            ? `Signed in, but the API rejected the session: ${sessionError}`
+            : "Signed in, but the API rejected the session",
+        );
+      }
       if (!mountedRef.current) return;
       window.setTimeout(() => {
         if (!mountedRef.current) return;
